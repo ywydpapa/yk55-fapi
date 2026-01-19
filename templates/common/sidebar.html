@@ -1,0 +1,114 @@
+<!-- Sidebar -->
+<ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+
+    <!-- Sidebar - Brand -->
+    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="#">
+        <div class="sidebar-brand-icon">
+            <img src="{{ url_for('static', path='favicon-32x32.png') }}" alt="logo" height="32" />
+        </div>
+        <div class="sidebar-brand-text mx-3">355-A 지구<br>봉사관리 시스템</div>
+    </a>
+
+    <!-- Divider -->
+    <hr class="sidebar-divider my-0">
+
+    <!-- Nav Item - Dashboard -->
+    <li class="nav-item">
+        <a class="nav-link" href="/">
+            <i class="fas fa-fw fa-tachometer-alt"></i>
+            <span>Home</span></a>
+    </li>
+
+    <!-- Divider -->
+    <hr class="sidebar-divider">
+
+    <!-- Heading -->
+    <div class="sidebar-heading">
+        회원관리
+    </div>
+
+    <!-- Nav Item - Pages Collapse Menu -->
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseTwo"
+           aria-expanded="true" aria-controls="collapseTwo">
+            <i class="fas fa-fw fa-cog"></i>
+            <span>회원관리</span>
+        </a>
+        <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <h6 class="collapse-header">관리 가능 목록</h6>
+                <a class="collapse-item" href="/regionclubList/{{ user_region}}">지역클럽목록</a>
+                <a class="collapse-item" href="/rmemberList/{{ user_region}}">지역회원목록</a>
+            </div>
+        </div>
+    </li>
+    <!-- Nav Item - Utilities Collapse Menu -->
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseUtilities"
+           aria-expanded="true" aria-controls="collapseUtilities">
+            <i class="fas fa-fw fa-wrench"></i>
+            <span>기초 자료 관리</span>
+        </a>
+        <div id="collapseUtilities" class="collapse" aria-labelledby="headingUtilities"
+             data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <h6 class="collapse-header">설정 가능 목록</h6>
+                <a class="collapse-item" href="/rankList">직책목록</a>
+                <a class="collapse-item" href="/memberList">회원목록</a>
+                {% if user_Role == 'ADMIN' %}
+                <a class="collapse-item" href="/clubList">클럽목록</a>
+                <a class="collapse-item" href="/regionList"> 지역목록</a>
+                <a class="collapse-item" href="/circleList"> 써클목록</a>
+                {% endif %}
+            </div>
+        </div>
+    </li>
+    <!-- Divider -->
+    <hr class="sidebar-divider">
+
+    <!-- Heading -->
+    <div class="sidebar-heading">
+        회원 정보
+    </div>
+
+    <!-- Nav Item - Charts -->
+    {% if user_Role == 'ADMIN' %}
+    <li class="nav-item">
+        <a class="nav-link" href="/listnotice/{{ user_region}}">
+            <i class="fas fa-fw fa-chart-area"></i>
+            <span>지역 공지사항 관리</span></a>
+    </li>
+    {% endif %}
+    <li class="nav-item">
+        <a class="nav-link" href="/listclubnotice/{{ user_clubno }}">
+            <i class="fas fa-fw fa-chart-area"></i>
+            <span>클럽 공지사항 관리</span></a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/clubsms/{{ user_clubno }}">
+            <i class="fas fa-fw fa-chart-area"></i>
+            <span>클럽 문자 전송</span></a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/membersms/{{ user_clubno }}">
+            <i class="fas fa-fw fa-chart-area"></i>
+            <span>클럽 회원 개별 문자 전송</span></a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/requestList">
+            <i class="fas fa-fw fa-chart-area"></i>
+            <span>요청사항 확인</span></a>
+    </li>
+    <!-- Divider -->
+    <hr class="sidebar-divider d-none d-md-block">
+
+    <!-- Sidebar Toggler (Sidebar) -->
+    <div class="text-center d-none d-md-inline">
+        <button class="rounded-circle border-0" id="sidebarToggle"></button>
+    </div>
+
+</ul>
+<!-- End of Sidebar -->
+<div id="loading">
+    <div class="spinner"></div>
+</div>

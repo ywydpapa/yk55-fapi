@@ -72,10 +72,91 @@ async def save_thumbnail(image_data: bytes, memberno: int, size=(100, 100)):
 
 
 @app.get("/")
-async def root():
-    return {"message": "Hello World"}
+async def index(request: Request):
+    return RedirectResponse(url="/success", status_code=303)
 
 
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
+# 로그인 요청 처리
+@app.post("/login")
+async def login_post(
+        request: Request,
+        response: Response,
+        username: str = Form(...),
+        password: str = Form(...),
+        db: AsyncSession = Depends(get_db)
+):
+    query = text(
+        "SELECT userNo, userName,userRole, defaultRegion, defaultClubno FROM lionsUser WHERE userId = :username AND userPassword = password(:password)")
+    result = await db.execute(query, {"username": username, "password": password})
+    user = result.fetchone()
+    if user is None:
+        return templates.TemplateResponse("login/login.html",{"request": request, "error": "Invalid credentials"})
+    # 서버 세션에 사용자 ID 저장
+    request.session["user_No"] = user[0]
+    request.session["user_Name"] = user[1]
+    request.session["user_Role"] = user[2]
+    request.session["user_Region"] = user[3]
+    request.session["user_Clubno"] = user[4]
+    return RedirectResponse(url="/success", status_code=303)
+
+@app.get("/login")
+async def login_get(
+        request: Request,
+        response: Response,
+        username: str = Form(...),
+        password: str = Form(...),
+        db: AsyncSession = Depends(get_db)
+):
+    query = text(
+        "SELECT userNo, userName,userRole, defaultRegion, defaultClubno FROM lionsUser WHERE userId = :username AND userPassword = password(:password)")
+    result = await db.execute(query, {"username": username, "password": password})
+    user = result.fetchone()
+    if user is None:
+        return templates.TemplateResponse("login/login.html", {"request": request, "error": "Invalid credentials"})
+    # 서버 세션에 사용자 ID 저장
+    request.session["user_No"] = user[0]
+    request.session["user_Name"] = user[1]
+    request.session["user_Role"] = user[2]
+    request.session["user_Region"] = user[3]
+    request.session["user_Clubno"] = user[4]
+    return RedirectResponse(url="/success", status_code=303)
+
+
+# 로그인 성공 페이지
+@app.get("/success", response_class=HTMLResponse)
+async def success_page(request: Request):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("main/basic.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
+                                       "user_Role": user_Role, "user_region": user_region, "user_clubno": user_clubno})
+
+
+@app.post("/changeuserpass")
+async def change_password(
+    data: dict = Body(...),  # JSON body를 dict로 받음
+    db: AsyncSession = Depends(get_db)
+):
+    sql = text("UPDATE lionsUser SET userPassword = PASSWORD(:passwd) WHERE userNo = :userno")
+    await db.execute(sql, {"passwd": data["passwd"], "userno": data["uno"]})
+    await db.commit()
+    return {"result": "success"}
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("static/favicon.ico")
+
+
+# User
+
+# Member
+
+# Basic Data
+
+#
