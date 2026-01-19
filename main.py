@@ -71,10 +71,11 @@ async def save_thumbnail(image_data: bytes, memberno: int, size=(100, 100)):
     return thumbnail_path
 
 
-@app.get("/")
-async def index(request: Request):
-    return RedirectResponse(url="/success", status_code=303)
-
+@app.get("/", response_class=HTMLResponse)
+async def login_form(request: Request):
+    if request.session.get("user_No"):
+        return RedirectResponse(url="/success", status_code=303)
+    return templates.TemplateResponse("login/login.html", {"request": request})
 
 # 로그인 요청 처리
 @app.post("/login")
@@ -86,7 +87,7 @@ async def login_post(
         db: AsyncSession = Depends(get_db)
 ):
     query = text(
-        "SELECT userNo, userName,userRole, defaultRegion, defaultClubno FROM lionsUser WHERE userId = :username AND userPassword = password(:password)")
+        "SELECT userNo, userName,userRole, defaultRegion, defaultClubno FROM yk_user WHERE userId = :username AND userPassword = password(:password)")
     result = await db.execute(query, {"username": username, "password": password})
     user = result.fetchone()
     if user is None:
@@ -98,29 +99,6 @@ async def login_post(
     request.session["user_Region"] = user[3]
     request.session["user_Clubno"] = user[4]
     return RedirectResponse(url="/success", status_code=303)
-
-@app.get("/login")
-async def login_get(
-        request: Request,
-        response: Response,
-        username: str = Form(...),
-        password: str = Form(...),
-        db: AsyncSession = Depends(get_db)
-):
-    query = text(
-        "SELECT userNo, userName,userRole, defaultRegion, defaultClubno FROM lionsUser WHERE userId = :username AND userPassword = password(:password)")
-    result = await db.execute(query, {"username": username, "password": password})
-    user = result.fetchone()
-    if user is None:
-        return templates.TemplateResponse("login/login.html", {"request": request, "error": "Invalid credentials"})
-    # 서버 세션에 사용자 ID 저장
-    request.session["user_No"] = user[0]
-    request.session["user_Name"] = user[1]
-    request.session["user_Role"] = user[2]
-    request.session["user_Region"] = user[3]
-    request.session["user_Clubno"] = user[4]
-    return RedirectResponse(url="/success", status_code=303)
-
 
 # 로그인 성공 페이지
 @app.get("/success", response_class=HTMLResponse)
@@ -142,7 +120,7 @@ async def change_password(
     data: dict = Body(...),  # JSON body를 dict로 받음
     db: AsyncSession = Depends(get_db)
 ):
-    sql = text("UPDATE lionsUser SET userPassword = PASSWORD(:passwd) WHERE userNo = :userno")
+    sql = text("UPDATE yk_user SET userPassword = PASSWORD(:passwd) WHERE userNo = :userno")
     await db.execute(sql, {"passwd": data["passwd"], "userno": data["uno"]})
     await db.commit()
     return {"result": "success"}
@@ -153,10 +131,14 @@ async def favicon():
     return FileResponse("static/favicon.ico")
 
 
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.clear()  # 세션 삭제
+    return RedirectResponse(url="/")
+
+
 # User
 
 # Member
 
 # Basic Data
-
-#

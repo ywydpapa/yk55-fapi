@@ -1,10 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Title</title>
+    <meta charset="utf-8">
+    <title>Login</title>
+    <link rel="stylesheet" href="/static/css/loginstyle.css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.1/css/all.css">
 </head>
 <body>
-
+<div id="loginContents">
+    <div id="loginContent">
+        <div id="loginIntroduce">
+            <div id="loginSpans">
+                <span id="loginIntroSpan_1">국제라이온스협회</span><br>
+                <span id="loginIntroSpan_2">355-A지구 통합봉사관리 시스템</span>
+            </div>
+            <div class="login">
+                <h1>Login</h1>
+                <form action="/login" method="post">
+                    <label for="username">
+                        <i class="fas fa-user"></i>
+                    </label>
+                    <input type="text" name="username" placeholder="Username" id="username" required>
+                    <label for="password">
+                        <i class="fas fa-lock"></i>
+                    </label>
+                    <input type="password" name="password" placeholder="Password" id="password" required>
+                    <input type="submit" value="Login">
+                </form>
+                <p style="text-align: center"><a href="/contactus">Contact US</a></p>
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
