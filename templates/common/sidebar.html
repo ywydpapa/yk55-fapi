@@ -6,7 +6,7 @@
         <div class="sidebar-brand-icon">
             <img src="{{ url_for('static', path='favicon-32x32.png') }}" alt="logo" height="32" />
         </div>
-        <div class="sidebar-brand-text mx-3">355-A 지구<br>봉사관리 시스템</div>
+        <div class="sidebar-brand-text mx-3">355-A 지구<br>관리 시스템</div>
     </a>
 
     <!-- Divider -->
@@ -31,14 +31,28 @@
     <li class="nav-item">
         <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseTwo"
            aria-expanded="true" aria-controls="collapseTwo">
-            <i class="fas fa-fw fa-cog"></i>
+            <i class="fas fa-fw fa-address-card"></i>
             <span>회원관리</span>
         </a>
         <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <h6 class="collapse-header">관리 가능 목록</h6>
-                <a class="collapse-item" href="/regionclubList/{{ user_region}}">지역클럽목록</a>
-                <a class="collapse-item" href="/rmemberList/{{ user_region}}">지역회원목록</a>
+                <a class="collapse-item" href="/clubList/{{ user_region}}">클럽목록</a>
+                <a class="collapse-item" href="/memberList/{{ user_region}}">회원목록</a>
+            </div>
+        </div>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseTwo"
+           aria-expanded="true" aria-controls="collapseTwo">
+            <i class="fas fa-fw fa-person-booth"></i>
+            <span>업무보고</span>
+        </a>
+        <div id="collapseThree" class="collapse" aria-labelledby="headingThree" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <h6 class="collapse-header">관리 가능 목록</h6>
+                <a class="collapse-item" href="/clubList/{{ user_region}}">회원현황</a>
+                <a class="collapse-item" href="/memberList/{{ user_region}}">회원목록</a>
             </div>
         </div>
     </li>
@@ -46,7 +60,7 @@
     <li class="nav-item">
         <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseUtilities"
            aria-expanded="true" aria-controls="collapseUtilities">
-            <i class="fas fa-fw fa-wrench"></i>
+            <i class="fas fa-fw fa-cog"></i>
             <span>기초 자료 관리</span>
         </a>
         <div id="collapseUtilities" class="collapse" aria-labelledby="headingUtilities"
@@ -68,15 +82,15 @@
 
     <!-- Heading -->
     <div class="sidebar-heading">
-        회원 정보
+        앱관리 업무
     </div>
 
     <!-- Nav Item - Charts -->
     {% if user_Role == 'ADMIN' %}
     <li class="nav-item">
         <a class="nav-link" href="/listnotice/{{ user_region}}">
-            <i class="fas fa-fw fa-chart-area"></i>
-            <span>지역 공지사항 관리</span></a>
+            <i class="fas fa-fw fa-text-width"></i>
+            <span>공지사항 관리</span></a>
     </li>
     {% endif %}
     <li class="nav-item">

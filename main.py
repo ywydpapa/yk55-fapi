@@ -98,7 +98,7 @@ async def exp_otp(userNo:int, db:AsyncSession = Depends(get_db)):
         return False
 
 
-def require_login(request: Request):
+async def require_login(request: Request):
     user_no = request.session.get("user_No")
     if not user_no:
         raise HTTPException(
@@ -107,6 +107,19 @@ def require_login(request: Request):
             detail="세션이 만료되어 재로그인이 필요합니다."
         )
     return user_no
+
+
+async def session_chk(otp:str):
+    try:
+        sotp = request.session.get("otp")
+        if otp != sotp:
+            raise HTTPException(
+                status_code=status.HTTP_303_SEE_OTHER,
+                headers={"Location": "/"},
+                detail="세션이 만료되어 재로그인이 필요합니다.")
+        return False
+    except Exception as e:
+        return False
 
 
 @app.get("/", response_class=HTMLResponse)
