@@ -43,7 +43,7 @@
         </div>
     </li>
     <li class="nav-item">
-        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseTwo"
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseThree"
            aria-expanded="true" aria-controls="collapseTwo">
             <i class="fas fa-fw fa-person-booth"></i>
             <span>업무보고</span>
@@ -77,6 +77,24 @@
             </div>
         </div>
     </li>
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseUtilities2"
+           aria-expanded="true" aria-controls="collapseUtilities2">
+            <i class="fas fa-fw fa-book"></i>
+            <span>55년 기념지 업무</span>
+        </a>
+        <div id="collapseUtilities2" class="collapse" aria-labelledby="headingUtilities"
+             data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <h6 class="collapse-header">기념지 업무 목록</h6>
+                <a class="collapse-item" href="/yk55greet">축사/회고사</a>
+                <a class="collapse-item" href="/yk55cabhist">역대 캐비넷</a>
+                <a class="collapse-item" href="/yk55servhist">역대 사업개요</a>
+                <a class="collapse-item" href="/yk55membhist">역대 지구임원</a>
+                <a class="collapse-item" href="/yk55mjfhist">탁월한 봉사인</a>
+            </div>
+        </div>
+    </li>
     <!-- Divider -->
     <hr class="sidebar-divider">
 
@@ -93,11 +111,6 @@
             <span>공지사항 관리</span></a>
     </li>
     {% endif %}
-    <li class="nav-item">
-        <a class="nav-link" href="/listclubnotice/{{ user_clubno }}">
-            <i class="fas fa-fw fa-chart-area"></i>
-            <span>클럽 공지사항 관리</span></a>
-    </li>
     <li class="nav-item">
         <a class="nav-link" href="/clubsms/{{ user_clubno }}">
             <i class="fas fa-fw fa-chart-area"></i>

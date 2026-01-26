@@ -124,9 +124,10 @@ async def session_chk(otp:str):
 
 @app.get("/", response_class=HTMLResponse)
 async def login_form(request: Request):
-    if request.session.get("user_No"):
-        return RedirectResponse(url="/success", status_code=303)
-    return templates.TemplateResponse("login/login.html", {"request": request})
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        return templates.TemplateResponse("login/login.html", {"request": request})
 
 # 로그인 요청 처리
 @app.post("/login")
@@ -199,10 +200,48 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
     except Exception as e:
         return RedirectResponse(url="/", status_code=303)
 
-
-
 # User
 
 # Member
 
 # Basic Data
+
+#YK55
+@app.get("/yk55greet", response_class=HTMLResponse)
+async def yk55greet(request: Request):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        return templates.TemplateResponse("yk55/yk55_greetings.html", {"request": request})
+
+
+@app.get("/yk55cabhist", response_class=HTMLResponse)
+async def yk55cabhist(request: Request):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        return templates.TemplateResponse("yk55/yk55_cabhist.html", {"request": request})
+
+
+@app.get("/yk55servhist", response_class=HTMLResponse)
+async def yk55servhist(request: Request):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        return templates.TemplateResponse("yk55/yk55_servhist.html", {"request": request})
+
+
+@app.get("/yk55membhist", response_class=HTMLResponse)
+async def yk55membhist(request: Request):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        return templates.TemplateResponse("yk55/yk55_memberhist.html", {"request": request})
+
+
+@app.get("/yk55mjfhist", response_class=HTMLResponse)
+async def yk55mjfhist(request: Request):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        return templates.TemplateResponse("yk55/yk55_mjfhist.html", {"request": request})
