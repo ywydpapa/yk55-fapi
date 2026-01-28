@@ -98,6 +98,24 @@ async def exp_otp(userNo:int, db:AsyncSession = Depends(get_db)):
         return False
 
 
+async def getdocList(db:AsyncSession = Depends(get_db)):
+    try:
+        query = text("SELECT * FROM yk_doc where attrib = :xapp")
+        doclist = await db.execute(query, {"xapp":'1000010000'})
+        return doclist.fetchall()
+    except Exception as e:
+        return None
+
+
+async def getdocdetail(docno:int,db:AsyncSession = Depends(get_db)):
+    try:
+        query = text("SELECT * FROM yk_doc where docNo = :docno and attrib = :xapp")
+        docconts = await db.execute(query, {"docno":docno,"xapp":'1000010000'})
+        return docconts.fetchone()
+    except Exception as e:
+        return None
+
+
 async def require_login(request: Request):
     user_no = request.session.get("user_No")
     if not user_no:
@@ -125,9 +143,9 @@ async def session_chk(otp:str):
 @app.get("/", response_class=HTMLResponse)
 async def login_form(request: Request):
     if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
+        return templates.TemplateResponse("/login/login.html", {"request": request})
     else:
-        return templates.TemplateResponse("login/login.html", {"request": request})
+        return RedirectResponse(url="/mainpage", status_code=303)
 
 # 로그인 요청 처리
 @app.post("/login")
@@ -174,6 +192,22 @@ async def success_page(request: Request,db:AsyncSession = Depends(get_db)):
                                        "user_Role": user_Role, "user_region": user_region, "user_clubno": user_clubno, "otp": otp, "message": msg})
 
 
+@app.get("/mainpage",response_class=HTMLResponse)
+async def main_page(request: Request,db:AsyncSession = Depends(get_db)):
+    user_No = request.session.get("user_No")
+    user_Name = request.session.get("user_Name")
+    user_Role = request.session.get("user_Role")
+    user_region = request.session.get("user_Region")
+    user_clubno = request.session.get("user_Clubno")
+    otp = request.session.get("otp")
+    msg = ""
+    if not user_No:
+        return RedirectResponse(url="/")
+    return templates.TemplateResponse("main/basic.html",
+                                      {"request": request, "user_No": user_No, "user_Name": user_Name,
+                                       "user_Role": user_Role, "user_region": user_region, "user_clubno": user_clubno, "otp": otp, "message": msg})
+
+
 @app.post("/changeuserpass")
 async def change_password(
     data: dict = Body(...),  # JSON body를 dict로 받음
@@ -208,11 +242,41 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
 
 #YK55
 @app.get("/yk55greet", response_class=HTMLResponse)
-async def yk55greet(request: Request):
+async def yk55greet(request: Request, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        return templates.TemplateResponse("yk55/yk55_greetings.html", {"request": request})
+        doclist = await getdocList(db)
+        return templates.TemplateResponse("yk55/yk55_greetings.html", {"request": request, "doclist": doclist})
+
+
+@app.post("/yk55greet_reg", response_class=HTMLResponse)
+async def yk55greet_reg(request: Request):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        return templates.TemplateResponse("yk55/yk55_greetings_reg.html", {"request": request})
+
+
+@app.get("/yk55greet_edit/{greetno}", response_class=HTMLResponse)
+async def yk55greet_reg(request: Request, greetno: int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        docs = await getdocdetail(greetno, db)
+        print(docs)
+        return templates.TemplateResponse("yk55/yk55_greetings_edit.html", {"request": request, "docs": docs})
+
+
+@app.api_route("/yk55greetupdate/{docno}", response_class=HTMLResponse, methods=["GET", "POST"])
+async def updatedoc(request: Request, docno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    doctitle = form_data.get("dtitle")
+    docconts = form_data.get("dcontent")
+    query = text(f"update yk_doc set docTitle=:doctitle,docContents=:docconts where docNo=:docno")
+    await db.execute(query, {"docno": docno, "doctitle": doctitle, "docconts": docconts})
+    await db.commit()
+    return RedirectResponse(f"/yk55greet", status_code=303)
 
 
 @app.get("/yk55cabhist", response_class=HTMLResponse)

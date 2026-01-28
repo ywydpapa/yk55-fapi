@@ -15,7 +15,40 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">인사말, 축사</h1>
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">인사말, 축사  목록</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                                <thead>
+                                <tr style="text-align: center">
+                                    <th>작성자</th>
+                                    <th>제목</th>
+                                    <th>등록일</th>
+                                    <th>배치순서</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr>
+                                    {% for doc in doclist %}
+                                    <td style="text-align: center">{{ doc[1] }}</td>
+                                    <td style="text-align: center"><a href = /yk55greet_edit/{{doc[0]}}>{{ doc[4] }}</a></td>
+                                    <td style="text-align: center">{{ doc[7] }}</td>
+                                    <td></td>
+                                    {% endfor %}
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="row justify-content-end">
+                                <div class="col" style="max-width: 30%">
+                                  <button type="button" class="form-control btn btn-danger" onclick="regnew()">새문서 등록 </button>
+                                </div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <!-- /.container-fluid -->
         </div>
@@ -39,5 +72,15 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/common/commonScript.html' %}
+<script>
+function regnew() {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/yk55greet_reg';
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+}
+</script>
 </body>
 </html>
