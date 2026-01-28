@@ -264,7 +264,6 @@ async def yk55greet_reg(request: Request, greetno: int, db: AsyncSession = Depen
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         docs = await getdocdetail(greetno, db)
-        print(docs)
         return templates.TemplateResponse("yk55/yk55_greetings_edit.html", {"request": request, "docs": docs})
 
 
