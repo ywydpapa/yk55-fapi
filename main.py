@@ -4,7 +4,6 @@ import uvicorn
 from fastapi import FastAPI, Depends, Request, Form, Response, HTTPException, File, UploadFile, Body
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
-from pycparser.ply.yacc import resultlimit
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -109,9 +108,10 @@ async def getdocList(db:AsyncSession = Depends(get_db)):
 
 async def getdocdetail(docno:int,db:AsyncSession = Depends(get_db)):
     try:
-        query = text("SELECT * FROM yk_doc where docNo = :docno and attrib = :xapp")
+        query = text("SELECT docNo, docCat, memberNo, userNo, docTitle, CONVERT(docContents using utf8mb4), docType, regDate, modDate, attrib FROM yk_doc where docNo = :docno and attrib = :xapp")
         docconts = await db.execute(query, {"docno":docno,"xapp":'1000010000'})
-        return docconts.fetchone()
+        row = docconts.fetchone()
+        return row
     except Exception as e:
         return None
 

@@ -104,9 +104,9 @@
 {% include '/common/commonScript.html' %}
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script>
-    const docContent = `{{ docs[5]|safe|replace('\n', '') }}`;
-    const quill = new Quill('#editor-container', { theme: 'snow' });
-    quill.clipboard.dangerouslyPasteHTML(docContent);
+  const docContent = {{ (docs[5] | default('')) | tojson }};
+  const quill = new Quill('#editor-container', { theme: 'snow' });
+  quill.clipboard.dangerouslyPasteHTML(docContent);
 
 document.getElementById('editor-form').addEventListener('submit', async (event) => {
     event.preventDefault();
