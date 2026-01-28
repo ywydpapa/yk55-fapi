@@ -111,6 +111,7 @@ async def getdocdetail(docno:int,db:AsyncSession = Depends(get_db)):
         query = text("SELECT docNo, docCat, memberNo, userNo, docTitle, CONVERT(docContents using utf8mb4), docType, regDate, modDate, attrib FROM yk_doc where docNo = :docno and attrib = :xapp")
         docconts = await db.execute(query, {"docno":docno,"xapp":'1000010000'})
         row = docconts.fetchone()
+        print(row)
         return row
     except Exception as e:
         return None
@@ -272,7 +273,7 @@ async def updatedoc(request: Request, docno: int, db: AsyncSession = Depends(get
     form_data = await request.form()
     doctitle = form_data.get("dtitle")
     docconts = form_data.get("dcontent")
-    query = text(f"update yk_doc set docTitle=:doctitle,docContents=:docconts where docNo=:docno")
+    query = text(f"update yk_doc set docTitle=:doctitle,docContents=:docconts, modDate=now() where docNo=:docno")
     await db.execute(query, {"docno": docno, "doctitle": doctitle, "docconts": docconts})
     await db.commit()
     return RedirectResponse(f"/yk55greet", status_code=303)

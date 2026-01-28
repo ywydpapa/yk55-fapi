@@ -24,9 +24,10 @@
                             <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
                                 <thead>
                                 <tr style="text-align: center">
+                                    <th>작성목적</th>
                                     <th>작성자</th>
                                     <th>제목</th>
-                                    <th>등록일</th>
+                                    <th>등록일/수정일</th>
                                     <th>배치순서</th>
                                 </tr>
                                 </thead>
@@ -34,8 +35,9 @@
                                 <tr>
                                     {% for doc in doclist %}
                                     <td style="text-align: center">{{ doc[1] }}</td>
+                                    <td style="text-align: center">{{ doc[2] }}</td>
                                     <td style="text-align: center"><a href = /yk55greet_edit/{{doc[0]}}>{{ doc[4] }}</a></td>
-                                    <td style="text-align: center">{{ doc[7] }}</td>
+                                    <td style="text-align: center">{{ doc[7] }} / {{ doc[8] }}</td>
                                     <td></td>
                                     {% endfor %}
                                 </tr>
