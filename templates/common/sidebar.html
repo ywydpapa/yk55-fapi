@@ -67,12 +67,11 @@
              data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <h6 class="collapse-header">설정 가능 목록</h6>
-                <a class="collapse-item" href="/rankList">직책목록</a>
-                <a class="collapse-item" href="/memberList">회원목록</a>
+                <a class="collapse-item" href="/mst_rank">직책목록</a>
+                <a class="collapse-item" href="/mst_member">회원목록</a>
                 {% if user_Role == 'ADMIN' %}
-                <a class="collapse-item" href="/clubList">클럽목록</a>
-                <a class="collapse-item" href="/regionList"> 지역목록</a>
-                <a class="collapse-item" href="/circleList"> 써클목록</a>
+                <a class="collapse-item" href="/mst_club">클럽목록</a>
+                <a class="collapse-item" href="/mst_region"> 지역목록</a>
                 {% endif %}
             </div>
         </div>

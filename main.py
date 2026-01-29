@@ -117,7 +117,7 @@ async def getperiod(db: AsyncSession = Depends(get_db)):
 
 
 async def get_cabhist(periodno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * from yk_cabnet where attrib = :xapp and perionNo = :pno and canYn = :cyn """)
+    query = text("""SELECT * from yk_cabnet where attrib = :xapp and perionNo = :pno and cabYn = :cyn """)
     result = await db.execute(query, {"xapp": "1000010000", "pno": periodno, "cyn": 'Y'})
     return [dict(row._mapping) for row in result.fetchall()]
 
@@ -131,6 +131,24 @@ async def get_rank(db: AsyncSession = Depends(get_db)):
     query = text("""SELECT * FROM yk_rank where attrib = :xapp order by sortNo""")
     result = await db.execute(query, {"xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_member(db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT * FROM yk_members where attrib = :xapp""")
+    result = await db.execute(query, {"xapp": "1000010000"})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_club(db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT * FROM yk_club where attrib = :xapp order by clubCno""")
+    result = await db.execute(query, {"xapp": "1000010000"})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_rank_dtl(rankno:int,db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT * FROM yk_rank where rankNo = :rankno""")
+    result = await db.execute(query, {"rankno": rankno})
+    return result.fetchone()
 
 
 async def getdocdetail(docno:int,db:AsyncSession = Depends(get_db)):
@@ -266,6 +284,77 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
 # Member
 
 # Basic Data
+@app.get("/mst_rank", response_class=HTMLResponse)
+async def rankmaster(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        ranklist = await get_rank(db)
+        return templates.TemplateResponse("master/ranklist.html", {"request": request, "ranklist": ranklist})
+
+
+@app.post("/rank_reg", response_class=HTMLResponse)
+async def rankmaster(request: Request):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        return templates.TemplateResponse("master/rankreg.html", {"request": request})
+
+
+@app.get("/rank_edit/{rankno}", response_class=HTMLResponse)
+async def rankmaster(request: Request, rankno:int ,db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        rank = await get_rank_dtl(rankno,db)
+        return templates.TemplateResponse("master/rankedit.html", {"request": request, "rank": rank})
+
+
+@app.api_route("/rank_update/{rankno}", response_class=HTMLResponse, methods=["GET", "POST"])
+async def updaterank(request: Request, rankno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    rtitle = form_data.get("rtitle")
+    rtitleeng = form_data.get("rtitleeng")
+    rtitlechn = form_data.get("rtitlechn")
+    rtype = form_data.get("rtype")
+    rsortno = form_data.get("rsortno")
+    query = text(f"update yk_rank set rankTitle=:rtitle,rankTitleEng=:rtitleeng, rankTitleChn=:rtitlechn, rankType=:rtype, sortNo=:rsortno, modDate=now() where rankNo=:rankno")
+    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "rsortno": rsortno, "rankno": rankno})
+    await db.commit()
+    return RedirectResponse(f"/mst_rank", status_code=303)
+
+
+@app.api_route("/rank_insert", response_class=HTMLResponse, methods=["GET", "POST"])
+async def insertrank(request: Request, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    rtitle = form_data.get("rtitle")
+    rtitleeng = form_data.get("rtitleeng")
+    rtitlechn = form_data.get("rtitlechn")
+    rtype = form_data.get("rtype")
+    rsortno = form_data.get("rsortno")
+    query = text(f"INSERT INTO yk_rank (rankTitle,rankTitleEng,rankTitleChn, rankType, sortNo) values (:rtitle,:rtitleeng,:rtitlechn,:rtype,:rsortno)")
+    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "rsortno": rsortno})
+    await db.commit()
+    return RedirectResponse(f"/mst_rank", status_code=303)
+
+
+@app.get("/mst_member", response_class=HTMLResponse)
+async def membermaster(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        memberlist = await get_member(db)
+        return templates.TemplateResponse("master/memberlist.html", {"request": request, "memberlist": memberlist})
+
+
+@app.get("/mst_club", response_class=HTMLResponse)
+async def clubmaster(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        clublist = await get_club(db)
+        return templates.TemplateResponse("master/clublist.html", {"request": request, "clublist": clublist})
+
 
 #YK55
 @app.get("/yk55greet", response_class=HTMLResponse)
