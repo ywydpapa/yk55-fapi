@@ -15,7 +15,37 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">역대 지구임원</h1>
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">역대 지구임원</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                                    <thead>
+                                    </thead>
+                                    <tbody>
+                                {% for p in periods %}
+                                {% if loop.index0 % 5 == 0 %}
+                                <tr style="text-align:center">
+                                {% endif %}
+                                    <td>{{ p.periodTitle }}<br>({{ p.yearFr }}~{{ p.yearTo }})</td>
+                                        {% if loop.index0 % 5 == 4 %}
+                                        </tr>
+                                {% endif %}
+                                {% endfor %}
+                                {% set rem = periods|length % 5 %}
+                                {% if rem != 0 %}
+                                {% for _ in range(5 - rem) %}
+                                <td></td>
+                                {% endfor %}
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
             <!-- /.container-fluid -->
         </div>
@@ -39,5 +69,6 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/common/commonScript.html' %}
+
 </body>
 </html>

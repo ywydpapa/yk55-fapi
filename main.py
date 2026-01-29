@@ -108,6 +108,14 @@ async def getdocList(db:AsyncSession = Depends(get_db)):
         return None
 
 
+async def getperiod(db: AsyncSession = Depends(get_db)):
+    query = text("""
+        SELECT periodNo, yearFr, yearTo, periodTitle FROM yk_period WHERE attrib = :xapp ORDER BY periodNo """)
+    result = await db.execute(query, {"xapp": "1000010000"})
+    # Row -> dict
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
 async def getdocdetail(docno:int,db:AsyncSession = Depends(get_db)):
     try:
         query = text("SELECT docNo, docCat, memberTitle, userNo, docTitle, CONVERT(docContents using utf8mb4), docType, regDate, modDate, attrib FROM yk_doc where docNo = :docno and attrib = :xapp")
@@ -305,27 +313,30 @@ async def insertdoc(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.get("/yk55cabhist", response_class=HTMLResponse)
-async def yk55cabhist(request: Request):
+async def yk55cabhist(request: Request,db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        return templates.TemplateResponse("yk55/yk55_cabhist.html", {"request": request})
+        periods = await getperiod(db)
+        return templates.TemplateResponse("yk55/yk55_cabhist.html", {"request": request, "periods": periods})
 
 
 @app.get("/yk55servhist", response_class=HTMLResponse)
-async def yk55servhist(request: Request):
+async def yk55servhist(request: Request,db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        return templates.TemplateResponse("yk55/yk55_servhist.html", {"request": request})
+        periods = await getperiod(db)
+        return templates.TemplateResponse("yk55/yk55_servhist.html", {"request": request, "periods": periods})
 
 
 @app.get("/yk55membhist", response_class=HTMLResponse)
-async def yk55membhist(request: Request):
+async def yk55membhist(request: Request,db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        return templates.TemplateResponse("yk55/yk55_memberhist.html", {"request": request})
+        periods = await getperiod(db)
+        return templates.TemplateResponse("yk55/yk55_memberhist.html", {"request": request, "periods": periods})
 
 
 @app.get("/yk55mjfhist", response_class=HTMLResponse)
