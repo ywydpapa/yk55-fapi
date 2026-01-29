@@ -116,6 +116,23 @@ async def getperiod(db: AsyncSession = Depends(get_db)):
     return [dict(row._mapping) for row in result.fetchall()]
 
 
+async def get_cabhist(periodno:int,db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT * from yk_cabnet where attrib = :xapp and perionNo = :pno and canYn = :cyn """)
+    result = await db.execute(query, {"xapp": "1000010000", "pno": periodno, "cyn": 'Y'})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_dmemberhist(periodno:int,db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT * from yk_cabnet where attrib = :xapp and perionNo = :pno """)
+    result = await db.execute(query, {"xapp": "1000010000", "pno": periodno})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+async def get_rank(db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT * FROM yk_rank where attrib = :xapp order by sortNo""")
+    result = await db.execute(query, {"xapp": "1000010000"})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
 async def getdocdetail(docno:int,db:AsyncSession = Depends(get_db)):
     try:
         query = text("SELECT docNo, docCat, memberTitle, userNo, docTitle, CONVERT(docContents using utf8mb4), docType, regDate, modDate, attrib FROM yk_doc where docNo = :docno and attrib = :xapp")
@@ -167,7 +184,7 @@ async def login_post(
         db: AsyncSession = Depends(get_db)
 ):
     query = text(
-        "SELECT userNo, userName,userRole, defaultRegion, defaultClubno FROM yk_user WHERE userId = :username AND userPassword = password(:password)")
+        "SELECT userNo, userName, userRole, defaultRegion, defaultClubno FROM yk_user WHERE userId = :username AND userPassword = password(:password)")
     result = await db.execute(query, {"username": username, "password": password})
     user = result.fetchone()
     if user is None:
@@ -319,6 +336,15 @@ async def yk55cabhist(request: Request,db: AsyncSession = Depends(get_db)):
     else:
         periods = await getperiod(db)
         return templates.TemplateResponse("yk55/yk55_cabhist.html", {"request": request, "periods": periods})
+    
+    
+@app.get("/yk55cabhist_view/{periodno}", response_class=HTMLResponse)
+async def yk55cabhist(request: Request,periodno:int,db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        cabs = await get_cabhist(periodno, db)
+        return templates.TemplateResponse("yk55/yk55_cabhistview.html", {"request": request, "cabs": cabs})
 
 
 @app.get("/yk55servhist", response_class=HTMLResponse)
@@ -330,6 +356,15 @@ async def yk55servhist(request: Request,db: AsyncSession = Depends(get_db)):
         return templates.TemplateResponse("yk55/yk55_servhist.html", {"request": request, "periods": periods})
 
 
+@app.get("/yk55servhist_view/{period}", response_class=HTMLResponse)
+async def yk55servhist(request: Request,period:int,db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        svrs = await getperiod(db)
+        return templates.TemplateResponse("yk55/yk55_servhistview.html", {"request": request, "svrs": svrs})
+
+
 @app.get("/yk55membhist", response_class=HTMLResponse)
 async def yk55membhist(request: Request,db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
@@ -337,6 +372,15 @@ async def yk55membhist(request: Request,db: AsyncSession = Depends(get_db)):
     else:
         periods = await getperiod(db)
         return templates.TemplateResponse("yk55/yk55_memberhist.html", {"request": request, "periods": periods})
+
+
+@app.get("/yk55membhist_view/{periodno}", response_class=HTMLResponse)
+async def yk55membhist(request: Request,periodno:int,db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        membs = await get_dmemberhist(periodno, db)
+        return templates.TemplateResponse("yk55/yk55_memberhistview.html", {"request": request, "membs": membs})
 
 
 @app.get("/yk55mjfhist", response_class=HTMLResponse)

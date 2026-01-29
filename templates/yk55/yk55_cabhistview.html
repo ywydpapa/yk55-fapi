@@ -25,23 +25,7 @@
                                     <thead>
                                     </thead>
                                     <tbody>
-                                {% for p in periods %}
-                                {% if loop.index0 % 5 == 0 %}
-                                <tr style="text-align:center">
-                                {% endif %}
-                                    <td><a href="/yk55cabhist_view/{{p.periodNo}}">{{ p.periodTitle }}</a><br>({{ p.yearFr }}~{{ p.yearTo }})</td>
-                                        {% if loop.index0 % 5 == 4 %}
-                                        </tr>
-                                {% endif %}
-                                {% endfor %}
-                                {% set rem = periods|length % 5 %}
-                                {% if rem != 0 %}
-                                {% for _ in range(5 - rem) %}
-                                <td></td>
-                                {% endfor %}
-                                </tr>
-                                {% endif %}
-                            </tbody>
+                                    </tbody>
                             </table>
                         </div>
                     </div>

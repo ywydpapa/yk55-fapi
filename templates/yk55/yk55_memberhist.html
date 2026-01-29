@@ -29,7 +29,7 @@
                                 {% if loop.index0 % 5 == 0 %}
                                 <tr style="text-align:center">
                                 {% endif %}
-                                    <td>{{ p.periodTitle }}<br>({{ p.yearFr }}~{{ p.yearTo }})</td>
+                                    <td><a href="/yk55membhist_view/{{p.periodNo}}">{{ p.periodTitle }}</a><br>({{ p.yearFr }}~{{ p.yearTo }})</td>
                                         {% if loop.index0 % 5 == 4 %}
                                         </tr>
                                 {% endif %}
