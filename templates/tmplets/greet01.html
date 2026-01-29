@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <style>
+    @page { size: A4; margin: 0; }
+
+    @font-face {
+      font-family: "NotoSansKR";
+    }
+
+    body { margin: 0; font-family: "NotoSansKR", sans-serif; }
+
+      /* 브라우저 기본 여백 제거 */
+  html, body { margin: 0; padding: 0; background: #f3f4f6; }
+
+  /* 미리보기에서 A4를 화면 중앙에 */
+  .preview-wrap{
+    display: flex;
+    justify-content: center;   /* 좌우 중앙 */
+    padding: 24px 0;
+  }
+
+  .page{
+    width: 210mm;
+    min-height: 297mm;           /* 내용이 길면 늘어나며 다음 페이지로 넘어감 */
+    box-sizing: border-box;
+    /* 배경이 있다면 유지 */
+
+    /* 기존 absolute 배치 대신 패딩으로 여백 확보 */
+    padding: 26mm 22mm 18mm 22mm;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 30px rgba(0,0,0,.12);
+  }
+
+     .title{
+    text-align: center;
+    font-size: 24pt;
+    font-weight: 700;
+    letter-spacing: 6px;
+    margin: 0 0 12mm 0;
+  }
+
+  .meta{
+    align-self: flex-end;        /* 오른쪽 정렬 */
+    text-align: right;
+    font-size: 12pt;
+    line-height: 1.5;
+    margin-bottom: 18mm;
+  }
+
+  .body{
+    font-size: 11.5pt;
+    line-height: 1.75;
+  }
+  .body p{ margin: 0 0 10px 0; }
+
+  .footer{
+    margin-top: auto;            /* 본문이 짧으면 바닥으로, 길면 본문 뒤로 */
+    padding-top: 8mm;
+    font-size: 9pt;
+    text-align: right;
+    color: #666;
+  }
+  </style>
+</head>
+<body>
+<div class="preview-wrap">
+  <div class="page">
+    <div class="title">{{ docs[4] }}</div>
+
+    <div class="meta">
+      <strong>{{ docs[2] }}</strong>
+    </div>
+
+    <div class="body">{{ docs[5] | safe }}</div>
+    <div class="footer">{{ docs[2] }}</div>
+  </div>
+</div>
+</body>
+</html>

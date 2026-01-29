@@ -30,6 +30,10 @@
                             <tbody>
                             <form method="POST" id="editor-form" action="/yk55greetupdate/{{docs[0]}}">
                                 <tr>
+                                    <td> 작성자 <br>(표시될 작성자)</td>
+                                    <td> <input class="form-control" id="dwriter" name="dwriter" type="text" required ></td>
+                                </tr>
+                                <tr>
                                     <td> 제목 </td>
                                     <td> <input class="form-control" id="doctitle" name="dtitle" type="text" required  value="{{ docs[4] }}"></td>
                                 </tr>

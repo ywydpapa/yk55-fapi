@@ -23,6 +23,8 @@ from io import BytesIO
 from starlette.responses import FileResponse
 from pathlib import Path
 import secrets
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+from pathlib import Path
 
 dotenv.load_dotenv()
 DATABASE_URL = os.getenv("dburl")
@@ -108,10 +110,9 @@ async def getdocList(db:AsyncSession = Depends(get_db)):
 
 async def getdocdetail(docno:int,db:AsyncSession = Depends(get_db)):
     try:
-        query = text("SELECT docNo, docCat, memberNo, userNo, docTitle, CONVERT(docContents using utf8mb4), docType, regDate, modDate, attrib FROM yk_doc where docNo = :docno and attrib = :xapp")
+        query = text("SELECT docNo, docCat, memberTitle, userNo, docTitle, CONVERT(docContents using utf8mb4), docType, regDate, modDate, attrib FROM yk_doc where docNo = :docno and attrib = :xapp")
         docconts = await db.execute(query, {"docno":docno,"xapp":'1000010000'})
         row = docconts.fetchone()
-        print(row)
         return row
     except Exception as e:
         return None
@@ -268,13 +269,37 @@ async def yk55greet_reg(request: Request, greetno: int, db: AsyncSession = Depen
         return templates.TemplateResponse("yk55/yk55_greetings_edit.html", {"request": request, "docs": docs})
 
 
+@app.get("/yk55greet_preview/{greetno}", response_class=HTMLResponse)
+async def yk55greet_prv(request: Request, greetno: int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        docs = await getdocdetail(greetno, db)
+        return templates.TemplateResponse("tmplets/greet01.html", {"request": request, "docs": docs})
+
+
 @app.api_route("/yk55greetupdate/{docno}", response_class=HTMLResponse, methods=["GET", "POST"])
 async def updatedoc(request: Request, docno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     doctitle = form_data.get("dtitle")
     docconts = form_data.get("dcontent")
-    query = text(f"update yk_doc set docTitle=:doctitle,docContents=:docconts, modDate=now() where docNo=:docno")
-    await db.execute(query, {"docno": docno, "doctitle": doctitle, "docconts": docconts})
+    doctype = form_data.get("dtype")
+    dwriter = form_data.get("dwriter")
+    query = text(f"update yk_doc set docTitle=:doctitle,docContents=:docconts,memberTitle=:dwriter, docType=:doctype,  modDate=now() where docNo=:docno")
+    await db.execute(query, {"docno": docno, "doctitle": doctitle, "docconts": docconts, "doctype": doctype, "dwriter": dwriter})
+    await db.commit()
+    return RedirectResponse(f"/yk55greet", status_code=303)
+
+
+@app.api_route("/yk55greetinsert/", response_class=HTMLResponse, methods=["GET", "POST"])
+async def insertdoc(request: Request, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    doctitle = form_data.get("dtitle")
+    docconts = form_data.get("dcontent")
+    doctype = form_data.get("dtype")
+    dwriter = form_data.get("dwriter")
+    query = text(f"INSERT INTO yk_doc (docTitle, docContents, memberTitle, userNo, docType) values (:doctitle,:docconts,:dwriter, :userno, :doctype) ")
+    await db.execute(query, {"doctitle": doctitle, "docconts": docconts, "userno": request.session.get("user_No"), "doctype": doctype, "dwriter": dwriter })
     await db.commit()
     return RedirectResponse(f"/yk55greet", status_code=303)
 

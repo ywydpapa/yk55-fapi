@@ -28,15 +28,19 @@
                             <thead>
                             </thead>
                             <tbody>
-                            <form method="POST" id="editor-form" action="/yk55_greetings_insert">
+                            <form method="POST" id="editor-form" action="/yk55greetinsert">
+                                <tr>
+                                    <td> 작성자 <br>(표시될 작성자)</td>
+                                    <td> <input class="form-control" id="dwriter" name="dwriter" type="text" required ></td>
+                                </tr>
                                 <tr>
                                     <td> 제목 </td>
-                                    <td> <input class="form-control" id="nottitle" name="nottitle" type="text" required ></td>
+                                    <td> <input class="form-control" id="dtitle" name="dtitle" type="text" required ></td>
                                 </tr>
                                 <tr>
                                     <td> 내용 </td>
-                                    <td><div id="editor-container" name = "notmessage"></div>
-                                     <input type="hidden" name="notmessage" id="notmessage"></td>
+                                    <td><div id="editor-container" name = "dcontent"></div>
+                                     <input type="hidden" name="dcontent" id="dcontent"></td>
                                 </tr>
                                 <tr>
                                     <td> 등록문서 </td>
@@ -46,7 +50,7 @@
                                 </tr>
                                 <tr>
                                     <td> 등록종류</td>
-                                    <td> <select class="form-control" id="nottype" name="nottype">
+                                    <td> <select class="form-control" id="dtype" name="dtype">
                                         <option value="RONLY" selected>축사</option>
                                         <option value="ATTYN">기념사</option>
                                         <option value="AGREE">회고사</option>
@@ -100,23 +104,18 @@
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script>
     const quill = new Quill('#editor-container', { theme: 'snow' });
-
 document.getElementById('editor-form').addEventListener('submit', async (event) => {
     event.preventDefault();
-
     // Quill 내용 input에 넣기
-    document.getElementById('notmessage').value = quill.root.innerHTML;
-
+    document.getElementById('dcontent').value = quill.root.innerHTML;
     // 폼 데이터 수집
     const form = event.target;
     const formData = new FormData(form);
-
     // fetch로 전송
     const response = await fetch(form.action, {
         method: 'POST',
         body: formData
     });
-
     if (response.redirected) {
         window.location.href = response.url;
     } else {

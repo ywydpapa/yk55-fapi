@@ -29,18 +29,28 @@
                                     <th>제목</th>
                                     <th>등록일/수정일</th>
                                     <th>배치순서</th>
+                                    <th>미리보기</th>
                                 </tr>
                                 </thead>
                                 <tbody>
-                                <tr>
                                     {% for doc in doclist %}
+                                    <tr>
                                     <td style="text-align: center">{{ doc[1] }}</td>
                                     <td style="text-align: center">{{ doc[2] }}</td>
                                     <td style="text-align: center"><a href = /yk55greet_edit/{{doc[0]}}>{{ doc[4] }}</a></td>
-                                    <td style="text-align: center">{{ doc[7] }} / {{ doc[8] }}</td>
+                                    <td style="text-align: center">{{ doc[7] }}{% if doc[8] is not none %}  / {{ doc[8] }}{% endif %}</td>
                                     <td></td>
+                                    <td style="text-align: center">
+                                        <button
+                                            type="button"
+                                            class="btn btn-outline-primary btn-sm"
+                                            title="미리보기"
+                                            onclick="openPreview({{ doc[0] }})" >
+                                        <i class="fas fa-print"></i>
+                                        </button>
+                                    </td>
+                                    </tr>
                                     {% endfor %}
-                                </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -82,6 +92,23 @@ function regnew() {
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
+}
+
+function openPreview(greetno) {
+  const url = `/yk55greet_preview/${greetno}`;
+
+  // A4 비율에 가까운 팝업 크기 (대략 1:1.414)
+  const w = 900;
+  const h = 1270;
+
+  const left = Math.max(0, (window.screen.width - w) / 2);
+  const top = Math.max(0, (window.screen.height - h) / 2);
+
+  window.open(
+    url,
+    "greet_preview",
+    `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`
+  );
 }
 </script>
 </body>
