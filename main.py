@@ -139,10 +139,28 @@ async def get_member(db: AsyncSession = Depends(get_db)):
     return [dict(row._mapping) for row in result.fetchall()]
 
 
+async def get_member_dtl(memberno:int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT * FROM yk_members where attrib = :xapp and memberNo = :membno""")
+    result = await db.execute(query, {"xapp": "1000010000", "membno": memberno})
+    return result.fetchone()
+
+
 async def get_club(db: AsyncSession = Depends(get_db)):
     query = text("""SELECT * FROM yk_club where attrib = :xapp order by clubCno""")
     result = await db.execute(query, {"xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_club_spon(clubno:int,db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT clubNo, clubName, clubNameEng FROM yk_club where attrib = :xapp and clubNo < :clubno""")
+    result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno})
+    return result.fetchall()
+
+
+async def get_club_dtl(clubno:int,db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT * FROM yk_club where attrib = :xapp and clubNo = :clubno""")
+    result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno})
+    return result.fetchone()
 
 
 async def get_rank_dtl(rankno:int,db: AsyncSession = Depends(get_db)):
@@ -192,6 +210,7 @@ async def login_form(request: Request):
     else:
         return RedirectResponse(url="/mainpage", status_code=303)
 
+
 # 로그인 요청 처리
 @app.post("/login")
 async def login_post(
@@ -216,6 +235,7 @@ async def login_post(
     request.session["user_Clubno"] = user[4]
     request.session["otp"] = otp
     return RedirectResponse(url="/success", status_code=303)
+
 
 # 로그인 성공 페이지
 @app.get("/success",response_class=HTMLResponse)
@@ -354,6 +374,67 @@ async def clubmaster(request: Request, db: AsyncSession = Depends(get_db)):
     else:
         clublist = await get_club(db)
         return templates.TemplateResponse("master/clublist.html", {"request": request, "clublist": clublist})
+
+
+@app.get("/club_edit/{clubno}", response_class=HTMLResponse)
+async def clubedit(request: Request,clubno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        club = await get_club_dtl(clubno,db)
+        spons = await get_club_spon(clubno,db)
+        return templates.TemplateResponse("master/clubedit.html", {"request": request, "clubdtl": club, "spons": spons})
+
+
+@app.post("/club_reg", response_class=HTMLResponse)
+async def clubedit(request: Request,db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        club = await get_club(db)
+        return templates.TemplateResponse("master/clubreg.html", {"request": request, "clubs": club})
+
+
+@app.post("/club_update/{clubno}", response_class=HTMLResponse)
+async def clubupdate(request: Request,clubno:int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    clubname = form_data.get("clubname")
+    clubnameeng = form_data.get("clubnameeng")
+    clubnamecn = form_data.get("clubnamecn")
+    estdate = form_data.get("estdate")
+    charno = form_data.get("charno")
+    clubaddr = form_data.get("clubaddr")
+    clubtel = form_data.get("clubtel")
+    clubfax = form_data.get("clubfax")
+    clubemail = form_data.get("clubemail")
+    clubspon = form_data.get("clubspon")
+    query = text(
+        f"update yk_club set clubName=:clubname,clubNameEng=:clubnameeng,clubNameCn=:clubnamecn, clubEstdate=:estdate, "
+        f"clubCno=:charno, clubTel=:clubtel, clubFax=:clubfax, clubEmail=:clubemail, clubSponser=:clubspon, modDate=now() where clubNo=:clubno")
+    await db.execute(query, {"clubname":clubname, "clubnameeng":clubnameeng, "clubnamecn":clubnamecn, "estdate":estdate, "charno":charno, "clubtel":clubtel, "clubfax":clubfax, "clubemail":clubemail, "clubspon":clubspon, "clubaddr":clubaddr, "clubno":clubno})
+    await db.commit()
+    return RedirectResponse(f"/mst_club", status_code=303)
+
+
+@app.post("/club_insert", response_class=HTMLResponse)
+async def clubinsert(request: Request, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    clubname = form_data.get("clubname")
+    clubnameeng = form_data.get("clubnameeng")
+    clubnamecn = form_data.get("clubnamecn")
+    estdate = form_data.get("estdate")
+    charno = form_data.get("charno")
+    clubaddr = form_data.get("clubaddr")
+    clubtel = form_data.get("clubtel")
+    clubfax = form_data.get("clubfax")
+    clubemail = form_data.get("clubemail")
+    clubspon = form_data.get("clubspon")
+    query = text(
+        f"INSERT INTO yk_club (clubName,clubNameEng,clubNameCn, clubEstdate, clubCno, clubTel, clubFax, clubEmail, clubSponser) "
+        f"values (:clubname,:clubnameeng,:clubnamecn,:estdate,:charno,:clubtel,:clubfax,:clubemail,:clubspon)")
+    await db.execute(query, {"clubname":clubname, "clubnameeng":clubnameeng, "clubnamecn":clubnamecn, "estdate":estdate, "charno":charno, "clubtel":clubtel, "clubfax":clubfax, "clubemail":clubemail, "clubspon":clubspon, "clubaddr":clubaddr})
+    await db.commit()
+    return RedirectResponse(f"/mst_club", status_code=303)
 
 
 #YK55

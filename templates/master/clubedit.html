@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include '/common/commHeader.html' %}
+</head>
+<body id="page-top">
+<!-- Page Wrapper -->
+<div id="wrapper">
+    {% include '/common/sidebar.html' %}
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+        <!-- Main Content -->
+        <div id="content">
+            {% include '/common/topbar.html' %}
+            <!-- Begin Page Content -->
+            <div class="container-fluid">
+                <!-- Page Heading -->
+                <h1 class="h3 mb-4 text-gray-800">클럽 수정</h1>
+                <div class="d-flex justify-content-center" style="min-height: 100vh;">
+                    <div class="col-md-9">
+                        <table class="table table-bordered text-center">
+                            <thead>
+                            </thead>
+                            <tbody>
+                            <form method="POST" id="editor-form" action="/club_update/{{clubdtl[0]}}">
+                                <tr>
+                                    <td> 클럽명 </td>
+                                    <td><input class="form-control" id="clubname" name="clubname" type="text" required value="{{ clubdtl[1] }}"></td>
+                                </tr>
+                                <tr>
+                                    <td> 클럽명(영문) </td>
+                                    <td><input class="form-control" id="clubnameeng" name="clubnameeng" type="text" value="{% if clubdtl[2] is not none %}{{ clubdtl[2] }}{% endif %}"></td>
+                                </tr>
+                                <tr>
+                                    <td> 클럽명(한문) </td>
+                                    <td><input class="form-control" id="clubnamecn" name="clubnamecn" type="text" value="{% if clubdtl[3] is not none %}{{ clubdtl[3] }}{% endif %}"></td>
+                                </tr>
+                                <tr>
+                                    <td> 창립일 </td>
+                                    <td><input class="form-control" id="estdate" name="estdate" type="date" value="{% if clubdtl[4] is not none %}{{ clubdtl[4] }}{% endif %}"></td>
+                                </tr>
+                                <tr>
+                                    <td> 차타넘버 </td>
+                                    <td><input class="form-control" id="charno" name="charno" type="number" value="{{ clubdtl[5] }}"></td>
+                                </tr>
+                                <tr>
+                                    <td> 클럽주소 </td>
+                                    <td><input class="form-control" id="clubaddr" name="clubaddr" type="text" value="{{ clubdtl[6] }}"></td>
+                                </tr>
+                                <tr>
+                                    <td> 전화 </td>
+                                    <td><input class="form-control" id="clubtel" name="clubtel" type="tel" value="{{ clubdtl[8] }}"></td>
+                                </tr>
+                                <tr>
+                                    <td> 팩스 </td>
+                                    <td><input class="form-control" id="clubfax" name="clubfax" type="tel" value="{{ clubdtl[9] }}"></td>
+                                </tr>
+                                <tr>
+                                    <td> 이메일 </td>
+                                    <td><input class="form-control" id="clubemail" name="clubemail" type="email" value="{% if clubdtl[10] is not none %}{{ clubdtl[10] }}{% endif %}"></td>
+                                </tr>
+                                <tr>
+                                    <td> SNS </td>
+                                    <td><input class="form-control" id="clubsns" name="clubsns" type="text" value="{% if clubdtl[11] is not none %}{{ clubdtl[11] }}{% endif %}"></td>
+                                </tr>
+                                <tr>
+                                    <td> 스폰서클럽 </td>
+                                    <td><select class="form-control" id="clubspon" name="clubspon">
+                                        {% for sp in spons %}
+                                        <option value="{{ sp[0] }}" {% if clubdtl[7]|string == sp[0]|string %} selected {% endif %}>{{ sp[1] }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td colspan="2">
+                                        <div class="col-12"
+                                             style="display: flex; justify-content: space-between; gap: 10px;">
+                                            <a href="#" onclick="window.location.href='/mst_club'; return false;"
+                                               class="btn btn-dark"
+                                               role="button" style="flex: 0 0 30%;">클럽 목록으로 돌아가기</a>
+                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">변경내용저장
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </form>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- /.container-fluid -->
+        </div>
+        <!-- End of Main Content -->
+        <!-- Footer -->
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2026</span>
+                </div>
+            </div>
+        </footer>
+        <!-- End of Footer -->
+    </div>
+    <!-- End of Content Wrapper -->
+</div>
+<!-- End of Page Wrapper -->
+<!-- Scroll to Top Button-->
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+<!-- Bootstrap core JavaScript-->
+{% include '/common/commonScript.html' %}
+
+</body>
+</html>
