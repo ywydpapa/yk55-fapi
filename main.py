@@ -49,7 +49,10 @@ app.add_middleware(
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/thumbnails", StaticFiles(directory="static/img/members/"), name="thumbnails")
-THUMBNAIL_DIR = "./static/img/members"
+THUMBNAIL_DIR = "./static/img/memberThumb"
+MEMBERPHOTO_DIR = "./static/img/members"
+CLUBLOGOS_DIR = "./static/img/clubLogos"
+GOVLOGOS_DIR = "./static/img/govLogos"
 BASE_DIR = Path(__file__).resolve().parent
 
 
@@ -365,6 +368,16 @@ async def membermaster(request: Request, db: AsyncSession = Depends(get_db)):
     else:
         memberlist = await get_member(db)
         return templates.TemplateResponse("master/memberlist.html", {"request": request, "memberlist": memberlist})
+
+
+@app.get("/member_edit/{memberno}", response_class=HTMLResponse)
+async def memberedit(request: Request,memberno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        clubs = await get_club(db)
+        member = await get_member_dtl(memberno,db)
+        return templates.TemplateResponse("master/memberedit.html", {"request": request, "clubs": clubs, "memberdtl": member})
 
 
 @app.get("/mst_club", response_class=HTMLResponse)

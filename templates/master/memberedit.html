@@ -15,59 +15,74 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">클럽 수정</h1>
+                <h1 class="h3 mb-4 text-gray-800">회원 정보 수정</h1>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
                         <table class="table table-bordered text-center">
                             <thead>
                             </thead>
                             <tbody>
-                            <form method="POST" id="editor-form" action="/club_update/{{clubdtl[0]}}">
-                                <tr>
-                                    <td> 클럽명 </td>
-                                    <td><input class="form-control" id="clubname" name="clubname" type="text" required value="{{ clubdtl[1] }}"></td>
+                            <form method="POST" id="editor-form" action="/member_update/{{memberdtl[0]}}">
+                                 <tr>
+                                <td style="text-align: center; vertical-align: middle">회원 사진</td>
+                                <td style="text-align: center">
+                                    <div class="image-container">
+                                        <img src="{{myphoto}}" alt="Member Photo" width="200" height="250"/><img
+                                            id="imagePreview" alt="Image Preview">
+                                    </div>
+                                </td>
                                 </tr>
                                 <tr>
-                                    <td> 클럽명(영문) </td>
-                                    <td><input class="form-control" id="clubnameeng" name="clubnameeng" type="text" value="{% if clubdtl[2] is not none %}{{ clubdtl[2] }}{% endif %}"></td>
+                                <td>사진 변경</td>
+                                <td>
+                                    <form action="/uploadmphoto/{{memberdtl[0]}}" method="post" enctype="multipart/form-data">
+                                        <input type="file" name="file" accept="image/*" required
+                                               onchange="displayFileInfo(this)">
+                                        <span id="fileSize"></span>
+                                        <input type="submit" value="회원사진 Upload"></form>
+                                </td>
                                 </tr>
                                 <tr>
-                                    <td> 클럽명(한문) </td>
-                                    <td><input class="form-control" id="clubnamecn" name="clubnamecn" type="text" value="{% if clubdtl[3] is not none %}{{ clubdtl[3] }}{% endif %}"></td>
+                                    <td> 회원명 </td>
+                                    <td><input class="form-control" id="membername" name="membername" type="text" required value="{{ memberdtl[1] }}"></td>
                                 </tr>
                                 <tr>
-                                    <td> 창립일 </td>
-                                    <td><input class="form-control" id="estdate" name="estdate" type="date" value="{% if clubdtl[4] is not none %}{{ clubdtl[4] }}{% endif %}"></td>
+                                    <td> 회원명(영문) </td>
+                                    <td><input class="form-control" id="membernameeng" name="membernameeng" type="text" value="{% if memberdtl[2] is not none %}{{ memberdtl[2] }}{% endif %}"></td>
                                 </tr>
                                 <tr>
-                                    <td> 차타넘버 </td>
-                                    <td><input class="form-control" id="charno" name="charno" type="number" value="{{ clubdtl[5] }}"></td>
+                                    <td> 회원명(한문) </td>
+                                    <td><input class="form-control" id="membernamecn" name="membernamecn" type="text" value="{% if memberdtl[3] is not none %}{{ memberdtl[3] }}{% endif %}"></td>
                                 </tr>
                                 <tr>
-                                    <td> 클럽주소 </td>
-                                    <td><input class="form-control" id="clubaddr" name="clubaddr" type="text" value="{{ clubdtl[6] }}"></td>
+                                    <td> 입회일 </td>
+                                    <td><input class="form-control" id="regdate" name="regdate" type="date" value="{% if memberdtl[4] is not none %}{{ memberdtl[4] }}{% endif %}"></td>
                                 </tr>
                                 <tr>
-                                    <td> 전화 </td>
-                                    <td><input class="form-control" id="clubtel" name="clubtel" type="tel" value="{{ clubdtl[8] }}"></td>
+                                    <td> 회원번호 (국제) </td>
+                                    <td><input class="form-control" id="regno" name="regno" type="number" value="{{ memberdtl[5] }}"></td>
                                 </tr>
                                 <tr>
-                                    <td> 팩스 </td>
-                                    <td><input class="form-control" id="clubfax" name="clubfax" type="tel" value="{{ clubdtl[9] }}"></td>
+                                    <td> 회원주소 </td>
+                                    <td><input class="form-control" id="memberaddr" name="memberaddr" type="text" value="{{ memberdtl[6] }}"></td>
+                                </tr>
+                                <tr>
+                                    <td> 연락처 </td>
+                                    <td><input class="form-control" id="membertel" name="membertel" type="tel" value="{{ memberdtl[8] }}"></td>
                                 </tr>
                                 <tr>
                                     <td> 이메일 </td>
-                                    <td><input class="form-control" id="clubemail" name="clubemail" type="email" value="{% if clubdtl[10] is not none %}{{ clubdtl[10] }}{% endif %}"></td>
+                                    <td><input class="form-control" id="memberemail" name="memberemail" type="email" value="{% if memberdtl[10] is not none %}{{ memberdtl[10] }}{% endif %}"></td>
                                 </tr>
                                 <tr>
                                     <td> SNS </td>
-                                    <td><input class="form-control" id="clubsns" name="clubsns" type="text" value="{% if clubdtl[11] is not none %}{{ clubdtl[11] }}{% endif %}"></td>
+                                    <td><input class="form-control" id="membersns" name="membersns" type="text" value="{% if memberdtl[11] is not none %}{{ memberdtl[11] }}{% endif %}"></td>
                                 </tr>
                                 <tr>
-                                    <td> 스폰서클럽 </td>
-                                    <td><select class="form-control" id="clubspon" name="clubspon">
+                                    <td> 스폰서 </td>
+                                    <td><select class="form-control" id="memberspon" name="memberspon">
                                         {% for sp in spons %}
-                                        <option value="{{ sp[0] }}" {% if clubdtl[7]|string == sp[0]|string %} selected {% endif %}>{{ sp[1] }}</option>
+                                        <option value="{{ sp[0] }}" >{{ sp[1] }}</option>
                                         {% endfor %}
                                     </select>
                                     </td>
@@ -76,9 +91,9 @@
                                     <td colspan="2">
                                         <div class="col-12"
                                              style="display: flex; justify-content: space-between; gap: 10px;">
-                                            <a href="#" onclick="window.location.href='/mst_club'; return false;"
+                                            <a href="#" onclick="window.location.href='/mst_member'; return false;"
                                                class="btn btn-dark"
-                                               role="button" style="flex: 0 0 30%;">클럽 목록으로 돌아가기</a>
+                                               role="button" style="flex: 0 0 30%;">회원 목록으로 돌아가기</a>
                                             <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">변경내용저장
                                             </button>
                                         </div>
