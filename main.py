@@ -71,7 +71,7 @@ async def save_thumbnail(image_data: bytes, memberno: int, size=(100, 100)):
     # 썸네일 생성
     image.thumbnail(size)
     # 저장 경로
-    thumbnail_path = os.path.join(THUMBNAIL_DIR, f"{memberno}.png")
+    thumbnail_path = os.path.join(THUMBNAIL_DIR, f"thumb_{memberno}.png")
     # 썸네일 저장
     image.save(thumbnail_path, format="PNG")
     return thumbnail_path
@@ -109,7 +109,7 @@ async def save_memberPhoto(image_data: bytes, memberno: int, size=(200, 300)):
     # 썸네일 생성
     image.thumbnail(size)
     # 저장 경로
-    thumbnail_path = os.path.join(THUMBNAIL_DIR, f"mthumb_{memberno}.png")
+    thumbnail_path = os.path.join(MEMBERPHOTO_DIR, f"mphoto_{memberno}.png")
     # 썸네일 저장
     image.save(thumbnail_path, format="PNG")
     return thumbnail_path
@@ -125,8 +125,10 @@ async def upload_logoimage(request: Request,memberno: int, file: UploadFile = Fi
         contents = await file.read()
         # 이미지 사이즈 조절
         contents = await resize_image_if_needed(contents, max_bytes=102400)
-        # 데이터베이스에 이미지 저장
+        # 이미지 저장
         await save_memberPhoto(contents, memberno)
+        # 썸네일 생성
+        await save_thumbnail(contents, memberno, size=(100, 100))
         # 리다이렉트
         return RedirectResponse(f"/member_edit/{memberno}", status_code=303)
     except Exception as e:
