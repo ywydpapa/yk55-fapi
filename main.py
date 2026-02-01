@@ -77,6 +77,63 @@ async def save_thumbnail(image_data: bytes, memberno: int, size=(100, 100)):
     return thumbnail_path
 
 
+async def resize_image_if_needed(contents: bytes, max_bytes: int = 102400) -> bytes:
+    if len(contents) <= max_bytes:
+        return contents
+    image = Image.open(io.BytesIO(contents))
+    format = image.format if image.format else 'JPEG'
+    quality = 85  # JPEG의 경우
+    for trial in range(10):
+        buffer = io.BytesIO()
+        save_kwargs = {'format': format}
+        if format.upper() in ['JPEG', 'JPG']:
+            save_kwargs['quality'] = quality
+            save_kwargs['optimize'] = True
+        image.save(buffer, **save_kwargs)
+        data = buffer.getvalue()
+        if len(data) <= max_bytes:
+            return data
+        if format.upper() in ['JPEG', 'JPG'] and quality > 30:
+            quality -= 10
+        else:
+            w, h = image.size
+            image = image.resize((int(w * 0.9), int(h * 0.9)), Image.LANCZOS)
+    return data
+
+
+async def save_memberPhoto(image_data: bytes, memberno: int, size=(200, 300)):
+    # 디렉토리가 없으면 생성
+    os.makedirs(THUMBNAIL_DIR, exist_ok=True)
+    # 원본 이미지를 Pillow로 열기
+    image = Image.open(io.BytesIO(image_data))
+    # 썸네일 생성
+    image.thumbnail(size)
+    # 저장 경로
+    thumbnail_path = os.path.join(THUMBNAIL_DIR, f"mthumb_{memberno}.png")
+    # 썸네일 저장
+    image.save(thumbnail_path, format="PNG")
+    return thumbnail_path
+
+
+@app.post("/uploadmphoto/{memberno}")
+async def upload_logoimage(request: Request,memberno: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    try:
+        # 이미지 파일인지 확인
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File type not supported.")
+        # 파일 읽기
+        contents = await file.read()
+        # 이미지 사이즈 조절
+        contents = await resize_image_if_needed(contents, max_bytes=102400)
+        # 데이터베이스에 이미지 저장
+        await save_memberPhoto(contents, memberno)
+        # 리다이렉트
+        return RedirectResponse(f"/member_edit/{memberno}", status_code=303)
+    except Exception as e:
+        print(f"Error: {e}")
+        return RedirectResponse(f"/member_edit/{memberno}", status_code=303)
+
+
 async def generate_otp():
     return str(secrets.randbelow(10 ** 9)).zfill(9)
 
