@@ -2,6 +2,78 @@
 <html lang="en">
 <head>
     {% include '/common/commHeader.html' %}
+
+    <style>
+  #popup-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+  }
+
+  #popup{
+    display:none;
+    position:fixed;
+    top:50%;
+    left:50%;
+    transform: translate(-50%, -50%);
+    z-index: 1000;
+
+    /* 비율 기반 크기 */
+    width: 50vw;     /* 가로 비율 */
+    height: 50vh;    /* 세로 비율 */
+
+    background:#fff;
+    border:1px solid #ccc;
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  /* 닫기 버튼 영역을 고정 높이로 만들고 iframe 높이를 계산 */
+  #popup-header{
+    height: 44px;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    padding: 6px 10px;
+    border-bottom: 1px solid #eee;
+    box-sizing: border-box;
+    background: #fff;
+  }
+
+  #popup-close{
+    background:#dc3545;
+    color:#fff;
+    border:none;
+    padding:6px 10px;
+    cursor:pointer;
+  }
+
+  #popup iframe{
+    width:100%;
+    height: calc(100% - 44px);
+    border:0;
+    display:block;
+  }
+</style>
+
+    <style>
+        #imagePreview {
+            display: none; /* 기본적으로 숨김 */
+            max-width: 200px; /* 최대 너비 설정 */
+            max-height: 250px; /* 최대 높이 설정 */
+            margin-top: 10px;
+        }
+
+        .image-container {
+            display: flex; /* 이미지들을 가로로 배치 */
+            justify-content: center; /* 가로 정렬 */
+            align-items: center; /* 세로 정렬 */
+            gap: 20px; /* 이미지 간격 */
+        }
+    </style>
 </head>
 <body id="page-top">
 <!-- Page Wrapper -->
@@ -80,9 +152,13 @@
                                 </tr>
                                 <tr>
                                     <td> 스폰서 </td>
-                                    <td><select class="form-control" id="memberspon" name="memberspon">
-                                        {% for sp in spons %}
-                                        <option value="{{ sp[0] }}" >{{ sp[1] }}</option>
+                                    <td><input class="form-control" id="memberspon" name="memberspon" type="text" value="{% if memberdtl[11] is not none %}{{ memberdtl[11] }}{% endif %}"></td>
+                                </tr>
+                                <tr>
+                                    <td> 소속클럽 </td>
+                                    <td><select class="form-control" id="memberclub" name="memberclub">
+                                        {% for sp in clubs %}
+                                        <option value="{{ sp.clubNo }}" >{{ sp.clubName }}</option>
                                         {% endfor %}
                                     </select>
                                     </td>
@@ -127,6 +203,27 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/common/commonScript.html' %}
+<script>
+        function displayFileInfo(input) {
+        const file = input.files[0];
+        const fileSizeElement = document.getElementById("fileSize");
+        const previewElement = document.getElementById("imagePreview");
+        if (file) {
+            const sizeInMB = (file.size / (1024 * 1024)).toFixed(2); // MB로 변환
+            fileSizeElement.textContent = `Selected file size: ${sizeInMB} MB`;
+            // 이미지 미리보기
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                previewElement.src = e.target.result;
+                previewElement.style.display = "block"; // 이미지 보이기
+            };
+            reader.readAsDataURL(file);
+        } else {
+            fileSizeElement.textContent = "";
+            previewElement.style.display = "none"; // 이미지 숨기기
+        }
+    }
+</script>
 
 </body>
 </html>
