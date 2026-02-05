@@ -370,7 +370,25 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
 
 # User
 
-# Member
+# Report Member
+@app.get("/report_member/{clubno}", response_class=HTMLResponse)
+async def reportmember(request: Request,clubno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        memberlist = await get_rank(db)
+        return templates.TemplateResponse("report/reportmemberlist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist})
+
+
+@app.get("/report_event/{clubno}", response_class=HTMLResponse)
+async def reportevent(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        memberlist = await get_rank(db)
+        return templates.TemplateResponse("report/reportevent.html", {"request": request, "session": dict(request.session),"memberlist": memberlist})
+
+
 
 # Basic Data
 @app.get("/mst_rank", response_class=HTMLResponse)
