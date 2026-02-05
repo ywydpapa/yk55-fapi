@@ -37,8 +37,8 @@
         <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <h6 class="collapse-header">관리 가능 목록</h6>
-                <a class="collapse-item" href="/clubList/{{ user_region}}">클럽목록</a>
-                <a class="collapse-item" href="/memberList/{{ user_region}}">회원목록</a>
+                <a class="collapse-item" href="/clubList/{{ session.user_region}}">클럽목록</a>
+                <a class="collapse-item" href="/memberList/{{ session.user_region}}">회원목록</a>
             </div>
         </div>
     </li>
@@ -51,8 +51,8 @@
         <div id="collapseThree" class="collapse" aria-labelledby="headingThree" data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <h6 class="collapse-header">관리 가능 목록</h6>
-                <a class="collapse-item" href="/report_member/{{ club_No}}">회원현황보고</a>
-                <a class="collapse-item" href="/report_service/{{ club_No }}">봉사현황보고</a>
+                <a class="collapse-item" href="/report_member/{{ session.club_No}}">회원현황보고</a>
+                <a class="collapse-item" href="/report_service/{{ session.club_No }}">봉사현황보고</a>
             </div>
         </div>
     </li>
@@ -69,7 +69,7 @@
                 <h6 class="collapse-header">설정 가능 목록</h6>
                 <a class="collapse-item" href="/mst_rank">직책목록</a>
                 <a class="collapse-item" href="/mst_member">회원목록</a>
-                {% if user_Role == 'ADMIN' %}
+                {% if session.user_Role == 'ADMIN' %}
                 <a class="collapse-item" href="/mst_club">클럽목록</a>
                 <a class="collapse-item" href="/mst_region"> 지역목록</a>
                 {% endif %}
@@ -105,18 +105,18 @@
     <!-- Nav Item - Charts -->
     {% if user_Role == 'ADMIN' %}
     <li class="nav-item">
-        <a class="nav-link" href="/listnotice/{{ user_region}}">
+        <a class="nav-link" href="/listnotice/{{ session.user_region}}">
             <i class="fas fa-fw fa-text-width"></i>
             <span>공지사항 관리</span></a>
     </li>
     {% endif %}
     <li class="nav-item">
-        <a class="nav-link" href="/clubsms/{{ user_clubno }}">
+        <a class="nav-link" href="/clubsms/{{ session.user_clubno }}">
             <i class="fas fa-fw fa-chart-area"></i>
             <span>클럽 문자 전송</span></a>
     </li>
     <li class="nav-item">
-        <a class="nav-link" href="/membersms/{{ user_clubno }}">
+        <a class="nav-link" href="/membersms/{{ session.user_clubno }}">
             <i class="fas fa-fw fa-chart-area"></i>
             <span>클럽 회원 개별 문자 전송</span></a>
     </li>

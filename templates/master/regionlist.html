@@ -17,28 +17,30 @@
                 <!-- Page Heading -->
                 <div class="card shadow mb-4">
                     <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary">전체클럽목록</h6>
+                        <h6 class="m-0 font-weight-bold text-primary">전체지역목록</h6>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
                             <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
                                 <thead>
                                 <tr style="text-align: center">
-                                    <th>클럽번호</th>
-                                    <th>클럽명</th>
-                                    <th>클럽명(영문)</th>
-                                    <th>창립일</th>
-                                    <th>회원수</th>
+                                    <th>지역번호</th>
+                                    <th>지역명</th>
+                                    <th>지역거점</th>
+                                    <th>지역클럽수</th>
+                                    <th>지역임원수</th>
+                                    <th>지역회원수</th>
                                 </tr>
                                 </thead>
                                 <tbody>
-                                    {% for r in clublist %}
+                                    {% for r in regionlist %}
                                     <tr>
-                                    <td style="text-align: center">{{ r.clubNo }}</td>
-                                    <td style="text-align: center"><a href = /club_edit/{{r.clubNo}}>{{ r.clubName }}</a></td>
-                                    <td style="text-align: center">{{ r.clubNameEng }}</td>
-                                    <td style="text-align: center">{{ r.clubEstdate }}</td>
-                                    <td style="text-align: center"></td>
+                                        <td style="text-align: center">{{r.regionNo}}</td>
+                                        <td style="text-align: center"><a href ="#" >{{r.regionName}}</a></td>
+                                        <td style="text-align: center"></td>
+                                        <td style="text-align: center"></td>
+                                        <td style="text-align: center"></td>
+                                        <td style="text-align: center"></td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -46,7 +48,7 @@
                         </div>
                         <div class="row justify-content-end">
                                 <div class="col" style="max-width: 30%">
-                                  <button type="button" class="form-control btn btn-danger" onclick="regnew()">새클럽 등록 </button>
+                                  <button type="button" class="form-control btn btn-danger" onclick="regnew()">새지역 등록 </button>
                                 </div>
                         </div>
                     </div>
@@ -89,7 +91,7 @@
 function regnew() {
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = '/club_reg';
+    form.action = '/region_reg';
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);

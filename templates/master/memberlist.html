@@ -76,7 +76,18 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/common/commonScript.html' %}
+{% include '/common/adscripttable.html' %}
 <script>
+    $(document).ready(function () {
+     $('#dataTable').DataTable({
+         "pageLength": 20,
+         order: [[0, "asc"]],
+         "columnDefs": [
+             {className: "dt-center", targets: "_all"} // 모든 컬럼 가운데 정렬
+         ]
+     });
+ })
+
 function regnew() {
     const form = document.createElement('form');
     form.method = 'POST';
