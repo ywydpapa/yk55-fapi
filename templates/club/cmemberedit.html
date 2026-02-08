@@ -87,7 +87,7 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">회원 정보 수정</h1>
+                <h1 class="h3 mb-4 text-gray-800">회원 정보 수정(클럽)</h1>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
                         <table class="table table-bordered text-center">
@@ -106,7 +106,7 @@
                                 <tr>
                                 <td>사진 변경</td>
                                 <td>
-                                    <form action="/uploadmphoto/{{memberdtl[0]}}" method="post" enctype="multipart/form-data">
+                                    <form action="/uploadcmphoto/{{memberdtl[0]}}" method="post" enctype="multipart/form-data">
                                         <input type="file" name="file" accept="image/*" required
                                                onchange="displayFileInfo(this)">
                                         <span id="fileSize"></span>

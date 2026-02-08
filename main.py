@@ -153,6 +153,27 @@ async def upload_logoimage(request: Request,memberno: int, file: UploadFile = Fi
         return RedirectResponse(f"/member_edit/{memberno}", status_code=303)
 
 
+@app.post("/uploadcmphoto/{memberno}")
+async def upload_cmimage(request: Request,memberno: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    try:
+        # 이미지 파일인지 확인
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File type not supported.")
+        # 파일 읽기
+        contents = await file.read()
+        # 이미지 사이즈 조절
+        contents = await resize_image_if_needed(contents, max_bytes=102400)
+        # 이미지 저장
+        await save_memberPhoto(contents, memberno)
+        # 썸네일 생성
+        await save_thumbnail(contents, memberno, size=(100, 100))
+        # 리다이렉트
+        return RedirectResponse(f"/cmember_edit/{memberno}", status_code=303)
+    except Exception as e:
+        print(f"Error: {e}")
+        return RedirectResponse(f"/cmember_edit/{memberno}", status_code=303)
+
+
 async def generate_otp():
     return str(secrets.randbelow(10 ** 9)).zfill(9)
 
@@ -663,6 +684,7 @@ async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depe
         "memberSponser": _clean_int(form_data.get("memberspon")),
         "regNo": _clean_str(form_data.get("regno")),
         "clubNo": _clean_int(form_data.get("memberclub")),
+        "maskYN": _clean_str(form_data.get("membermask")),
     }
     clubno = _clean_int(form_data.get("memberclub"))
     update_fields = {k: v for k, v in data4update.items() if v is not None}
@@ -690,6 +712,7 @@ async def updatemember(request: Request, memberno: int, db: AsyncSession = Depen
         "memberSponser": _clean_int(form_data.get("memberspon")),
         "regNo": _clean_int(form_data.get("regno")),
         "clubNo": _clean_int(form_data.get("memberclub")),
+        "maskYN": _clean_str(form_data.get("membermask")),
     }
     update_fields = {k: v for k, v in data4update.items() if v is not None}
     if not update_fields:
@@ -908,3 +931,4 @@ async def yk55mjfhist(request: Request):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         return templates.TemplateResponse("yk55/yk55_mjfhist.html", {"request": request,"session": dict(request.session)})
+

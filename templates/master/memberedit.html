@@ -87,36 +87,36 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">회원 정보 수정</h1>
+                <h1 class="h3 mb-4 text-gray-800">회원 정보 수정(지구)</h1>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
                         <table class="table table-bordered text-center">
+                            <thead>
+                            </thead>
                             <tbody>
-                                <tr>
-                                    <td style="text-align: center; vertical-align: middle">회원 사진</td>
-                                    <td style="text-align: center">
-                                        <div class="image-container">
-                                            <img src="/static/img/members/mphoto_{{memberdtl[0]}}.png" onerror="this.src='/static/img/defaultphoto.png'" alt="Member Image"><img id="imagePreview" alt="Image Preview">
-                                        </div>
-                                    </td>
+                                 <tr>
+                                <td style="text-align: center; vertical-align: middle">회원 사진</td>
+                                <td style="text-align: center">
+                                    <div class="image-container">
+                                        <img src="/static/img/members/mphoto_{{memberdtl[0]}}.png" onerror="this.src='/static/img/defaultphoto.png'" alt="Member Image">
+                                        <img id="imagePreview" alt="Image Preview">
+                                    </div>
+                                </td>
                                 </tr>
                                 <tr>
-                                    <td>사진 변경</td>
-                                    <td>
-                                        <form action="/uploadmphoto/{{memberdtl[0]}}" method="post" enctype="multipart/form-data">
-                                        <input type="file" name="file" accept="image/*" required onchange="displayFileInfo(this)">
+                                <td>사진 변경</td>
+                                <td>
+                                    <form action="/uploadmphoto/{{memberdtl[0]}}" method="post" enctype="multipart/form-data">
+                                        <input type="file" name="file" accept="image/*" required
+                                               onchange="displayFileInfo(this)">
                                         <span id="fileSize"></span>
-                                        <input type="submit" value="회원사진 Upload">
-                                        </form>
-                                    </td>
+                                        <input type="submit" value="회원사진 Upload"></form>
+                                </td>
                                 </tr>
                             </tbody>
                         </table>
-                    </div>
-                </div>
-                    <form method="POST" id="editor-form" action="/member_update/{{memberdtl[0]}}">
-                        <table class="table table-bordered text-center">
-                            <tbody>
+                                 <form method="POST" id="editor-form" action="/member_update/{{memberdtl[0]}}">
+                                     <table class="table table-bordered text-center">
                                 <tr>
                                     <td> 회원명 </td>
                                     <td><input class="form-control" id="membername" name="membername" type="text" required value="{{ memberdtl[1] }}"></td>
@@ -175,15 +175,15 @@
                                              style="display: flex; justify-content: space-between; gap: 10px;">
                                             <a href="#" onclick="window.location.href='/mst_member'; return false;"
                                                class="btn btn-dark"
-                                               role="button" style="flex: 0 0 30%;">회원 목록으로 돌아가기</a>
+                                               role="button" style="flex: 0 0 30%;">전체 회원 목록으로 돌아가기</a>
                                             <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">변경내용저장
                                             </button>
                                         </div>
                                     </td>
                                 </tr>
-                            </tbody>
+                             </tbody>
                         </table>
-                        </form>
+                                 </form>
                     </div>
                 </div>
             </div>
@@ -219,7 +219,6 @@
       size: 20
      });
     });
-
     $('.selectpicker').selectpicker('refresh');
 
     function displayFileInfo(input) {
@@ -245,6 +244,7 @@
     $('#editor-form').on('submit', function () {
   console.log('memberclub(select value)=', $('#memberclub').val());
 });
+
 
 </script>
 
