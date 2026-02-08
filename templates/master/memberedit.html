@@ -91,29 +91,32 @@
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
                         <table class="table table-bordered text-center">
-                            <thead>
-                            </thead>
                             <tbody>
-                                 <tr>
-                                <td style="text-align: center; vertical-align: middle">회원 사진</td>
-                                <td style="text-align: center">
-                                    <div class="image-container">
-                                        <img src="/static/img/members/mphoto_{{memberdtl[0]}}.png" onerror="this.src='/static/img/defaultphoto.png'" alt="Member Image">
-                                        <img id="imagePreview" alt="Image Preview">
-                                    </div>
-                                </td>
+                                <tr>
+                                    <td style="text-align: center; vertical-align: middle">회원 사진</td>
+                                    <td style="text-align: center">
+                                        <div class="image-container">
+                                            <img src="/static/img/members/mphoto_{{memberdtl[0]}}.png" onerror="this.src='/static/img/defaultphoto.png'" alt="Member Image"><img id="imagePreview" alt="Image Preview">
+                                        </div>
+                                    </td>
                                 </tr>
                                 <tr>
-                                <td>사진 변경</td>
-                                <td>
-                                    <form action="/uploadmphoto/{{memberdtl[0]}}" method="post" enctype="multipart/form-data">
-                                        <input type="file" name="file" accept="image/*" required
-                                               onchange="displayFileInfo(this)">
+                                    <td>사진 변경</td>
+                                    <td>
+                                        <form action="/uploadmphoto/{{memberdtl[0]}}" method="post" enctype="multipart/form-data">
+                                        <input type="file" name="file" accept="image/*" required onchange="displayFileInfo(this)">
                                         <span id="fileSize"></span>
-                                        <input type="submit" value="회원사진 Upload"></form>
-                                </td>
+                                        <input type="submit" value="회원사진 Upload">
+                                        </form>
+                                    </td>
                                 </tr>
-                                 <form method="POST" id="editor-form" action="/member_update/{{memberdtl[0]}}">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                    <form method="POST" id="editor-form" action="/member_update/{{memberdtl[0]}}">
+                        <table class="table table-bordered text-center">
+                            <tbody>
                                 <tr>
                                     <td> 회원명 </td>
                                     <td><input class="form-control" id="membername" name="membername" type="text" required value="{{ memberdtl[1] }}"></td>
@@ -178,9 +181,9 @@
                                         </div>
                                     </td>
                                 </tr>
-                            </form>
                             </tbody>
                         </table>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -217,6 +220,8 @@
      });
     });
 
+    $('.selectpicker').selectpicker('refresh');
+
     function displayFileInfo(input) {
         const file = input.files[0];
         const fileSizeElement = document.getElementById("fileSize");
@@ -236,6 +241,10 @@
             previewElement.style.display = "none"; // 이미지 숨기기
         }
     }
+
+    $('#editor-form').on('submit', function () {
+  console.log('memberclub(select value)=', $('#memberclub').val());
+});
 
 </script>
 

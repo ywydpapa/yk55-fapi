@@ -653,8 +653,6 @@ async def insertmember(request: Request, db: AsyncSession = Depends(get_db)):
 @app.post("/cmember_update/{memberno}", response_class=HTMLResponse)
 async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
-
-
     data4update = {
         "memberName": _clean_str(form_data.get("membername")),
         "memberNameEng": _clean_str(form_data.get("membernameeng")),
@@ -663,10 +661,10 @@ async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depe
         "memberEntdate": _clean_str(form_data.get("regdate")),
         "memberMF": _clean_str(form_data.get("membermf")),
         "memberSponser": _clean_int(form_data.get("memberspon")),
-        "regNo": _clean_int(form_data.get("regno")),
+        "regNo": _clean_str(form_data.get("regno")),
         "clubNo": _clean_int(form_data.get("memberclub")),
     }
-    clubno = data4update.get("clubNo")
+    clubno = _clean_int(form_data.get("memberclub"))
     update_fields = {k: v for k, v in data4update.items() if v is not None}
     if not update_fields:
         return RedirectResponse(f"/club_memberlist/{clubno}", status_code=303)
@@ -682,19 +680,6 @@ async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depe
 @app.post("/member_update/{memberno}", response_class=HTMLResponse)
 async def updatemember(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
-    def _clean_str(value: object) -> str | None:
-        if value is None:
-            return None
-        s = str(value).strip()
-        return s if s != "" else None
-    def _clean_int(value: object) -> int | None:
-        s = _clean_str(value)
-        if s is None:
-            return None
-        try:
-            return int(s)
-        except ValueError:
-            raise ValueError(f"Invalid integer input: {s!r}")
     data4update = {
         "memberName": _clean_str(form_data.get("membername")),
         "memberNameEng": _clean_str(form_data.get("membernameeng")),

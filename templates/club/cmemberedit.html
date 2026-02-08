@@ -113,7 +113,10 @@
                                         <input type="submit" value="회원사진 Upload"></form>
                                 </td>
                                 </tr>
+                            </tbody>
+                        </table>
                                  <form method="POST" id="editor-form" action="/cmember_update/{{memberdtl[0]}}">
+                                     <table class="table table-bordered text-center">
                                 <tr>
                                     <td> 회원명 </td>
                                     <td><input class="form-control" id="membername" name="membername" type="text" required value="{{ memberdtl[1] }}"></td>
@@ -178,9 +181,9 @@
                                         </div>
                                     </td>
                                 </tr>
-                            </form>
-                            </tbody>
+                             </tbody>
                         </table>
+                                 </form>
                     </div>
                 </div>
             </div>
@@ -216,6 +219,7 @@
       size: 20
      });
     });
+    $('.selectpicker').selectpicker('refresh');
 
     function displayFileInfo(input) {
         const file = input.files[0];
@@ -236,6 +240,11 @@
             previewElement.style.display = "none"; // 이미지 숨기기
         }
     }
+
+    $('#editor-form').on('submit', function () {
+  console.log('memberclub(select value)=', $('#memberclub').val());
+});
+
 
 </script>
 
