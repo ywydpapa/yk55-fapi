@@ -116,6 +116,22 @@ async def save_memberPhoto(image_data: bytes, memberno: int, size=(200, 300)):
     return thumbnail_path
 
 
+def _clean_str(value: object) -> str | None:
+    if value is None:
+        return None
+    s = str(value).strip()
+    return s if s != "" else None
+
+def _clean_int(value: object) -> int | None:
+    s = _clean_str(value)
+    if s is None:
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        raise ValueError(f"Invalid integer input: {s!r}")
+
+
 @app.post("/uploadmphoto/{memberno}")
 async def upload_logoimage(request: Request,memberno: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
     try:
@@ -602,24 +618,28 @@ async def memberedit(request: Request,memberno:int, db: AsyncSession = Depends(g
         return templates.TemplateResponse("master/memberedit.html", {"request": request, "clubs": clubs,"session": dict(request.session),"memberdtl": member})
 
 
+@app.post("/member_reg", response_class=HTMLResponse)
+async def memberedit(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        clubs = await get_club(db)
+        return templates.TemplateResponse("master/memberreg.html", {"request": request, "clubs": clubs,"session": dict(request.session)})
+
+
 @app.post("/member_insert", response_class=HTMLResponse)
 async def insertmember(request: Request, db: AsyncSession = Depends(get_db)):
-    user_No = request.session.get("user_No")
-    user_Name = request.session.get("user_Name")
-    user_Role = request.session.get("user_Role")
-    user_region = request.session.get("user_Region")
-    user_clubno = request.session.get("user_Clubno")
     form_data = await request.form()
     data4insert = {
-        "memberName": form_data.get("memberName"),
-        "memberNameEng": form_data.get("memberNameEng"),
-        "memberNameCn": form_data.get("memberNameCn"),
-        "memberBirth": form_data.get("memberBirth"),
-        "memberEntdate": form_data.get("memberEntdate"),
-        "memberMF": form_data.get("memberMF"),
-        "sponsorNo": form_data.get("sponsorNo"),
-        "loginId": form_data.get("loginId"),
-        "regNo": form_data.get("regNo"),
+        "memberName": _clean_str(form_data.get("membername")),
+        "memberNameEng": _clean_str(form_data.get("membernameeng")),
+        "memberNameCn": _clean_str(form_data.get("membernamecn")),
+        "memberBirth": _clean_str(form_data.get("memberbirth")),
+        "memberEntdate": _clean_str(form_data.get("regdate")),
+        "memberMF": _clean_str(form_data.get("membermf")),
+        "memberSponser": _clean_int(form_data.get("memberspon")),
+        "regNo": _clean_int(form_data.get("regno")),
+        "clubNo": _clean_int(form_data.get("memberclub")),
         }
     insert_fields = {key: value for key, value in data4insert.items() if value is not None}
     columns = ", ".join(insert_fields.keys())
@@ -634,22 +654,6 @@ async def insertmember(request: Request, db: AsyncSession = Depends(get_db)):
 async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
 
-    def _clean_str(value: object) -> str | None:
-        if value is None:
-            return None
-        s = str(value).strip()
-        return s if s != "" else None
-
-    def _clean_int(value: object) -> int | None:
-        s = _clean_str(value)
-        if s is None:
-            return None
-        try:
-            return int(s)
-        except ValueError:
-            # 정수여야 하는 값이 들어오면 조용히 깨지기보다 빨리 원인을 드러내는 게 좋습니다.
-            # 필요하면 HTTPException(422)로 바꿔도 됩니다.
-            raise ValueError(f"Invalid integer input: {s!r}")
 
     data4update = {
         "memberName": _clean_str(form_data.get("membername")),
