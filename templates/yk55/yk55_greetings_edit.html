@@ -30,8 +30,12 @@
                             <tbody>
                             <form method="POST" id="editor-form" action="/yk55greetupdate/{{docs[0]}}">
                                 <tr>
+                                    <td> 작성자 (소속/ 직책)</td>
+                                    <td> <input class="form-control" id="dwriter1" name="dwriter1" type="text" required value="{{ docs[2] }}"></td>
+                                </tr>
+                                <tr>
                                     <td> 작성자 </td>
-                                    <td> <input class="form-control" id="dwriter" name="dwriter" type="text" required value="{{ docs[2] }}"></td>
+                                    <td> <input class="form-control" id="dwriter2" name="dwriter2" type="text" required value="{{ docs[2] }}"></td>
                                 </tr>
                                 <tr>
                                     <td> 제목 </td>
@@ -44,8 +48,8 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td> 등록문서 </td>
-                                    <td> <select class="form-control" id="docno">
+                                    <td> 등록 행사 </td>
+                                    <td> <select class="form-control" id="docevent" name="docevent">
                                         <option value="">선택</option>
                                     </select></td>
                                 </tr>

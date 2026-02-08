@@ -1,8 +1,9 @@
 from urllib import request
 import status
 import uvicorn
-from fastapi import FastAPI, Depends, Request, Form, Response, HTTPException, File, UploadFile, Body
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import Form, Response, HTTPException, File, UploadFile, Body
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -153,7 +154,7 @@ async def reg_otp(otp:str, userNo:int, db:AsyncSession = Depends(get_db)):
 async def exp_otp(userNo:int, db:AsyncSession = Depends(get_db)):
     try:
         now = datetime.datetime.now()
-        query = text("UPDATE yk_seckey SET expDate = now(), attrib = :xup where userNo = :userNo and attrib = :xapp")
+        query = text("UPDATE yk_seckey SET modDate = now(), attrib = :xup where userNo = :userNo and attrib = :xapp")
         await db.execute(query, {"userNo": userNo, "xapp": '1000010000', "xup": 'XXXUPXXXUP'})
         await db.commit()
         return True
@@ -181,10 +182,33 @@ async def getregionList(db:AsyncSession = Depends(get_db)):
 
 async def getperiod(db: AsyncSession = Depends(get_db)):
     query = text("""
-        SELECT periodNo, yearFr, yearTo, periodTitle FROM yk_period WHERE attrib = :xapp ORDER BY periodNo """)
+        SELECT periodNo, yearFr, yearTo, periodTitle, periodTitle2 FROM yk_period WHERE attrib = :xapp ORDER BY periodNo """)
     result = await db.execute(query, {"xapp": "1000010000"})
     # Row -> dict
     return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_clubevents(clubno:int, db: AsyncSession = Depends(get_db)):
+    query = text("""
+        SELECT eventNo, periodNo,eventTitle,eventTitleEng,eventType,eventFrom,eventTo,clubNo FROM yk_event WHERE attrib = :xapp and clubNo = :clubno ORDER BY eventFrom """)
+    result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno})
+    # Row -> dict
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_clubeventsperiod(clubno:int,periodno:int ,db: AsyncSession = Depends(get_db)):
+    query = text("""
+        SELECT eventNo, periodNo,eventTitle,eventTitleEng,eventType,eventFrom,eventTo,clubNo FROM yk_event WHERE attrib = :xapp and clubNo = :clubno and periodNo = :periodno ORDER BY eventFrom """)
+    result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno, "periodno": periodno})
+    # Row -> dict
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_eventdtl(eventno:int, db: AsyncSession = Depends(get_db)):
+    query = text("""
+        SELECT * FROM yk_event WHERE attrib = :xapp and eventNo = :eventno""")
+    result = await db.execute(query, {"xapp": "1000010000", "eventno": eventno})
+    return result.fetchone()
 
 
 async def get_cabhist(periodno:int,db: AsyncSession = Depends(get_db)):
@@ -205,8 +229,14 @@ async def get_rank(db: AsyncSession = Depends(get_db)):
 
 
 async def get_member(db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * FROM yk_members where attrib = :xapp""")
+    query = text("""SELECT a.*, b.clubName FROM yk_members a left join yk_club b on a.clubNo = b.clubNo where a.attrib = :xapp""")
     result = await db.execute(query, {"xapp": "1000010000"})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_clubmember(clubno:int,db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT * FROM yk_members where clubNo = :cno and attrib = :xapp order by memberEntdate""")
+    result = await db.execute(query, {"cno": clubno, "xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
@@ -242,7 +272,7 @@ async def get_rank_dtl(rankno:int,db: AsyncSession = Depends(get_db)):
 
 async def getdocdetail(docno:int,db:AsyncSession = Depends(get_db)):
     try:
-        query = text("SELECT docNo, docCat, memberTitle, userNo, docTitle, CONVERT(docContents using utf8mb4), docType, regDate, modDate, attrib FROM yk_doc where docNo = :docno and attrib = :xapp")
+        query = text("SELECT docNo, docEvent, memberTitle, memberName, docTitle, CONVERT(docContents using utf8mb4), docType, regDate, modDate, attrib FROM yk_doc where docNo = :docno and attrib = :xapp")
         docconts = await db.execute(query, {"docno":docno,"xapp":'1000010000'})
         row = docconts.fetchone()
         return row
@@ -292,7 +322,7 @@ async def login_post(
         db: AsyncSession = Depends(get_db)
 ):
     query = text(
-        "SELECT userNo, userName, userRole, defaultRegion, defaultClubno FROM yk_user WHERE userId = :username AND userPassword = password(:password)")
+        "SELECT userNo, userName, userRole, defaultRegion, defaultClub FROM yk_user WHERE userId = :username AND userPassword = password(:password)")
     result = await db.execute(query, {"username": username, "password": password})
     user = result.fetchone()
     if user is None:
@@ -371,13 +401,6 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
 # User
 
 # Report Member
-@app.get("/report_member/{clubno}", response_class=HTMLResponse)
-async def reportmember(request: Request,clubno:int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        memberlist = await get_rank(db)
-        return templates.TemplateResponse("report/reportmemberlist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist})
 
 
 @app.get("/report_event/{clubno}", response_class=HTMLResponse)
@@ -388,6 +411,121 @@ async def reportevent(request: Request, clubno:int, db: AsyncSession = Depends(g
         memberlist = await get_rank(db)
         return templates.TemplateResponse("report/reportevent.html", {"request": request, "session": dict(request.session),"memberlist": memberlist})
 
+
+#Club business
+
+
+#Club Member List
+@app.get("/club_memberlist/{clubno}", response_class=HTMLResponse)
+async def club_memberlist(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        memberlist = await get_clubmember(clubno,db)
+        return templates.TemplateResponse("club/cmemberlist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist})
+
+
+@app.get("/cmember_edit/{memberno}", response_class=HTMLResponse)
+async def cmemberedit(request: Request,memberno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        clubs = await get_club(db)
+        member = await get_member_dtl(memberno,db)
+        return templates.TemplateResponse("club/cmemberedit.html", {"request": request, "clubs": clubs,"session": dict(request.session),"memberdtl": member})
+
+
+@app.get("/club_eventlist/{clubno}", response_class=HTMLResponse)
+async def ceventlist(request: Request,clubno:int,db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        periodlist = await getperiod(db)
+        ceventlist = await get_clubevents(clubno,db)
+        return templates.TemplateResponse("club/club_eventlist.html", {"request": request,"session": dict(request.session), "periodlist": periodlist, "ceventlist": ceventlist, "periodno": None})
+
+
+@app.get("/club_eventlist/{clubno}/{periodno}", response_class=HTMLResponse)
+async def ceventlist(request: Request,clubno:int,periodno:int,db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        periodlist = await getperiod(db)
+        ceventlist = await get_clubeventsperiod(clubno,periodno,db)
+        return templates.TemplateResponse("club/club_eventlist.html", {"request": request,"session": dict(request.session), "periodlist": periodlist, "ceventlist": ceventlist, "periodno": periodno})
+
+
+@app.post("/club_eventnew/{clubno}", response_class=HTMLResponse)
+async def ceventnew(request: Request,clubno:int,db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        periodlist = await getperiod(db)
+        return templates.TemplateResponse("club/club_eventnew.html", {"request": request,"session": dict(request.session), "periodlist": periodlist,})
+
+
+@app.get("/club_eventedit/{eventno}", response_class=HTMLResponse)
+async def ceventedit(request: Request,eventno:int,db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        periodlist = await getperiod(db)
+        eventdtl = await get_eventdtl(eventno,db)
+        return templates.TemplateResponse("club/club_eventedit.html", {"request": request,"session": dict(request.session), "periodlist": periodlist, "eventdtl": eventdtl})
+
+
+#cevent_insert
+@app.post("/cevent_insert/{clubno}", response_class=HTMLResponse)
+async def insertcevent(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    data4insert = {
+        "eventTitle": form_data.get("ceventtitle"),
+        "eventType": form_data.get("eventtype"),
+        "eventFrom": form_data.get("eventfrom"),
+        "eventTo": form_data.get("eventto"),
+        "periodNo": form_data.get("eventperiod"),
+        "clubNo": clubno,
+        }
+    insert_fields = {key: value for key, value in data4insert.items() if value is not None}
+    columns = ", ".join(insert_fields.keys())
+    values = ", ".join([f":{key}" for key in insert_fields.keys()])
+    query = text(f"INSERT INTO yk_event ({columns}) VALUES ({values})")
+    await db.execute(query, insert_fields)
+    await db.commit()
+    return RedirectResponse(f"/club_eventlist/{clubno}", status_code=303)
+
+
+@app.post("/cevent_update/{eventno}/{clubno}", response_class=HTMLResponse)
+async def insertcevent(request: Request, eventno:int, clubno:int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    data4update = {
+        "eventTitle": form_data.get("ceventtitle"),
+        "eventType": form_data.get("eventtype"),
+        "eventFrom": form_data.get("eventfrom"),
+        "eventTo": form_data.get("eventto"),
+        "periodNo": form_data.get("eventperiod"),
+        "clubNo": clubno,
+    }
+    update_fields = {k: v for k, v in data4update.items() if v is not None}
+    if not update_fields:
+        return RedirectResponse(f"/club_eventlist/{clubno}", status_code=303)
+    set_clause = ", ".join([f"{k} = :{k}" for k in update_fields.keys()])
+    params = dict(update_fields)
+    params["eventNo"] = eventno
+    query = text(f"""UPDATE yk_event SET {set_clause} WHERE eventNo = :eventNo""")
+    await db.execute(query, params)
+    await db.commit()
+    return RedirectResponse(f"/club_eventlist/{clubno}", status_code=303)
+
+
+#Club Report List
+@app.get("/report_member/{clubno}", response_class=HTMLResponse)
+async def reportmember(request: Request,clubno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        memberlist = await get_rank(db)
+        return templates.TemplateResponse("report/reportmemberlist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist})
 
 
 # Basic Data
@@ -425,7 +563,7 @@ async def updaterank(request: Request, rankno: int, db: AsyncSession = Depends(g
     rtitlechn = form_data.get("rtitlechn")
     rtype = form_data.get("rtype")
     rsortno = form_data.get("rsortno")
-    query = text(f"update yk_rank set rankTitle=:rtitle,rankTitleEng=:rtitleeng, rankTitleChn=:rtitlechn, rankType=:rtype, sortNo=:rsortno, modDate=now() where rankNo=:rankno")
+    query = text(f"update yk_rank set rankTitle=:rtitle,rankTitleEng=:rtitleeng, rankTitleCn=:rtitlechn, rankType=:rtype, sortNo=:rsortno, modDate=now() where rankNo=:rankno")
     await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "rsortno": rsortno, "rankno": rankno})
     await db.commit()
     return RedirectResponse(f"/mst_rank", status_code=303)
@@ -439,7 +577,7 @@ async def insertrank(request: Request, db: AsyncSession = Depends(get_db)):
     rtitlechn = form_data.get("rtitlechn")
     rtype = form_data.get("rtype")
     rsortno = form_data.get("rsortno")
-    query = text(f"INSERT INTO yk_rank (rankTitle,rankTitleEng,rankTitleChn, rankType, sortNo) values (:rtitle,:rtitleeng,:rtitlechn,:rtype,:rsortno)")
+    query = text(f"INSERT INTO yk_rank (rankTitle,rankTitleEng,rankTitleCn, rankType, sortNo) values (:rtitle,:rtitleeng,:rtitlechn,:rtype,:rsortno)")
     await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "rsortno": rsortno})
     await db.commit()
     return RedirectResponse(f"/mst_rank", status_code=303)
@@ -488,6 +626,90 @@ async def insertmember(request: Request, db: AsyncSession = Depends(get_db)):
     values = ", ".join([f":{key}" for key in insert_fields.keys()])
     query = text(f"INSERT INTO yk_members ({columns}) VALUES ({values})")
     await db.execute(query, insert_fields)
+    await db.commit()
+    return RedirectResponse(f"/mst_member", status_code=303)
+
+
+@app.post("/cmember_update/{memberno}", response_class=HTMLResponse)
+async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+
+    def _clean_str(value: object) -> str | None:
+        if value is None:
+            return None
+        s = str(value).strip()
+        return s if s != "" else None
+
+    def _clean_int(value: object) -> int | None:
+        s = _clean_str(value)
+        if s is None:
+            return None
+        try:
+            return int(s)
+        except ValueError:
+            # 정수여야 하는 값이 들어오면 조용히 깨지기보다 빨리 원인을 드러내는 게 좋습니다.
+            # 필요하면 HTTPException(422)로 바꿔도 됩니다.
+            raise ValueError(f"Invalid integer input: {s!r}")
+
+    data4update = {
+        "memberName": _clean_str(form_data.get("membername")),
+        "memberNameEng": _clean_str(form_data.get("membernameeng")),
+        "memberNameCn": _clean_str(form_data.get("membernamecn")),
+        "memberBirth": _clean_str(form_data.get("memberbirth")),
+        "memberEntdate": _clean_str(form_data.get("regdate")),
+        "memberMF": _clean_str(form_data.get("membermf")),
+        "memberSponser": _clean_int(form_data.get("memberspon")),
+        "regNo": _clean_int(form_data.get("regno")),
+        "clubNo": _clean_int(form_data.get("memberclub")),
+    }
+    clubno = data4update.get("clubNo")
+    update_fields = {k: v for k, v in data4update.items() if v is not None}
+    if not update_fields:
+        return RedirectResponse(f"/club_memberlist/{clubno}", status_code=303)
+    set_clause = ", ".join([f"{k} = :{k}" for k in update_fields.keys()])
+    params = dict(update_fields)
+    params["memberNo"] = memberno
+    query = text(f"UPDATE yk_members SET {set_clause} WHERE memberNo = :memberNo")
+    await db.execute(query, params)
+    await db.commit()
+    return RedirectResponse(f"/club_memberlist/{clubno}", status_code=303)
+
+
+@app.post("/member_update/{memberno}", response_class=HTMLResponse)
+async def updatemember(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    def _clean_str(value: object) -> str | None:
+        if value is None:
+            return None
+        s = str(value).strip()
+        return s if s != "" else None
+    def _clean_int(value: object) -> int | None:
+        s = _clean_str(value)
+        if s is None:
+            return None
+        try:
+            return int(s)
+        except ValueError:
+            raise ValueError(f"Invalid integer input: {s!r}")
+    data4update = {
+        "memberName": _clean_str(form_data.get("membername")),
+        "memberNameEng": _clean_str(form_data.get("membernameeng")),
+        "memberNameCn": _clean_str(form_data.get("membernamecn")),
+        "memberBirth": _clean_str(form_data.get("memberbirth")),
+        "memberEntdate": _clean_str(form_data.get("regdate")),
+        "memberMF": _clean_str(form_data.get("membermf")),
+        "memberSponser": _clean_int(form_data.get("memberspon")),
+        "regNo": _clean_int(form_data.get("regno")),
+        "clubNo": _clean_int(form_data.get("memberclub")),
+    }
+    update_fields = {k: v for k, v in data4update.items() if v is not None}
+    if not update_fields:
+        return RedirectResponse(f"/mst_member", status_code=303)
+    set_clause = ", ".join([f"{k} = :{k}" for k in update_fields.keys()])
+    params = dict(update_fields)
+    params["memberNo"] = memberno
+    query = text(f"UPDATE yk_members SET {set_clause} WHERE memberNo = :memberNo")
+    await db.execute(query, params)
     await db.commit()
     return RedirectResponse(f"/mst_member", status_code=303)
 
@@ -613,9 +835,11 @@ async def updatedoc(request: Request, docno: int, db: AsyncSession = Depends(get
     doctitle = form_data.get("dtitle")
     docconts = form_data.get("dcontent")
     doctype = form_data.get("dtype")
-    dwriter = form_data.get("dwriter")
-    query = text(f"update yk_doc set docTitle=:doctitle,docContents=:docconts,memberTitle=:dwriter, docType=:doctype,  modDate=now() where docNo=:docno")
-    await db.execute(query, {"docno": docno, "doctitle": doctitle, "docconts": docconts, "doctype": doctype, "dwriter": dwriter})
+    docevent = form_data.get("docevent")
+    dwriter1 = form_data.get("dwriter1")
+    dwriter2 = form_data.get("dwriter2")
+    query = text(f"update yk_doc set docTitle=:doctitle,docContents=:docconts,memberTitle=:dwriter1,memberName=:dwriter2, docType=:doctype,docEvent=:docevent  modDate=now() where docNo=:docno")
+    await db.execute(query, {"docno": docno, "doctitle": doctitle, "docconts": docconts, "doctype": doctype, "dwriter1": dwriter1, "dwriter2": dwriter2, "docevent": docevent})
     await db.commit()
     return RedirectResponse(f"/yk55greet", status_code=303)
 
@@ -626,9 +850,11 @@ async def insertdoc(request: Request, db: AsyncSession = Depends(get_db)):
     doctitle = form_data.get("dtitle")
     docconts = form_data.get("dcontent")
     doctype = form_data.get("dtype")
-    dwriter = form_data.get("dwriter")
-    query = text(f"INSERT INTO yk_doc (docTitle, docContents, memberTitle, userNo, docType) values (:doctitle,:docconts,:dwriter, :userno, :doctype) ")
-    await db.execute(query, {"doctitle": doctitle, "docconts": docconts, "userno": request.session.get("user_No"), "doctype": doctype, "dwriter": dwriter })
+    docevent = form_data.get("docevent")
+    dwriter1 = form_data.get("dwriter1")
+    dwriter2 = form_data.get("dwriter2")
+    query = text(f"INSERT INTO yk_doc (docTitle, docContents, memberTitle, memberName, userNo, docType, docEvent) values (:doctitle,:docconts,:dwriter1,:dwriter2, :userno, :doctype, :docevent) ")
+    await db.execute(query, {"doctitle": doctitle, "docconts": docconts, "userno": request.session.get("user_No"), "doctype": doctype, "dwriter1": dwriter1, "dwriter2": dwriter2, "docevent": docevent })
     await db.commit()
     return RedirectResponse(f"/yk55greet", status_code=303)
 

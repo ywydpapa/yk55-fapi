@@ -49,25 +49,25 @@
                                 </tr>
                                 <tr>
                                     <td> 전화 </td>
-                                    <td><input class="form-control" id="clubtel" name="clubtel" type="tel" value="{{ clubdtl[8] }}"></td>
+                                    <td><input class="form-control" id="clubtel" name="clubtel" type="tel" value="{{ clubdtl[7] }}"></td>
                                 </tr>
                                 <tr>
                                     <td> 팩스 </td>
-                                    <td><input class="form-control" id="clubfax" name="clubfax" type="tel" value="{{ clubdtl[9] }}"></td>
+                                    <td><input class="form-control" id="clubfax" name="clubfax" type="tel" value="{{ clubdtl[8] }}"></td>
                                 </tr>
                                 <tr>
                                     <td> 이메일 </td>
-                                    <td><input class="form-control" id="clubemail" name="clubemail" type="email" value="{% if clubdtl[10] is not none %}{{ clubdtl[10] }}{% endif %}"></td>
+                                    <td><input class="form-control" id="clubemail" name="clubemail" type="email" value="{% if clubdtl[9] is not none %}{{ clubdtl[9] }}{% endif %}"></td>
                                 </tr>
                                 <tr>
                                     <td> SNS </td>
-                                    <td><input class="form-control" id="clubsns" name="clubsns" type="text" value="{% if clubdtl[11] is not none %}{{ clubdtl[11] }}{% endif %}"></td>
+                                    <td><input class="form-control" id="clubsns" name="clubsns" type="text" value="{% if clubdtl[10] is not none %}{{ clubdtl[10] }}{% endif %}"></td>
                                 </tr>
                                 <tr>
                                     <td> 스폰서클럽 </td>
                                     <td><select class="form-control" id="clubspon" name="clubspon">
                                         {% for sp in spons %}
-                                        <option value="{{ sp[0] }}" {% if clubdtl[7]|string == sp[0]|string %} selected {% endif %}>{{ sp[1] }}</option>
+                                        <option value="{{ sp[0] }}" {% if clubdtl[11]|string == sp[0]|string %} selected {% endif %}>{{ sp[1] }}</option>
                                         {% endfor %}
                                     </select>
                                     </td>

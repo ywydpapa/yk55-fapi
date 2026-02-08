@@ -113,7 +113,7 @@
                                         <input type="submit" value="회원사진 Upload"></form>
                                 </td>
                                 </tr>
-                                 <form method="POST" id="editor-form" action="/member_update/{{memberdtl[0]}}">
+                                 <form method="POST" id="editor-form" action="/cmember_update/{{memberdtl[0]}}">
                                 <tr>
                                     <td> 회원명 </td>
                                     <td><input class="form-control" id="membername" name="membername" type="text" required value="{{ memberdtl[1] }}"></td>
@@ -170,9 +170,9 @@
                                     <td colspan="2">
                                         <div class="col-12"
                                              style="display: flex; justify-content: space-between; gap: 10px;">
-                                            <a href="#" onclick="window.location.href='/mst_member'; return false;"
+                                            <a href="#" onclick="window.location.href='/club_memberlist/{{session.user_Clubno}}'; return false;"
                                                class="btn btn-dark"
-                                               role="button" style="flex: 0 0 30%;">회원 목록으로 돌아가기</a>
+                                               role="button" style="flex: 0 0 30%;">클럽 회원 목록으로 돌아가기</a>
                                             <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">변경내용저장
                                             </button>
                                         </div>

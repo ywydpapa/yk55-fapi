@@ -2,6 +2,12 @@
 <html lang="en">
 <head>
     {% include '/common/commHeader.html' %}
+    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+    <style>
+        #editor-container {
+            height: 300px;
+        }
+    </style>
 </head>
 <body id="page-top">
 <!-- Page Wrapper -->
@@ -15,48 +21,51 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">직책 수정</h1>
+                <h1 class="h3 mb-4 text-gray-800">새행사 등록</h1>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
                         <table class="table table-bordered text-center">
                             <thead>
                             </thead>
                             <tbody>
-                            <form method="POST" id="editor-form" action="/rank_update/{{rank[0]}}">
+                            <form method="POST" id="editor-form" action="/cevent_insert/{{session.user_Clubno}}">
                                 <tr>
-                                    <td> 직책명 </td>
-                                    <td><input class="form-control" id="rtitle" name="rtitle" type="text" required value="{{ rank[1] }}"></td>
+                                    <td> 행사명 </td>
+                                    <td> <input class="form-control" id="ceventtitle" name="ceventtitle" type="text" required ></td>
                                 </tr>
                                 <tr>
-                                    <td> 직책명(영문) </td>
-                                    <td><input class="form-control" id="rtitleeng" name="rtitleeng" type="text" value="{{ rank[2] }}"></td>
-                                </tr>
-                                <tr>
-                                    <td> 직책명(한자) </td>
-                                    <td><input class="form-control" id="rtitlechn" name="rtitlechn" type="text" value="{% if rank[3] is not none %}{{ rank[3] }}{% endif %}"></td>
-                                </tr>
-                                <tr>
-                                    <td> 직책종류 </td>
-                                    <td>
-                                        <select class="form-control" id="rtype" name="rtype">
-                                            <option value="DIST" {% if rank[5]|string == 'DIST' %}selected{% endif %}>지구직책</option>
-                                            <option value="UNION" {% if rank[5]|string == 'UNION' %}selected{% endif %}>복합지구 직책</option>
-                                            <option value="INTL" {% if rank[5]|string == 'INTL' %}selected{% endif %}>국제직책</option>
-                                        </select>
+                                    <td> 행사종류 </td>
+                                    <td> <select class="form-control" id="eventtype" name="eventtype" >
+                                        <option value="CLUBE" selected>클럽행사</option>
+                                        <option value="REGIE">지역행사</option>
+                                        <option value="DISTE">지구행사</option>
+                                        <option value="EDIST">복합지구행사</option>
+                                    </select>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td> 배치순서 </td>
-                                    <td><input class="form-control" id="rsortno" name="rsortno" type="number" value="{{ rank[4] }}"></td>
+                                    <td> 행사시작 </td>
+                                    <td> <input class="form-control" id="eventfrom" name="eventfrom" type="datetime-local" required ></td>
+                                </tr>
+                                <tr>
+                                    <td> 행사종료 </td>
+                                    <td><input class="form-control" id="eventto" name="eventto" type="datetime-local" required ></tr>
+                                <tr>
+                                    <td> 적용회기 </td>
+                                    <td> <select class="form-control" id="eventperiod" name="eventperiod">
+                                        {% for per in periodlist %}
+                                        <option value="{{per.periodNo}}" {% if loop.last %}selected{% endif %}>{{per.periodTitle2}}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
+                                        {% endfor %}
+                                        </select></td>
                                 </tr>
                                 <tr>
                                     <td colspan="2">
                                         <div class="col-12"
                                              style="display: flex; justify-content: space-between; gap: 10px;">
-                                            <a href="#" onclick="window.location.href='/mst_rank'; return false;"
+                                            <a href="#" onclick="window.location.href='/club_eventlist/{{session.user_Clubno}}'; return false;"
                                                class="btn btn-dark"
-                                               role="button" style="flex: 0 0 30%;">직책 목록으로 돌아가기</a>
-                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">변경내용저장
+                                               role="button" style="flex: 0 0 30%;">행사 목록으로 돌아가기</a>
+                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">신규행사 저장
                                             </button>
                                         </div>
                                     </td>
@@ -89,6 +98,8 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/common/commonScript.html' %}
+<script>
 
+</script>
 </body>
 </html>

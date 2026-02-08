@@ -17,30 +17,39 @@
                 <!-- Page Heading -->
                 <div class="card shadow mb-4">
                     <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary">전체회원목록</h6>
+                        <h6 class="m-0 font-weight-bold text-primary">클럽 행사 목록</h6>
                     </div>
                     <div class="card-body">
+                        <div class="d-flex justify-content-end mb-2">
+                            <div class="d-flex align-items-center" style="width: 30%;">
+                                <span class="mr-3">회기</span>
+                                    <select style="text-align: center" class="form-control" id="eventperiod" name="eventperiod" onchange="onPeriodChange()">
+                                        {% for per in periodlist %}
+                                            <option value="{{ per.periodNo }}" {% if periodno is not none and per.periodNo == periodno %}selected{% elif periodno is none and loop.last %}selected{% endif %}>{{ per.periodTitle2 }}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
+                                        {% endfor %}
+                                    </select>
+                            </div>
+                        </div>
+                        <hr>
                         <div class="table-responsive">
                             <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
                                 <thead>
                                 <tr style="text-align: center">
-                                    <th>등록번호</th>
-                                    <th>회원명</th>
-                                    <th>회원명(영문)</th>
-                                    <th>소속클럽</th>
-                                    <th>회원생일</th>
-                                    <th>입회일</th>
+                                    <th>행사명</th>
+                                    <th>행사명(영문)</th>
+                                    <th>행사기간(시작)</th>
+                                    <th>행사기간(종료)</th>
+                                    <th>배치순서</th>
                                 </tr>
                                 </thead>
                                 <tbody>
-                                    {% for r in memberlist %}
+                                    {% for event in ceventlist %}
                                     <tr>
-                                    <td style="text-align: center">{{ r.memberNo }}</td>
-                                    <td style="text-align: center"><a href = /member_edit/{{r.memberNo}}>{{ r.memberName }}</a></td>
-                                    <td style="text-align: center">{{ r.memberNameEng }}</td>
-                                    <td style="text-align: center">{{ r.clubName }}</td>
-                                    <td style="text-align: center">{{ r.memberBirth }}</td>
-                                    <td style="text-align: center">{{ r.memberEntdate }}</td>
+                                        <td style="text-align: center"><a href = /club_eventedit/{{event.eventNo}}>{{ event.eventTitle }}</a></td>
+                                    <td style="text-align: center">{{ event.eventTitleEng }}</td>
+                                    <td style="text-align: center">{{ event. eventFrom }}</td>
+                                    <td style="text-align: center">{{ event.eventTo }}</td>
+                                    <td>{{ event.sortNo }}</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -48,7 +57,7 @@
                         </div>
                         <div class="row justify-content-end">
                                 <div class="col" style="max-width: 30%">
-                                  <button type="button" class="form-control btn btn-danger" onclick="regnew()">새회원 등록 </button>
+                                  <button type="button" class="form-control btn btn-danger" onclick="regnew()">새행사 등록 </button>
                                 </div>
                         </div>
                     </div>
@@ -76,26 +85,22 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/common/commonScript.html' %}
-{% include '/common/adscripttable.html' %}
 <script>
-    $(document).ready(function () {
-     $('#dataTable').DataTable({
-         "pageLength": 20,
-         order: [[0, "asc"]],
-         "columnDefs": [
-             {className: "dt-center", targets: "_all"} // 모든 컬럼 가운데 정렬
-         ]
-     });
- })
 
 function regnew() {
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = '/member_reg';
+    form.action = '/club_eventnew/{{session.user_Clubno}}';
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
 }
+
+  function onPeriodChange() {
+    const periodno = document.getElementById('eventperiod').value;
+    const clubno = "{{ session.user_Clubno }}";
+    window.location.href = `/club_eventlist/${clubno}/${periodno}`;
+  }
 </script>
 </body>
 </html>
