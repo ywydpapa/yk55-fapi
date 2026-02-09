@@ -20,6 +20,19 @@
                         <h6 class="m-0 font-weight-bold text-primary">클럽 회원 목록</h6>
                     </div>
                     <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-3 ml-auto">
+                                <select id="statusFilter" class="form-control">
+                                    <option value="">전체</option>
+                                    <option value="활동중" selected>활동중</option>
+                                    <option value="퇴회">퇴회</option>
+                                    <option value="제명">제명</option>
+                                    <option value="사망">사망</option>
+                                    <option value="기타">기타</option>
+                                </select>
+                            </div>
+                        </div>
+                        <hr>
                         <div class="table-responsive">
                             <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
                                 <thead>
@@ -40,7 +53,7 @@
                                     <td style="text-align: center">{{ r.memberNameEng }}</td>
                                     <td style="text-align: center">{{ r.memberBirth }}</td>
                                     <td style="text-align: center">{{ r.memberEntdate }}</td>
-                                    <td style="text-align: center">{% if r.memberStatus == 'ACTIV' %}활동중{% else %}휴회중{% endif %}</td>
+                                    <td style="text-align: center">{% if r.memberStatus == 'ACTIV' %}활동중{% elif r.memberStatus == 'EXPEL'%}제명{% elif r.memberStatus == 'RIP'%}사망{% elif r.memberStatus == 'RETIR'%}퇴회{% else %}휴회{% endif %}</td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -78,24 +91,40 @@
 {% include '/common/commonScript.html' %}
 {% include '/common/adscripttable.html' %}
 <script>
-    $(document).ready(function () {
-     $('#dataTable').DataTable({
-         "pageLength": 20,
-         order: [[0, "asc"]],
-         "columnDefs": [
-             {className: "dt-center", targets: "_all"} // 모든 컬럼 가운데 정렬
-         ]
-     });
- })
+  $(document).ready(function () {
 
-function regnew() {
+    const table = $('#dataTable').DataTable({
+      pageLength: 20,
+      order: [[4, "asc"]],
+      columnDefs: [
+        { className: "dt-center", targets: "_all" }
+      ]
+    });
+
+    $('#statusFilter').on('change', function () {
+      const v = $(this).val();
+
+      if (v === '') {
+        table.column(5).search('').draw();
+      } else if (v === '기타') {
+        table.column(5).search('^(?!활동중$|퇴회$|제명$|사망$).*$', true, false).draw();
+      } else {
+        table.column(5).search('^' + v + '$', true, false).draw();
+      }
+    });
+
+    $('#statusFilter').trigger('change');
+  });
+
+  function regnew() {
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = '/member_reg';
+    form.action = '/cmember_reg';
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
-}
+  }
 </script>
+
 </body>
 </html>

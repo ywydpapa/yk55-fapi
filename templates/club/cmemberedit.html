@@ -170,6 +170,16 @@
                                     </select></td>
                                 </tr>
                                 <tr>
+                                    <td>활동상태</td>
+                                    <td><select class="form-control" id="memberstat" name="memberstat">
+                                        <option value="ACTIV" {% if memberdtl[10] == 'ACTIV' %}selected{% endif %}>활동중</option>
+                                        <option value="RETIR" {% if memberdtl[10] == 'RETIR' %}selected{% endif %}>퇴회</option>
+                                        <option value="EXPEL" {% if memberdtl[10] == 'EXPEL' %}selected{% endif %}>제명</option>
+                                        <option value="RIP" {% if memberdtl[10] == 'RIP' %}selected{% endif %}>사망</option>
+                                        </select>
+                                        </td>
+                                </tr>
+                                <tr>
                                     <td colspan="2">
                                         <div class="col-12"
                                              style="display: flex; justify-content: space-between; gap: 10px;">

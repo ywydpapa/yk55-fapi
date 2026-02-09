@@ -661,6 +661,7 @@ async def insertmember(request: Request, db: AsyncSession = Depends(get_db)):
         "memberSponser": _clean_int(form_data.get("memberspon")),
         "regNo": _clean_int(form_data.get("regno")),
         "clubNo": _clean_int(form_data.get("memberclub")),
+        "memberStatus": _clean_str(form_data.get("memberstat")),
         }
     insert_fields = {key: value for key, value in data4insert.items() if value is not None}
     columns = ", ".join(insert_fields.keys())
@@ -669,6 +670,41 @@ async def insertmember(request: Request, db: AsyncSession = Depends(get_db)):
     await db.execute(query, insert_fields)
     await db.commit()
     return RedirectResponse(f"/mst_member", status_code=303)
+
+
+@app.post("/cmember_insert", response_class=HTMLResponse)
+async def insertcmember(request: Request, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    data4insert = {
+        "memberName": _clean_str(form_data.get("membername")),
+        "memberNameEng": _clean_str(form_data.get("membernameeng")),
+        "memberNameCn": _clean_str(form_data.get("membernamecn")),
+        "memberBirth": _clean_str(form_data.get("memberbirth")),
+        "memberEntdate": _clean_str(form_data.get("regdate")),
+        "memberMF": _clean_str(form_data.get("membermf")),
+        "memberSponser": _clean_int(form_data.get("memberspon")),
+        "regNo": _clean_int(form_data.get("regno")),
+        "clubNo": _clean_int(form_data.get("memberclub")),
+        "memberStatus": _clean_str(form_data.get("memberstat")),
+        }
+    clubno = _clean_int(form_data.get("memberclub"))
+    insert_fields = {key: value for key, value in data4insert.items() if value is not None}
+    columns = ", ".join(insert_fields.keys())
+    values = ", ".join([f":{key}" for key in insert_fields.keys()])
+    query = text(f"INSERT INTO yk_members ({columns}) VALUES ({values})")
+    await db.execute(query, insert_fields)
+    await db.commit()
+    return RedirectResponse(f"/club_memberlist/{clubno}", status_code=303)
+
+
+@app.post("/cmember_reg", response_class=HTMLResponse)
+async def cmemberreg(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        clubs = await get_club(db)
+        return templates.TemplateResponse("club/cmemberreg.html", {"request": request, "clubs": clubs,"session": dict(request.session)})
+
 
 
 @app.post("/cmember_update/{memberno}", response_class=HTMLResponse)
@@ -685,6 +721,7 @@ async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depe
         "regNo": _clean_str(form_data.get("regno")),
         "clubNo": _clean_int(form_data.get("memberclub")),
         "maskYN": _clean_str(form_data.get("membermask")),
+        "memberStatus": _clean_str(form_data.get("memberstat")),
     }
     clubno = _clean_int(form_data.get("memberclub"))
     update_fields = {k: v for k, v in data4update.items() if v is not None}
@@ -713,6 +750,7 @@ async def updatemember(request: Request, memberno: int, db: AsyncSession = Depen
         "regNo": _clean_int(form_data.get("regno")),
         "clubNo": _clean_int(form_data.get("memberclub")),
         "maskYN": _clean_str(form_data.get("membermask")),
+        "memberStatus": _clean_str(form_data.get("memberstat")),
     }
     update_fields = {k: v for k, v in data4update.items() if v is not None}
     if not update_fields:

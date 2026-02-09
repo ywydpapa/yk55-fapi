@@ -87,10 +87,10 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">회원 정보 수정</h1>
+                <h1 class="h3 mb-4 text-gray-800">클럽 신규 회원 등록</h1>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
-                        <form method="POST" id="editor-form" action="/member_insert">
+                        <form method="POST" id="editor-form" action="/cmember_insert">
                         <table class="table table-bordered text-center">
                             <thead>
                             </thead>
@@ -131,7 +131,7 @@
                                     <td> 소속클럽 </td>
                                     <td><select class="form-control selectpicker" data-live-search ="true" id="memberclub" name="memberclub">
                                         {% for sp in clubs %}
-                                        <option value="{{ sp.clubNo }}">{{ sp.clubName }}</option>
+                                        <option value="{{ sp.clubNo }}" {% if session.user_Clubno == sp.clubNo %}selected {% endif %}>{{ sp.clubName }}</option>
                                         {% endfor %}
                                     </select>
                                     </td>
@@ -150,9 +150,9 @@
                                     <td colspan="2">
                                         <div class="col-12"
                                              style="display: flex; justify-content: space-between; gap: 10px;">
-                                            <a href="#" onclick="window.location.href='/mst_member'; return false;"
+                                            <a href="#" onclick="window.location.href='/club_memberlist/{{ session.user_Clubno }}'; return false;"
                                                class="btn btn-dark"
-                                               role="button" style="flex: 0 0 30%;">회원 목록으로 돌아가기</a>
+                                               role="button" style="flex: 0 0 30%;">클럽회원 목록으로 돌아가기</a>
                                             <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">신규회원등록
                                             </button>
                                         </div>
