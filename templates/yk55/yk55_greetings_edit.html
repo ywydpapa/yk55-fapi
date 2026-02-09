@@ -24,6 +24,7 @@
                 <h1 class="h3 mb-4 text-gray-800">문서 수정</h1>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
+                        # docNo, docEvent, memberTitle, memberName, docTitle, CONVERT(docContents using utf8mb4), docType, regDate, modDate, attrib
                         <table class="table table-bordered text-center">
                             <thead>
                             </thead>
@@ -35,7 +36,7 @@
                                 </tr>
                                 <tr>
                                     <td> 작성자 </td>
-                                    <td> <input class="form-control" id="dwriter2" name="dwriter2" type="text" required value="{{ docs[2] }}"></td>
+                                    <td> <input class="form-control" id="dwriter2" name="dwriter2" type="text" required value="{{ docs[3] }}"></td>
                                 </tr>
                                 <tr>
                                     <td> 제목 </td>
@@ -50,15 +51,15 @@
                                 <tr>
                                     <td> 등록 행사 </td>
                                     <td> <select class="form-control" id="docevent" name="docevent">
-                                        <option value="">선택</option>
+                                        <option value="0">선택</option>
                                     </select></td>
                                 </tr>
                                 <tr>
                                     <td> 등록종류</td>
                                     <td> <select class="form-control" id="doctype">
-                                        <option value="RONLY" selected>축사</option>
-                                        <option value="ATTYN">기념사</option>
-                                        <option value="AGREE">회고사</option>
+                                        <option value="GREET" {% if docs[6] == 'GREET' %}selected{% endif %}>축사</option>
+                                        <option value="CLEBR" {% if docs[6] == 'CLEBR' %}selected{% endif %}>기념사</option>
+                                        <option value="MEMOR" {% if docs[6] == 'MEMOR' %}selected{% endif %}>회고사</option>
                                     </select>
                                     </td>
                                 </tr>

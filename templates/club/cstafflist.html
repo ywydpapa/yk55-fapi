@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include '/common/commHeader.html' %}
+</head>
+<body id="page-top">
+<!-- Page Wrapper -->
+<div id="wrapper">
+    {% include '/common/sidebar.html' %}
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+        <!-- Main Content -->
+        <div id="content">
+            {% include '/common/topbar.html' %}
+            <!-- Begin Page Content -->
+            <div class="container-fluid">
+                <!-- Page Heading -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">클럽 집행부 목록</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-3 ml-auto">
+                                <select id="statusFilter" class="form-control">
+                                    {% for per in periods %}
+                                    <option value="{{ per.periodNo }}" {% if periodno is not none and per.periodNo == periodno %}selected{% elif periodno is none and loop.last %}selected{% endif %}>{{ per.periodTitle2 }} 회기</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                                <tbody>
+                                <tr style="text-align: center">
+                                    <th>회장</th>
+                                    <th>1부회장</th>
+                                    <th>2부회장</th>
+                                    <th>3부회장</th>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <select class="form-control" style="text-align: center" id="staff1" name="staff1">
+                                            <option value="0">미지정</option>
+                                            {% for mem in memberlist %}
+                                            <option value="{{mem.memberNo}}">{{mem.memberName}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                <td>
+                                        <select class="form-control"  style="text-align: center" id="staff2" name="staff2">
+                                            <option value="0">미지정</option>
+                                            {% for mem in memberlist %}
+                                            <option value="{{mem.memberNo}}">{{mem.memberName}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                <td>
+                                        <select class="form-control"  style="text-align: center" id="staff3" name="staff3">
+                                            <option value="0">미지정</option>
+                                            {% for mem in memberlist %}
+                                            <option value="{{mem.memberNo}}">{{mem.memberName}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                <td>
+                                        <select class="form-control"  style="text-align: center" id="staff4" name="staff4">
+                                            <option value="0">미지정</option>
+                                            {% for mem in memberlist %}
+                                            <option value="{{mem.memberNo}}">{{mem.memberName}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr style="text-align: center">
+                                    <th>총무</th>
+                                    <th>재무</th>
+                                    <th>L.T.</th>
+                                    <th>T.T.</th>
+                                </tr>
+                                <tr>
+                                <td>
+                                        <select class="form-control"  style="text-align: center" id="staff5" name="staff5">
+                                            <option value="0">미지정</option>
+                                            {% for mem in memberlist %}
+                                            <option value="{{mem.memberNo}}">{{mem.memberName}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                <td>
+                                        <select class="form-control" style="text-align: center" id="staff6" name="staff6">
+                                            <option value="0">미지정</option>
+                                            {% for mem in memberlist %}
+                                            <option value="{{mem.memberNo}}">{{mem.memberName}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                <td>
+                                        <select class="form-control" style="text-align: center"  id="staff7" name="staff7">
+                                            <option value="0">미지정</option>
+                                            {% for mem in memberlist %}
+                                            <option value="{{mem.memberNo}}">{{mem.memberName}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                <td>
+                                        <select class="form-control" style="text-align: center"  id="staff8" name="staff8">
+                                            <option value="0">미지정</option>
+                                            {% for mem in memberlist %}
+                                            <option value="{{mem.memberNo}}">{{mem.memberName}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    </tr>
+                                <tr style="text-align: center">
+                                    <th>회장 슬로건</th>
+                                <td colspan="2">
+                                    <input type="text" class="form-control" id="slogan" name="slogan" value="">
+                                </td>
+                                    <td>
+                                        <div class="row justify-content-end">
+                                            <div class="col" style="max-width: 100%">
+                                                <button type="button" class="form-control btn btn-danger" onclick="savestaff()">집행부 저장</button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- /.container-fluid -->
+        </div>
+        <!-- End of Main Content -->
+        <!-- Footer -->
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2026</span>
+                </div>
+            </div>
+        </footer>
+        <!-- End of Footer -->
+    </div>
+    <!-- End of Content Wrapper -->
+</div>
+<!-- End of Page Wrapper -->
+<!-- Scroll to Top Button-->
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+<!-- Bootstrap core JavaScript-->
+{% include '/common/commonScript.html' %}
+{% include '/common/adscripttable.html' %}
+<script>
+  $(document).ready(function () {
+    const table = $('#dataTable').DataTable({
+      pageLength: 20,
+      order: [[4, "asc"]],
+      columnDefs: [
+        { className: "dt-center", targets: "_all" }
+      ]
+    });
+</script>
+</body>
+</html>

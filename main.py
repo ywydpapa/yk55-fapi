@@ -276,6 +276,11 @@ async def get_clubmember(clubno:int,db: AsyncSession = Depends(get_db)):
     result = await db.execute(query, {"cno": clubno, "xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
 
+async def get_clubsponser(clubno:int,db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT memberNo, memberName FROM yk_members where clubNo = :cno and attrib = :xapp order by memberEntdate""")
+    result = await db.execute(query, {"cno": clubno, "xapp": "1000010000"})
+    return [dict(row._mapping) for row in result.fetchall()]
+
 
 async def get_member_dtl(memberno:int, db: AsyncSession = Depends(get_db)):
     query = text("""SELECT * FROM yk_members where attrib = :xapp and memberNo = :membno""")
@@ -286,6 +291,12 @@ async def get_member_dtl(memberno:int, db: AsyncSession = Depends(get_db)):
 async def get_club(db: AsyncSession = Depends(get_db)):
     query = text("""SELECT * FROM yk_club where attrib = :xapp order by clubCno""")
     result = await db.execute(query, {"xapp": "1000010000"})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_clubstaff(clubno:int,db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT * FROM yk_clubStaff where clubNo = :clubno and attrib = :xapp""")
+    result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
@@ -467,9 +478,22 @@ async def cmemberedit(request: Request,memberno:int, db: AsyncSession = Depends(
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
+        clubno = request.session.get("user_Clubno")
         clubs = await get_club(db)
+        spons = await get_clubsponser(clubno, db)
         member = await get_member_dtl(memberno,db)
-        return templates.TemplateResponse("club/cmemberedit.html", {"request": request, "clubs": clubs,"session": dict(request.session),"memberdtl": member})
+        return templates.TemplateResponse("club/cmemberedit.html", {"request": request, "clubs": clubs,"session": dict(request.session),"memberdtl": member, "spons": spons})
+
+
+@app.get("/club_stafflist/{clubno}", response_class=HTMLResponse)
+async def club_stafflist(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        memberlist = await get_clubsponser(clubno,db)
+        stafflist = await get_clubstaff(clubno, db)
+        periods = await getperiod(db)
+        return templates.TemplateResponse("club/cstafflist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "stafflist": stafflist, "periods": periods, "periodno": None })
 
 
 @app.get("/club_eventlist/{clubno}", response_class=HTMLResponse)
@@ -702,8 +726,10 @@ async def cmemberreg(request: Request, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
+        clubno = request.session.get("user_Clubno")
         clubs = await get_club(db)
-        return templates.TemplateResponse("club/cmemberreg.html", {"request": request, "clubs": clubs,"session": dict(request.session)})
+        spons = await get_clubsponser(clubno, db)
+        return templates.TemplateResponse("club/cmemberreg.html", {"request": request, "clubs": clubs,"session": dict(request.session), "spons": spons})
 
 
 
@@ -888,7 +914,7 @@ async def updatedoc(request: Request, docno: int, db: AsyncSession = Depends(get
     docevent = form_data.get("docevent")
     dwriter1 = form_data.get("dwriter1")
     dwriter2 = form_data.get("dwriter2")
-    query = text(f"update yk_doc set docTitle=:doctitle,docContents=:docconts,memberTitle=:dwriter1,memberName=:dwriter2, docType=:doctype,docEvent=:docevent  modDate=now() where docNo=:docno")
+    query = text(f"update yk_doc set docTitle=:doctitle,docContents=:docconts,memberTitle=:dwriter1,memberName=:dwriter2, docType=:doctype,docEvent=:docevent, modDate=now() where docNo=:docno")
     await db.execute(query, {"docno": docno, "doctitle": doctitle, "docconts": docconts, "doctype": doctype, "dwriter1": dwriter1, "dwriter2": dwriter2, "docevent": docevent})
     await db.commit()
     return RedirectResponse(f"/yk55greet", status_code=303)
