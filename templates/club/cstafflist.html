@@ -20,9 +20,10 @@
                         <h6 class="m-0 font-weight-bold text-primary">클럽 집행부 목록</h6>
                     </div>
                     <div class="card-body">
+                        <form action="/club_staffupdate" method="post" id="editor-form">
                         <div class="row mb-3">
                             <div class="col-md-3 ml-auto">
-                                <select id="statusFilter" class="form-control">
+                                <select id="speriod" name="speriod" class="form-control">
                                     {% for per in periods %}
                                     <option value="{{ per.periodNo }}" {% if periodno is not none and per.periodNo == periodno %}selected{% elif periodno is none and loop.last %}selected{% endif %}>{{ per.periodTitle2 }} 회기</option>
                                     {% endfor %}
@@ -121,7 +122,7 @@
                                     <td>
                                         <div class="row justify-content-end">
                                             <div class="col" style="max-width: 100%">
-                                                <button type="button" class="form-control btn btn-danger" onclick="savestaff()">집행부 저장</button>
+                                                <button type="submit" class="form-control btn btn-danger">집행부 저장</button>
                                             </div>
                                         </div>
                                     </td>
@@ -129,6 +130,37 @@
                                 </tbody>
                             </table>
                         </div>
+                        </form>
+                        <table class="table table-bordered" id="dataTable2" width="100%" cellspacing="0">
+                            <tbody>
+                            <tr style="text-align: center">
+                                <th>회기</th>
+                                <th>회장</th>
+                                <th>1부</th>
+                                <th>2부</th>
+                                <th>3부</th>
+                                <th>총무</th>
+                                <th>재무</th>
+                                <th>L.T.</th>
+                                <th>T.T.</th>
+                                <th>슬로건</th>
+                            </tr>
+                            {% for staff in stafflist %}
+                            <tr style="text-align: center">
+                                <td>{{staff.per1}}</td>
+                                <td>{{staff.n1 or '-'}}</td>
+                                <td>{{staff.n2 or '-'}}</td>
+                                <td>{{staff.n3 or '-'}}</td>
+                                <td>{{staff.n4 or '-'}}</td>
+                                <td>{{staff.n5 or '-'}}</td>
+                                <td>{{staff.n6 or '-'}}</td>
+                                <td>{{staff.n7 or '-'}}</td>
+                                <td>{{staff.n8 or '-'}}</td>
+                                <td>{{staff.slogan or '-'}}</td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

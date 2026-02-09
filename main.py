@@ -295,7 +295,17 @@ async def get_club(db: AsyncSession = Depends(get_db)):
 
 
 async def get_clubstaff(clubno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * FROM yk_clubStaff where clubNo = :clubno and attrib = :xapp""")
+    query = text("""SELECT a.*,b1.memberName as n1,b2.memberName as n2,b3.memberName as n3,b4.memberName as n4,b5.memberName as n5,b6.memberName as n6,b7.memberName as n7,b8.memberName as n8, c1.periodTitle2 as per1 
+                    FROM yk_clubStaff a left join yk_members b1 on a.chairmanNo = b1.memberNo
+                             left join yk_members b2 on a.vice1stNo = b2.memberNo 
+                             left join yk_members b3 on a.vice2ndNo = b3.memberNo
+        left join yk_members b4 on a.vice3rdNo = b4.memberNo
+        left join yk_members b5 on a.secretaryNo = b5.memberNo
+        left join yk_members b6 on a.treasureNo = b6.memberNo
+        left join yk_members b7 on a.lionsteamerNo = b7.memberNo
+        left join yk_members b8 on a.tailtNo = b8.memberNo
+        left join yk_period c1 on a.periodNo = c1.periodNo
+                    where a.clubNo = :clubno and a.attrib = :xapp order by a.periodNo""")
     result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno})
     return [dict(row._mapping) for row in result.fetchall()]
 
@@ -494,6 +504,44 @@ async def club_stafflist(request: Request, clubno:int, db: AsyncSession = Depend
         stafflist = await get_clubstaff(clubno, db)
         periods = await getperiod(db)
         return templates.TemplateResponse("club/cstafflist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "stafflist": stafflist, "periods": periods, "periodno": None })
+
+
+@app.post("/club_staffupdate", response_class=HTMLResponse)
+async def updatecstaff(request: Request, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    clubno = request.session.get("user_Clubno")
+    periodno = _clean_int(form_data.get("speriod"))
+    if clubno is None or periodno is None:
+        return RedirectResponse("/club_stafflist", status_code=303)
+    data = {
+        "clubNo": clubno,
+        "periodNo": periodno,
+        "chairmanNo": _clean_int(form_data.get("staff1")),
+        "vice1stNo": _clean_int(form_data.get("staff2")),
+        "vice2ndNo": _clean_int(form_data.get("staff3")),
+        "vice3rdNo": _clean_int(form_data.get("staff4")),
+        "secretaryNo": _clean_int(form_data.get("staff5")),
+        "treasureNo": _clean_int(form_data.get("staff6")),
+        "lionsteamerNo": _clean_int(form_data.get("staff7")),
+        "tailtNo": _clean_int(form_data.get("staff8")),
+        "slogan": (form_data.get("slogan") or "").strip() or None,  # slogan은 문자열 권장
+    }
+    insert_fields = list(data.keys())
+    cols = ", ".join(insert_fields)
+    vals = ", ".join([f":{k}" for k in insert_fields])
+    update_keys = [k for k in data.keys() if k not in ("clubNo", "periodNo") and data[k] is not None]
+    if not update_keys:
+        return RedirectResponse(f"/club_stafflist/{clubno}", status_code=303)
+    update_clause = ", ".join([f"{k} = VALUES({k})" for k in update_keys])
+    q = text(f"""
+        INSERT INTO yk_clubStaff ({cols})
+        VALUES ({vals})
+        ON DUPLICATE KEY UPDATE
+        {update_clause}
+    """)
+    await db.execute(q, data)
+    await db.commit()
+    return RedirectResponse(f"/club_stafflist/{clubno}", status_code=303)
 
 
 @app.get("/club_eventlist/{clubno}", response_class=HTMLResponse)
