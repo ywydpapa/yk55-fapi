@@ -848,6 +848,7 @@ async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depe
         "clubNo": _clean_int(form_data.get("memberclub")),
         "maskYN": _clean_str(form_data.get("membermask")),
         "memberStatus": _clean_str(form_data.get("memberstat")),
+        "memberMemo": form_data.get("membermemo"),
     }
     clubno = _clean_int(form_data.get("memberclub"))
     update_fields = {k: v for k, v in data4update.items() if v is not None}
@@ -877,6 +878,7 @@ async def updatemember(request: Request, memberno: int, db: AsyncSession = Depen
         "clubNo": _clean_int(form_data.get("memberclub")),
         "maskYN": _clean_str(form_data.get("membermask")),
         "memberStatus": _clean_str(form_data.get("memberstat")),
+        "memberMemo": form_data.get("membermemo"),
     }
     update_fields = {k: v for k, v in data4update.items() if v is not None}
     if not update_fields:
