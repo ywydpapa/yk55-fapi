@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include '/common/commHeader.html' %}
+    <style>
+  /* dataTable2의 1열(회기)만 세로 가운데 */
+  #dataTable2 td:first-child,
+  #dataTable2 th:first-child {
+    vertical-align: middle !important;
+  }
+</style>
+</head>
+<body id="page-top">
+<!-- Page Wrapper -->
+<div id="wrapper">
+    {% include '/common/sidebar.html' %}
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+        <!-- Main Content -->
+        <div id="content">
+            {% include '/common/topbar.html' %}
+            <!-- Begin Page Content -->
+            <div class="container-fluid">
+                <!-- Page Heading -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">클럽 지구임원 목록</h6>
+                    </div>
+                    <div class="card-body">
+                        <form action="/dist_staffupdate" method="post" id="editor-form">
+                        <div class="row mb-3">
+                            <div class="col-md-3 ml-auto">
+                                <select id="speriod" name="speriod" class="form-control">
+                                    {% for per in periods %}
+                                    <option value="{{ per.periodNo }}" {% if periodno is not none and per.periodNo == periodno %}selected{% elif periodno is none and loop.last %}selected{% endif %}>{{ per.periodTitle2 }} 회기</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <hr>
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                                <tbody>
+                                <tr style="text-align: center">
+                                <th style="vertical-align: center">지구직책</th>
+                                <td>
+                                    <select class="form-control"  style="text-align: center" id="drank" name="drank" required>
+                                            <option value="">미지정</option>
+                                            {% for rank in ranklist %}
+                                            <option value="{{rank.rankNo}}">{{rank.rankTitle}}</option>
+                                            {% endfor %}
+                                        </select>
+                                </td>
+                                    <th style="vertical-align: center">회원명</th>
+                                    <td>
+                                        <select class="form-control"  style="text-align: center" id="dstaff" name="dstaff" required>
+                                            <option value="">미지정</option>
+                                            {% for mem in memberlist %}
+                                            <option value="{{mem.memberNo}}">{{mem.memberName}}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <div class="row justify-content-end">
+                                            <div class="col" style="max-width: 100%">
+                                                <button type="submit" class="form-control btn btn-danger">지구임원 저장</button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        </form>
+                        <table class="table table-bordered" id="dataTable2" width="100%" cellspacing="0">
+                            <tbody>
+                            <tr style="text-align: center">
+                                <th>회기</th>
+                                <th>직책</th>
+                                <th>성명</th>
+                            </tr>
+                            {% for staff in stafflist %}
+                            <tr style="text-align: center">
+                                <td>{{staff.per1}}</td>
+                                <td>{{staff.r1 or '-'}}</td>
+                                <td>{{staff.n1 or '-'}}</td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <!-- /.container-fluid -->
+        </div>
+        <!-- End of Main Content -->
+        <!-- Footer -->
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2026</span>
+                </div>
+            </div>
+        </footer>
+        <!-- End of Footer -->
+    </div>
+    <!-- End of Content Wrapper -->
+</div>
+<!-- End of Page Wrapper -->
+<!-- Scroll to Top Button-->
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+<!-- Bootstrap core JavaScript-->
+{% include '/common/commonScript.html' %}
+{% include '/common/adscripttable.html' %}
+<script>
+  $(document).ready(function () {
+    function mergeTableRowspan(tableSelector, colIndex) {
+      const $rows = $(tableSelector + " tbody tr");
+      if ($rows.length <= 1) return;
+
+      let lastText = null;
+      let $lastCell = null;
+      let span = 1;
+
+      $rows.each(function (i) {
+        // 첫 번째 행이 헤더(회기/직책/성명)라면 건너뜀
+        if (i === 0) return;
+
+        const $cells = $(this).children("th, td");
+        const $cell = $cells.eq(colIndex);
+        const text = $.trim($cell.text());
+
+        if (lastText === null) {
+          lastText = text;
+          $lastCell = $cell;
+          span = 1;
+          return;
+        }
+
+        if (text === lastText) {
+          span += 1;
+          $lastCell.attr("rowspan", span);
+          $cell.hide(); // 중복 셀 숨김(병합 효과)
+        } else {
+          lastText = text;
+          $lastCell = $cell;
+          span = 1;
+        }
+      });
+    }
+
+    // 회기 컬럼 = 0번째(첫 번째) 컬럼
+    mergeTableRowspan("#dataTable2", 0);
+  });
+</script>
+</body>
+</html>

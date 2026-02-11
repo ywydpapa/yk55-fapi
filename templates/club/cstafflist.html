@@ -2,6 +2,13 @@
 <html lang="en">
 <head>
     {% include '/common/commHeader.html' %}
+    <style>
+  /* dataTable2의 1열(회기)만 세로 가운데 */
+  #dataTable2 td:first-child,
+  #dataTable2 th:first-child {
+    vertical-align: middle !important;
+  }
+</style>
 </head>
 <body id="page-top">
 <!-- Page Wrapper -->
@@ -42,8 +49,8 @@
                                 </tr>
                                 <tr>
                                     <td>
-                                        <select class="form-control" style="text-align: center" id="staff1" name="staff1">
-                                            <option value="0">미지정</option>
+                                        <select class="form-control" style="text-align: center" id="staff1" name="staff1" required>
+                                            <option value="">미지정</option>
                                             {% for mem in memberlist %}
                                             <option value="{{mem.memberNo}}">{{mem.memberName}}</option>
                                             {% endfor %}
@@ -114,10 +121,10 @@
                                         </select>
                                     </td>
                                     </tr>
-                                <tr style="text-align: center">
-                                    <th>회장 슬로건</th>
-                                <td colspan="2">
-                                    <input type="text" class="form-control" id="slogan" name="slogan" value="">
+                                <tr style="text-align: center;vertical-align: center";>
+                                    <th style="vertical-align: middle">회장 슬로건</th>
+                                <td colspan="2" style="text-align: center; vertical-align: middle">
+                                    <label for="slogan"></label><input type="text" class="form-control" id="slogan" name="slogan" value="" >
                                 </td>
                                     <td>
                                         <div class="row justify-content-end">
@@ -188,14 +195,7 @@
 {% include '/common/commonScript.html' %}
 {% include '/common/adscripttable.html' %}
 <script>
-  $(document).ready(function () {
-    const table = $('#dataTable').DataTable({
-      pageLength: 20,
-      order: [[4, "asc"]],
-      columnDefs: [
-        { className: "dt-center", targets: "_all" }
-      ]
-    });
+
 </script>
 </body>
 </html>
