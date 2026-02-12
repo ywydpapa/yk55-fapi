@@ -95,10 +95,10 @@
                             </thead>
                             <tbody>
                                  <tr>
-                                <td style="text-align: center; vertical-align: middle">회원 사진</td>
+                                <td style="text-align: center; vertical-align: middle">행사 사진</td>
                                 <td style="text-align: center">
                                     <div class="image-container">
-                                        <img src="/static/img/members/mphoto_.png" onerror="this.src='/static/img/defaultphoto.png'" alt="Member Image">
+                                        <img src="/static/img/event/ephoto_.png" onerror="this.src='/static/img/defaultphoto.png'" alt="Event Image">
                                         <img id="imagePreview" alt="Image Preview">
                                     </div>
                                 </td>
@@ -106,29 +106,29 @@
                                 <tr>
                                 <td>사진 변경</td>
                                 <td>
-                                    <form action="/uploadmphoto/" method="post" enctype="multipart/form-data">
+                                    <form action="/uploadcephoto/" method="post" enctype="multipart/form-data">
                                         <input type="file" name="file" accept="image/*" required
                                                onchange="displayFileInfo(this)">
                                         <span id="fileSize"></span>
-                                        <input type="submit" value="회원사진 Upload"></form>
+                                        <input type="submit" value="행사사진 Upload"></form>
                                 </td>
                                 </tr>
-                                 <form method="POST" id="editor-form" action="/member_update/">
+                                 <form method="POST" id="editor-form" action="/member_event/">
                                 <tr>
-                                    <td> 회원명 </td>
+                                    <td> 행사명 </td>
                                     <td><input class="form-control" id="membername" name="membername" type="text" required value=""></td>
                                 </tr>
                                 <tr>
-                                    <td> 회원명(영문) </td>
+                                    <td> 참석자 </td>
                                     <td><input class="form-control" id="membernameeng" name="membernameeng" type="text" value=""></td>
                                 </tr>
                                 <tr>
                                     <td colspan="2">
                                         <div class="col-12"
                                              style="display: flex; justify-content: space-between; gap: 10px;">
-                                            <a href="#" onclick="window.location.href='/mst_member'; return false;"
+                                            <a href="#" onclick="window.location.href='/report_event/{{session.user_Clubno}}'; return false;"
                                                class="btn btn-dark"
-                                               role="button" style="flex: 0 0 30%;">회원 목록으로 돌아가기</a>
+                                               role="button" style="flex: 0 0 30%;">봉사 목록으로 돌아가기</a>
                                             <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">변경내용저장
                                             </button>
                                         </div>

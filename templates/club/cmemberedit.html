@@ -4,60 +4,60 @@
     {% include '/common/commHeader.html' %}
 
     <style>
-  #popup-overlay{
-    display:none;
-    position:fixed;
-    inset:0;
-    background: rgba(0,0,0,0.5);
-    z-index: 999;
-  }
+        #popup-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
 
-  #popup{
-    display:none;
-    position:fixed;
-    top:50%;
-    left:50%;
-    transform: translate(-50%, -50%);
-    z-index: 1000;
+        #popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
 
-    /* 비율 기반 크기 */
-    width: 50vw;     /* 가로 비율 */
-    height: 50vh;    /* 세로 비율 */
+            /* 비율 기반 크기 */
+            width: 50vw; /* 가로 비율 */
+            height: 50vh; /* 세로 비율 */
 
-    background:#fff;
-    border:1px solid #ccc;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
-    box-sizing: border-box;
-    overflow: hidden;
-  }
+            background: #fff;
+            border: 1px solid #ccc;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            box-sizing: border-box;
+            overflow: hidden;
+        }
 
-  /* 닫기 버튼 영역을 고정 높이로 만들고 iframe 높이를 계산 */
-  #popup-header{
-    height: 44px;
-    display:flex;
-    align-items:center;
-    justify-content:flex-end;
-    padding: 6px 10px;
-    border-bottom: 1px solid #eee;
-    box-sizing: border-box;
-    background: #fff;
-  }
+        /* 닫기 버튼 영역을 고정 높이로 만들고 iframe 높이를 계산 */
+        #popup-header {
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding: 6px 10px;
+            border-bottom: 1px solid #eee;
+            box-sizing: border-box;
+            background: #fff;
+        }
 
-  #popup-close{
-    background:#dc3545;
-    color:#fff;
-    border:none;
-    padding:6px 10px;
-    cursor:pointer;
-  }
+        #popup-close {
+            background: #dc3545;
+            color: #fff;
+            border: none;
+            padding: 6px 10px;
+            cursor: pointer;
+        }
 
-  #popup iframe{
-    width:100%;
-    height: calc(100% - 44px);
-    border:0;
-    display:block;
-  }
-</style>
+        #popup iframe {
+            width: 100%;
+            height: calc(100% - 44px);
+            border: 0;
+            display: block;
+        }
+    </style>
 
     <style>
         #imagePreview {
@@ -94,120 +94,283 @@
                             <thead>
                             </thead>
                             <tbody>
-                                 <tr>
+                            <tr>
                                 <td style="text-align: center; vertical-align: middle">회원 사진</td>
                                 <td style="text-align: center">
                                     <div class="image-container">
-                                        <img src="/static/img/members/mphoto_{{memberdtl[0]}}.png" onerror="this.src='/static/img/defaultphoto.png'" alt="Member Image">
+                                        <img src="/static/img/members/mphoto_{{memberdtl[0]}}.png"
+                                             onerror="this.src='/static/img/defaultphoto.png'" alt="Member Image">
                                         <img id="imagePreview" alt="Image Preview">
                                     </div>
                                 </td>
-                                </tr>
-                                <tr>
+                            </tr>
+                            <tr>
                                 <td>사진 변경</td>
                                 <td>
-                                    <form action="/uploadcmphoto/{{memberdtl[0]}}" method="post" enctype="multipart/form-data">
+                                    <form action="/uploadcmphoto/{{memberdtl[0]}}" method="post"
+                                          enctype="multipart/form-data">
                                         <input type="file" name="file" accept="image/*" required
                                                onchange="displayFileInfo(this)">
                                         <span id="fileSize"></span>
                                         <input type="submit" value="회원사진 Upload"></form>
                                 </td>
-                                </tr>
+                            </tr>
                             </tbody>
                         </table>
-                                 <form method="POST" id="editor-form" action="/cmember_update/{{memberdtl[0]}}">
-                                     <table class="table table-bordered text-center">
-                                <tr>
-                                    <td> 회원명 </td>
-                                    <td><input class="form-control" id="membername" name="membername" type="text" required value="{{ memberdtl[1] }}"></td>
-                                </tr>
-                                <tr>
-                                    <td> 회원명(영문) </td>
-                                    <td><input class="form-control" id="membernameeng" name="membernameeng" type="text" value="{% if memberdtl[2] is not none %}{{ memberdtl[2] }}{% endif %}"></td>
-                                </tr>
-                                <tr>
-                                    <td> 회원명(한문) </td>
-                                    <td><input class="form-control" id="membernamecn" name="membernamecn" type="text" value="{% if memberdtl[3] is not none %}{{ memberdtl[3] }}{% endif %}"></td>
-                                </tr>
-                                <tr>
-                                    <td> 생년월일 </td>
-                                    <td><input class="form-control" id="memberbirth" name="memberbirth" type="date" value="{% if memberdtl[7] is not none %}{{ memberdtl[7] }}{% endif %}"></td>
-                                </tr>
-                                <tr>
-                                    <td> 입회일 </td>
-                                    <td><input class="form-control" id="regdate" name="regdate" type="date" value="{% if memberdtl[9] is not none %}{{ memberdtl[9] }}{% endif %}"></td>
-                                </tr>
-                                <tr>
-                                    <td> 회원번호 (국제) </td>
-                                    <td><input class="form-control" id="regno" name="regno" type="number" value="{{ memberdtl[8] }}"></td>
-                                </tr>
-                                <tr>
-                                    <td> 성별 </td>
-                                    <td><select class="form-control" id="membermf" name="membermf">
-                                        <option value="M" {% if memberdtl[6] == 'M' %} selected {% endif %}>남성</option>
-                                        <option value="F" {% if memberdtl[6] == 'F' %} selected {% endif %}>여성</option>
-                                        </select>
-                                        </td>
-                                </tr>
-                                <tr>
-                                    <td> 스폰서 </td>
-                                    <td><select class="form-control" id="memberspon" name="memberspon">
-                                        <option value="0">미등록</option>
-                                        <option value="0">창립회원</option>
-                                        {% for sp in spons %}
-                                        <option value="{{sp.memberNo}}" {% if memberdtl[11] == sp.memberNo %}selected{% endif %}>{{sp.memberName}}</option>
-                                        {% endfor %}
-                                    </select>
-                                        </td>
-                                </tr>
-                                <tr>
-                                    <td> 소속클럽 </td>
-                                    <td><select class="form-control selectpicker" data-live-search ="true" id="memberclub" name="memberclub">
-                                        {% for sp in clubs %}
-                                        <option value="{{ sp.clubNo }}" {% if sp.clubNo == memberdtl[12] %} selected {% endif %}>{{ sp.clubName }}</option>
-                                        {% endfor %}
-                                    </select>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td> 정보공개여부 </td>
-                                    <td><select class="form-control" id="membermask" name="membermask" >
-                                        <option value="Y" {% if memberdtl[13] == 'Y' %} selected {% endif %}>비공개</option>
-                                        <option value="N" {% if memberdtl[13] == 'N' %} selected {% endif %}>공개</option>
-                                    </select></td>
-                                </tr>
-                                <tr>
-                                    <td>활동상태</td>
-                                    <td><select class="form-control" id="memberstat" name="memberstat">
-                                        <option value="ACTIV" {% if memberdtl[10] == 'ACTIV' %}selected{% endif %}>활동중</option>
-                                        <option value="RETIR" {% if memberdtl[10] == 'RETIR' %}selected{% endif %}>퇴회</option>
-                                        <option value="EXPEL" {% if memberdtl[10] == 'EXPEL' %}selected{% endif %}>제명</option>
-                                        <option value="RIP" {% if memberdtl[10] == 'RIP' %}selected{% endif %}>사망</option>
-                                        </select>
-                                        </td>
-                                </tr>
-                                <tr>
-                                    <td style="text-align: center; vertical-align:middle">회원 메모</td>
-                                    <td>
+                        <!-- Tabs -->
+                        <ul class="nav nav-tabs" id="memberTabs" role="tablist">
+                            <li class="nav-item">
+                                <a class="nav-link active" id="tab-basic" data-toggle="tab" href="#pane-basic"
+                                   role="tab">기본정보</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="tab-detail" data-toggle="tab" href="#pane-detail" role="tab">상세정보</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="tab-club" data-toggle="tab" href="#pane-club"
+                                   role="tab">클럽경력</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="tab-district" data-toggle="tab" href="#pane-district"
+                                   role="tab">지구경력</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="tab-award" data-toggle="tab" href="#pane-award"
+                                   role="tab">상벌사항</a>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content border-left border-right border-bottom p-3" id="memberTabsContent">
+                            <!-- 기본정보 -->
+                            <div class="tab-pane fade show active" id="pane-basic" role="tabpanel"
+                                 aria-labelledby="tab-basic">
+                                <form method="POST" id="editor-form" action="/cmember_update/{{memberdtl[0]}}">
+                                    <table class="table table-bordered text-center">
+                                        <tr>
+                                            <td> 회원명</td>
+                                            <td><input class="form-control" id="membername" name="membername"
+                                                       type="text" required value="{{ memberdtl[1] }}"></td>
+                                        </tr>
+                                        <tr>
+                                            <td> 회원명(영문)</td>
+                                            <td><input class="form-control" id="membernameeng" name="membernameeng"
+                                                       type="text"
+                                                       value="{% if memberdtl[2] is not none %}{{ memberdtl[2] }}{% endif %}">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td> 회원명(한문)</td>
+                                            <td><input class="form-control" id="membernamecn" name="membernamecn"
+                                                       type="text"
+                                                       value="{% if memberdtl[3] is not none %}{{ memberdtl[3] }}{% endif %}">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td> 생년월일</td>
+                                            <td><input class="form-control" id="memberbirth" name="memberbirth"
+                                                       type="date"
+                                                       value="{% if memberdtl[7] is not none %}{{ memberdtl[7] }}{% endif %}">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td> 입회일</td>
+                                            <td><input class="form-control" id="regdate" name="regdate" type="date"
+                                                       value="{% if memberdtl[9] is not none %}{{ memberdtl[9] }}{% endif %}">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td> 회원번호 (국제)</td>
+                                            <td><input class="form-control" id="regno" name="regno" type="number"
+                                                       value="{{ memberdtl[8] }}"></td>
+                                        </tr>
+                                        <tr>
+                                            <td> 성별</td>
+                                            <td><select class="form-control" id="membermf" name="membermf">
+                                                <option value="M" {% if memberdtl[6]==
+                                                'M' %} selected {% endif %}>남성</option>
+                                                <option value="F" {% if memberdtl[6]==
+                                                'F' %} selected {% endif %}>여성</option>
+                                            </select>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td> 스폰서</td>
+                                            <td><select class="form-control" id="memberspon" name="memberspon">
+                                                <option value="0">미등록</option>
+                                                <option value="0">창립회원</option>
+                                                {% for sp in spons %}
+                                                <option value="{{sp.memberNo}}" {% if memberdtl[11]== sp.memberNo
+                                                        %}selected{% endif %}>{{sp.memberName}}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td> 소속클럽</td>
+                                            <td><select class="form-control selectpicker" data-live-search="true"
+                                                        id="memberclub" name="memberclub">
+                                                {% for sp in clubs %}
+                                                <option value="{{ sp.clubNo }}" {% if sp.clubNo== memberdtl[12] %}
+                                                        selected {% endif %}>{{ sp.clubName }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td> 정보공개여부</td>
+                                            <td><select class="form-control" id="membermask" name="membermask">
+                                                <option value="Y" {% if memberdtl[13]==
+                                                'Y' %} selected {% endif %}>비공개</option>
+                                                <option value="N" {% if memberdtl[13]==
+                                                'N' %} selected {% endif %}>공개</option>
+                                            </select></td>
+                                        </tr>
+                                        <tr>
+                                            <td>활동상태</td>
+                                            <td><select class="form-control" id="memberstat" name="memberstat">
+                                                <option value="ACTIV" {% if memberdtl[10]==
+                                                'ACTIV' %}selected{% endif %}>활동중</option>
+                                                <option value="RETIR" {% if memberdtl[10]==
+                                                'RETIR' %}selected{% endif %}>퇴회</option>
+                                                <option value="EXPEL" {% if memberdtl[10]==
+                                                'EXPEL' %}selected{% endif %}>제명</option>
+                                                <option value="RIP" {% if memberdtl[10]==
+                                                'RIP' %}selected{% endif %}>사망</option>
+                                            </select>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="text-align: center; vertical-align:middle">회원 메모</td>
+                                            <td>
                                         <textarea class="form-control" rows="4" cols="30" name="membermemo"
                                                   placeholder="내용을 입력하세요">{{ memberdtl[14] }}</textarea>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td colspan="2">
-                                        <div class="col-12"
-                                             style="display: flex; justify-content: space-between; gap: 10px;">
-                                            <a href="#" onclick="window.location.href='/club_memberlist/{{session.user_Clubno}}'; return false;"
-                                               class="btn btn-dark"
-                                               role="button" style="flex: 0 0 30%;">클럽 회원 목록으로 돌아가기</a>
-                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">변경내용저장
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                             </tbody>
-                        </table>
-                                 </form>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td colspan="2">
+                                                <div class="col-12"
+                                                     style="display: flex; justify-content: space-between; gap: 10px;">
+                                                    <a href="#"
+                                                       onclick="window.location.href='/club_memberlist/{{session.user_Clubno}}'; return false;"
+                                                       class="btn btn-dark"
+                                                       role="button" style="flex: 0 0 30%;">클럽 회원 목록으로 돌아가기</a>
+                                                    <button type="submit" class="btn btn-primary"
+                                                            style="flex: 0 0 50%;">변경내용저장
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </form>
+                            </div>
+
+                            <!-- 상세정보 -->
+                            <div class="tab-pane fade" id="pane-detail" role="tabpanel" aria-labelledby="tab-detail">
+                                <form method="POST" id="detail-form" action="">
+                                    <table class="table table-bordered text-center">
+                                        <tbody>
+                                        <tr>
+                                            <td>연락처</td>
+                                            <td><input class="form-control" name="phone" type="text"
+                                                       value="{{detail.phone if detail}}"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>이메일</td>
+                                            <td><input class="form-control" name="email" type="email"
+                                                       value="{{detail.email if detail}}"></td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                    <button type="submit" class="btn btn-primary">상세정보 저장</button>
+                                </form>
+                            </div>
+
+                            <!-- 클럽경력 -->
+                            <div class="tab-pane fade" id="pane-club" role="tabpanel" aria-labelledby="tab-club">
+                                <form method="POST" id="clubcare-form"
+                                      action="">
+                                    <table class="table table-bordered text-center">
+                                        <thead>
+                                        <tr>
+                                            <th>년도</th>
+                                            <th>직책</th>
+                                            <th>비고</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for cstaff in cstaffhist %}
+                                        <tr>
+                                            <td>{{cstaff.p1}}</td>
+                                            <td>{{cstaff.roles}}</td>
+                                            <td></td>
+                                        </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    <button type="submit" class="btn btn-primary">클럽경력 저장</button>
+                                </form>
+                            </div>
+
+                            <!-- 지구경력 -->
+                            <div class="tab-pane fade" id="pane-district" role="tabpanel"
+                                 aria-labelledby="tab-district">
+                                <form method="POST" id="district-form"
+                                      action="">
+                                    <table class="table table-bordered text-center">
+                                        <thead>
+                                        <tr>
+                                            <th>년도</th>
+                                            <th>직책</th>
+                                            <th>비고</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for dstaff in dstaffhist %}
+                                        <tr>
+                                            <td>{{dstaff.per1}}</td>
+                                            <td>{{dstaff.r1 or '-'}}</td>
+                                            <td></td>
+                                        </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                    <button type="submit" class="btn btn-primary">지구경력 저장</button>
+                                </form>
+                            </div>
+
+                            <!-- 상벌사항 -->
+                            <div class="tab-pane fade" id="pane-award" role="tabpanel" aria-labelledby="tab-award">
+                                <form method="POST" id="award-form" action="">
+                                    <table class="table table-bordered text-center">
+                                        <thead>
+                                        <tr>
+                                            <th>일자</th>
+                                            <th>구분</th>
+                                            <th>내용</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        <tr>
+                                            <td><input class="form-control" name="date[]" type="date"></td>
+                                            <td>
+                                                <select class="form-control" name="type[]">
+                                                    <option value="AWARD">상</option>
+                                                    <option value="PENALTY">벌</option>
+                                                </select>
+                                            </td>
+                                            <td><input class="form-control" name="content[]" type="text"></td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                    <button type="submit" class="btn btn-primary">상벌사항 저장</button>
+                                </form>
+                            </div>
+
+
+                        </div>
                     </div>
                 </div>
             </div>
@@ -238,10 +401,10 @@
 <script>
 
     $(document).ready(function () {
-    $('.selectpicker').selectpicker({
-      style: 'btn-inverse',
-      size: 20
-     });
+        $('.selectpicker').selectpicker({
+            style: 'btn-inverse',
+            size: 20
+        });
     });
     $('.selectpicker').selectpicker('refresh');
 
@@ -266,10 +429,12 @@
     }
 
     $('#editor-form').on('submit', function () {
-  console.log('memberclub(select value)=', $('#memberclub').val());
-});
+        console.log('memberclub(select value)=', $('#memberclub').val());
+    });
 
-
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+        $('.selectpicker').selectpicker('refresh');
+    });
 </script>
 
 </body>

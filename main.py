@@ -54,6 +54,7 @@ THUMBNAIL_DIR = "./static/img/memberThumb"
 MEMBERPHOTO_DIR = "./static/img/members"
 CLUBLOGOS_DIR = "./static/img/clubLogos"
 GOVLOGOS_DIR = "./static/img/govLogos"
+EVENTPHOTO_DIR =  "./static/img/event"
 BASE_DIR = Path(__file__).resolve().parent
 
 
@@ -116,6 +117,20 @@ async def save_memberPhoto(image_data: bytes, memberno: int, size=(200, 300)):
     return thumbnail_path
 
 
+async def save_eventPhoto(image_data: bytes, eventno: int, size=(200, 300)):
+    # 디렉토리가 없으면 생성
+    os.makedirs(EVENTPHOTO_DIR, exist_ok=True)
+    # 원본 이미지를 Pillow로 열기
+    image = Image.open(io.BytesIO(image_data))
+    # 썸네일 생성
+    image.thumbnail(size)
+    # 저장 경로
+    thumbnail_path = os.path.join(MEMBERPHOTO_DIR, f"ephoto_{eventno}.png")
+    # 썸네일 저장
+    image.save(thumbnail_path, format="PNG")
+    return thumbnail_path
+
+
 def _clean_str(value: object) -> str | None:
     if value is None:
         return None
@@ -151,6 +166,25 @@ async def upload_logoimage(request: Request,memberno: int, file: UploadFile = Fi
     except Exception as e:
         print(f"Error: {e}")
         return RedirectResponse(f"/member_edit/{memberno}", status_code=303)
+
+
+@app.post("/uploadcephoto/{eventno}")
+async def upload_eventimage(request: Request,eventno: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    try:
+        # 이미지 파일인지 확인
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File type not supported.")
+        # 파일 읽기
+        contents = await file.read()
+        # 이미지 사이즈 조절
+        contents = await resize_image_if_needed(contents, max_bytes=102400)
+        # 이미지 저장
+        await save_eventPhoto(contents, eventno)
+        # 리다이렉트
+        return RedirectResponse(f"/event_edit/{eventno}", status_code=303)
+    except Exception as e:
+        print(f"Error: {e}")
+        return RedirectResponse(f"/event_edit/{eventno}", status_code=303)
 
 
 @app.post("/uploadcmphoto/{memberno}")
@@ -310,6 +344,35 @@ async def get_clubstaff(clubno:int,db: AsyncSession = Depends(get_db)):
     return [dict(row._mapping) for row in result.fetchall()]
 
 
+async def get_clubstaffhist(memberno:int,db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT c1.periodTitle2 AS p1, a.clubNo, GROUP_CONCAT(DISTINCT CASE 
+            WHEN a.chairmanNo    = :memberNo THEN '회장'
+            WHEN a.vice1stNo     = :memberNo THEN '1부회장'
+            WHEN a.vice2ndNo     = :memberNo THEN '2부회장'
+            WHEN a.vice3rdNo     = :memberNo THEN '3부회장'
+            WHEN a.secretaryNo   = :memberNo THEN '총무'
+            WHEN a.treasureNo    = :memberNo THEN '재무'
+            WHEN a.lionsteamerNo = :memberNo THEN 'L.T'
+            WHEN a.tailtNo       = :memberNo THEN 'T.T'
+            END
+            ORDER BY CASE 
+                WHEN a.chairmanNo    = :memberNo THEN 1
+                WHEN a.vice1stNo     = :memberNo THEN 2
+                WHEN a.vice2ndNo     = :memberNo THEN 3
+                WHEN a.vice3rdNo     = :memberNo THEN 4
+                WHEN a.secretaryNo   = :memberNo THEN 5
+                WHEN a.treasureNo    = :memberNo THEN 6
+                WHEN a.lionsteamerNo = :memberNo THEN 7
+                WHEN a.tailtNo       = :memberNo THEN 8
+            END
+            SEPARATOR '/') AS roles
+            FROM yk_clubStaff a 
+            LEFT JOIN yk_period c1 ON a.periodNo = c1.periodNo
+            WHERE :memberNo IN (a.chairmanNo, a.vice1stNo, a.vice2ndNo, a.vice3rdNo,a.secretaryNo, a.treasureNo, a.lionsteamerNo, a.tailtNo) GROUP BY c1.periodTitle2, a.clubNo """)
+    result = await db.execute(query, {"memberNo": memberno})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
 async def get_diststaff(clubno:int,db: AsyncSession = Depends(get_db)):
     query = text("""SELECT a.*,b1.memberName as n1, c1.periodTitle2 as per1, d1.rankTitle as r1 
                     FROM yk_distStaff a left join yk_members b1 on a.memberNo = b1.memberNo
@@ -317,6 +380,16 @@ async def get_diststaff(clubno:int,db: AsyncSession = Depends(get_db)):
                         left join yk_rank d1 on a.rankNo = d1.rankNo
                     where a.clubNo = :clubno and a.attrib = :xapp order by a.periodNo, d1.sortNo""")
     result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_diststaffmem(clubno:int,memberno:int,db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.*,b1.memberName as n1, c1.periodTitle2 as per1, d1.rankTitle as r1 
+                    FROM yk_distStaff a left join yk_members b1 on a.memberNo = b1.memberNo
+                         left join yk_period c1 on a.periodNo = c1.periodNo
+                        left join yk_rank d1 on a.rankNo = d1.rankNo
+                    where a.clubNo = :clubno and a.attrib = :xapp and a.memberNo = :memn order by a.periodNo, d1.sortNo""")
+    result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno, "memn": memberno})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
@@ -502,7 +575,9 @@ async def cmemberedit(request: Request,memberno:int, db: AsyncSession = Depends(
         clubs = await get_club(db)
         spons = await get_clubsponser(clubno, db)
         member = await get_member_dtl(memberno,db)
-        return templates.TemplateResponse("club/cmemberedit.html", {"request": request, "clubs": clubs,"session": dict(request.session),"memberdtl": member, "spons": spons})
+        dstaffhist = await get_diststaffmem(clubno, memberno,db)
+        cstaffhist = await get_clubstaffhist(memberno, db)
+        return templates.TemplateResponse("club/cmemberedit.html", {"request": request, "clubs": clubs,"session": dict(request.session),"memberdtl": member, "spons": spons, "dstaffhist": dstaffhist, "cstaffhist":cstaffhist})
 
 
 @app.get("/dist_stafflist/{clubno}", response_class=HTMLResponse)
@@ -832,7 +907,6 @@ async def cmemberreg(request: Request, db: AsyncSession = Depends(get_db)):
         return templates.TemplateResponse("club/cmemberreg.html", {"request": request, "clubs": clubs,"session": dict(request.session), "spons": spons})
 
 
-
 @app.post("/cmember_update/{memberno}", response_class=HTMLResponse)
 async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
@@ -848,7 +922,7 @@ async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depe
         "clubNo": _clean_int(form_data.get("memberclub")),
         "maskYN": _clean_str(form_data.get("membermask")),
         "memberStatus": _clean_str(form_data.get("memberstat")),
-        "memberMemo": form_data.get("membermemo"),
+        "memberMemo": form_data.get("membermemo",''),
     }
     clubno = _clean_int(form_data.get("memberclub"))
     update_fields = {k: v for k, v in data4update.items() if v is not None}
@@ -878,7 +952,7 @@ async def updatemember(request: Request, memberno: int, db: AsyncSession = Depen
         "clubNo": _clean_int(form_data.get("memberclub")),
         "maskYN": _clean_str(form_data.get("membermask")),
         "memberStatus": _clean_str(form_data.get("memberstat")),
-        "memberMemo": form_data.get("membermemo"),
+        "memberMemo": form_data.get("membermemo",''),
     }
     update_fields = {k: v for k, v in data4update.items() if v is not None}
     if not update_fields:
