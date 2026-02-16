@@ -146,6 +146,12 @@ def _clean_int(value: object) -> int | None:
     except ValueError:
         raise ValueError(f"Invalid integer input: {s!r}")
 
+def to_int(s, default=0):
+    try:
+        return int(s)
+    except Exception:
+        return default
+
 
 @app.post("/uploadmphoto/{memberno}")
 async def upload_logoimage(request: Request,memberno: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
@@ -259,6 +265,14 @@ async def getperiod(db: AsyncSession = Depends(get_db)):
     return [dict(row._mapping) for row in result.fetchall()]
 
 
+async def get_event_dist_club(clubno:int, db: AsyncSession = Depends(get_db)):
+    query = text("""
+        SELECT a.eventNo, a.periodNo,a.eventTitle,a.eventTitleEng,a.eventType,a.eventFrom,a.eventTo,a.clubNo, count(b.eventNo) as cnt FROM yk_event a left join yk_eventMember b on a.eventNo = b.eventNo and b.attrib = :xapp 
+        WHERE a.attrib = :xapp and (a.clubNo = :clubno or a.regionNo = 0) group by b.eventNo ORDER BY a.eventFrom """)
+    result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
 async def get_clubevents(clubno:int, db: AsyncSession = Depends(get_db)):
     query = text("""
         SELECT eventNo, periodNo,eventTitle,eventTitleEng,eventType,eventFrom,eventTo,clubNo FROM yk_event WHERE attrib = :xapp and clubNo = :clubno ORDER BY eventFrom """)
@@ -280,6 +294,12 @@ async def get_eventdtl(eventno:int, db: AsyncSession = Depends(get_db)):
         SELECT * FROM yk_event WHERE attrib = :xapp and eventNo = :eventno""")
     result = await db.execute(query, {"xapp": "1000010000", "eventno": eventno})
     return result.fetchone()
+
+
+async def get_eventmembers(eventno:int,db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT * from yk_eventMember where attrib = :xapp and eventNo = :eno""")
+    result = await db.execute(query, {"xapp": "1000010000", "eno": eventno})
+    return [dict(row._mapping) for row in result.fetchall()]
 
 
 async def get_cabhist(periodno:int,db: AsyncSession = Depends(get_db)):
@@ -309,6 +329,7 @@ async def get_clubmember(clubno:int,db: AsyncSession = Depends(get_db)):
     query = text("""SELECT * FROM yk_members where clubNo = :cno and attrib = :xapp order by memberEntdate""")
     result = await db.execute(query, {"cno": clubno, "xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
+
 
 async def get_clubsponser(clubno:int,db: AsyncSession = Depends(get_db)):
     query = text("""SELECT memberNo, memberName FROM yk_members where clubNo = :cno and attrib = :xapp order by memberEntdate""")
@@ -544,13 +565,85 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
 # Report Member
 
 
-@app.get("/report_event/{clubno}", response_class=HTMLResponse)
+@app.api_route("/report_event/{clubno}",response_class=HTMLResponse ,methods=["GET", "POST"] )
 async def reportevent(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        memberlist = await get_rank(db)
-        return templates.TemplateResponse("report/reportevent.html", {"request": request, "session": dict(request.session),"memberlist": memberlist})
+        ranklist = await get_rank(db)
+        periodlist = await getperiod(db)
+        memberlist = await get_clubmember(clubno,db)
+        eventlist = await get_event_dist_club(clubno, db)
+        return templates.TemplateResponse("report/reportevent.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "ranklist": ranklist, "periodlist": periodlist, "eventlist": eventlist})
+
+
+@app.api_route("/report_eventedit/{eventno}",response_class=HTMLResponse ,methods=["GET", "POST"] )
+async def reportevent(request: Request, eventno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        clubno = request.session.get("user_Clubno")
+        ranklist = await get_rank(db)
+        periodlist = await getperiod(db)
+        memberlist = await get_clubmember(clubno,db)
+        eventdtl = await get_eventdtl(eventno, db)
+        joinmember = await get_eventmembers(eventno, db)
+        return templates.TemplateResponse("report/reporteventedit.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "ranklist": ranklist, "periodlist": periodlist, "joinmember": joinmember, "eventdtl": eventdtl})
+
+
+@app.get("/report_eventlist/{clubno}", response_class=HTMLResponse)
+async def reportevent(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        periodlist = await getperiod(db)
+        eventlist = await get_event_dist_club(clubno, db)
+        return templates.TemplateResponse("report/reporteventlist.html", {"request": request, "session": dict(request.session),"periodlist": periodlist, "eventlist": eventlist})
+
+
+@app.get("/report_memberlist/{clubno}", response_class=HTMLResponse)
+async def reportmember(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        periodlist = await getperiod(db)
+        memberlist = await get_clubmember(clubno,db)
+        return templates.TemplateResponse("report/reportmemberlist.html", {"request": request, "session": dict(request.session),"periodlist": periodlist, "memberlist": memberlist})
+
+
+@app.post("/insert_clubevent/")
+async def save_clubevent(request: Request,db: AsyncSession = Depends(get_db)):
+    clubno = request.session.get("user_Clubno")
+    form = await request.form()
+    event_no = to_int(form.get("event"))
+    if not event_no:
+        return RedirectResponse(url=f"/report_eventlist/{clubno}", status_code=303)
+    member_nos = form.getlist("memberNo")  # e.g. ["3","7"]
+    member_nos = [to_int(x) for x in member_nos if to_int(x) > 0]
+    if len(member_nos) == 0:
+        return RedirectResponse(url=f"/report_eventlist/{clubno}", status_code=303)
+    support_map = {}
+    for k, v in form.items():
+        if k.startswith("supportAmount[") and k.endswith("]"):
+            mid = k[len("supportAmount["):-1]
+            m_no = to_int(mid, 0)
+            amt = to_int(str(v).replace(",", "").strip(), 0)
+            if m_no > 0:
+                support_map[m_no] = amt
+    rows = []
+    sql = text("""UPDATE yk_eventMember SET attrib = :xxxup WHERE eventNo = :eventNo """)
+    await db.execute(sql, {"xxxup": "XXXUPXXXUP", "eventNo": event_no})
+    await db.commit()
+    for m_no in member_nos:
+        rows.append({
+            "eventNo": event_no,
+            "memberNo": m_no,
+            "supportAmt": support_map.get(m_no, 0)
+        })
+        sql = text(""" INSERT INTO yk_eventMember (eventNo, memberNo, supportAmt) VALUES (:eventNo, :memberNo, :supportAmt) """)
+        await db.execute(sql, rows[-1])
+        await db.commit()
+    return RedirectResponse(url=f"/report_eventlist/{clubno}", status_code=303)
 
 
 #Club business
@@ -755,13 +848,14 @@ async def insertcevent(request: Request, eventno:int, clubno:int, db: AsyncSessi
 
 
 #Club Report List
-@app.get("/report_member/{clubno}", response_class=HTMLResponse)
+@app.api_route("/report_member/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"] )
 async def reportmember(request: Request,clubno:int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        memberlist = await get_rank(db)
-        return templates.TemplateResponse("report/reportmemberlist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist})
+        memberlist = await get_clubmember(clubno,db)
+        periodlist = await getperiod(db)
+        return templates.TemplateResponse("report/reportmember.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "periodlist": periodlist})
 
 
 # Basic Data

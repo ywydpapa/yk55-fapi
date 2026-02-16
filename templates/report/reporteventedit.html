@@ -179,21 +179,14 @@
                                                 <select style="text-align: center" class="form-control" name="period"
                                                         id="periodSelect">
                                                     {% for pd in periodlist %}
-                                                    <option value="{{pd.periodNo}}" {% if loop.last %}selected{% endif
-                                                            %}>{{pd.periodTitle2}} 회기
-                                                    </option>
+                                                        {% if pd.periodNo==eventdtl[1] %}<option value="{{pd.periodNo}}">{{pd.periodTitle2}} 회기</option>{% endif %}
                                                     {% endfor %}
                                                 </select>
                                             </div>
-
                                             <div class="col-12 col-md-9">
                                                 <label class="mb-1">행사명</label>
                                                 <select class="form-control" name="event" id="eventSelect" required>
-                                                    {% for ev in eventlist %}
-                                                    <option value="{{ev.eventNo}}" data-period="{{ev.periodNo}}">
-                                                        {{ev.eventTitle}}
-                                                    </option>
-                                                    {% endfor %}
+                                                    <option value="{{eventdtl[0]}}"> {{eventdtl[2]}} </option>
                                                 </select>
                                             </div>
                                         </div>
@@ -422,42 +415,6 @@
     })();
 
     (function () {
-        var periodSelect = document.getElementById('periodSelect');
-        var eventSelect = document.getElementById('eventSelect');
-
-        // 원본 옵션 보관(필터링으로 option을 제거/복원하기 위함)
-        var allEventOptions = Array.prototype.slice.call(eventSelect.options).map(function (opt) {
-            return opt.cloneNode(true);
-        });
-
-        function filterEvents() {
-            var periodNo = periodSelect.value;
-
-            // 옵션 초기화
-            eventSelect.innerHTML = '';
-
-            // 해당 회기 옵션만 추가
-            allEventOptions.forEach(function (opt) {
-                if (String(opt.getAttribute('data-period')) === String(periodNo)) {
-                    eventSelect.appendChild(opt.cloneNode(true));
-                }
-            });
-
-            // 아무 것도 없으면 안내 옵션
-            if (eventSelect.options.length === 0) {
-                var empty = document.createElement('option');
-                empty.value = '';
-                empty.textContent = '선택 가능한 행사가 없습니다. 먼저 행사 등록을 해주세요.';
-                eventSelect.appendChild(empty);
-            }
-        }
-
-        periodSelect.addEventListener('change', filterEvents);
-
-        // 페이지 로드시 초기 필터링
-        filterEvents();
-    })();
-    (function () {
         var form = document.getElementById('editor-form');
         var listBox = document.getElementById('memberListBox');
 
@@ -473,6 +430,7 @@
             }
         });
     })();
+
   (function () {
     var form = document.getElementById('editor-form');
     var listBox = document.getElementById('memberListBox');

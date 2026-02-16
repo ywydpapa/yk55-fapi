@@ -142,34 +142,14 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">클럽 행사 보고</h1>
+                <h1 class="h3 mb-4 text-gray-800">클럽 인원 보고</h1>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
                         <table class="table table-bordered text-center">
                             <thead>
                             </thead>
                             <tbody>
-                            <tr>
-                                <td style="text-align: center; vertical-align: middle">행사 사진</td>
-                                <td style="text-align: center">
-                                    <div class="image-container">
-                                        <img src="/static/img/event/ephoto_.png"
-                                             onerror="this.src='/static/img/defaultphoto.png'" alt="Event Image">
-                                        <img id="imagePreview" alt="Image Preview">
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>사진 변경</td>
-                                <td>
-                                    <form action="/uploadcephoto/" method="post" enctype="multipart/form-data">
-                                        <input type="file" name="file" accept="image/*" required
-                                               onchange="displayFileInfo(this)">
-                                        <span id="fileSize"></span>
-                                        <input type="submit" value="행사사진 Upload"></form>
-                                </td>
-                            </tr>
-                            <form method="POST" id="editor-form" action="/insert_clubevent/">
+                            <form method="POST" id="editor-form" action="/insert_clubmember_report">
                                 <tr>
                                     <td> 행사명</td>
                                     <td>
@@ -185,15 +165,33 @@
                                                     {% endfor %}
                                                 </select>
                                             </div>
+                                            <div class="col-12 col-md-3 mb-2 mb-md-0">
+                                                <label class="mb-1">회기</label>
+                                                <select style="text-align: center" class="form-control" name="periodmonth"
+                                                        id="periodMonth">
+                                                    <option value="7">7월</option>
+                                                    <option value="8">8월</option>
+                                                    <option value="9">9월</option>
+                                                    <option value="10">10월</option>
+                                                    <option value="11">11월</option>
+                                                    <option value="12">12월</option>
+                                                    <option value="1">1월</option>
+                                                    <option value="2">2월</option>
+                                                    <option value="3">3월</option>
+                                                    <option value="4">4월</option>
+                                                    <option value="5">5월</option>
+                                                    <option value="6">6월</option>
+                                                </select>
+                                            </div>
 
-                                            <div class="col-12 col-md-9">
-                                                <label class="mb-1">행사명</label>
-                                                <select class="form-control" name="event" id="eventSelect" required>
-                                                    {% for ev in eventlist %}
-                                                    <option value="{{ev.eventNo}}" data-period="{{ev.periodNo}}">
-                                                        {{ev.eventTitle}}
-                                                    </option>
-                                                    {% endfor %}
+                                            <div class="col-12 col-md-6">
+                                                <label class="mb-1">상태변경</label>
+                                                <select style="text-align: center" class="form-control" name="status" id="statSelect" required>
+                                                    <option value="JOIN">신입입회</option>
+                                                    <option value="RETIR">퇴회</option>
+                                                    <option value="TRANS">전입</option>
+                                                    <option value="EXPEL">제명</option>
+                                                    <option value="RIP">사망</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -244,16 +242,6 @@
                                                                 </label>
                                                             </div>
                                                         </div>
-                                                        <!-- 오른쪽: 후원금 -->
-                                                        <div class="ms-right">
-                                                            <input type="text"
-                                                                   class="form-control form-control-sm text-right support-amt"
-                                                                   id="spt{{ mem.memberNo }}"
-                                                                   name="supportAmount[{{ mem.memberNo }}]"
-                                                                   value=""
-                                                                   inputmode="numeric"
-                                                                   placeholder="후원금">
-                                                        </div>
                                                     </div>
                                                 </div>
                                                 {% endfor %}
@@ -263,22 +251,13 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td>
-                                        비용
-                                    </td>
-                                    <td>
-                                        <input type="currency" style="text-align: right" class="form-control"
-                                               name="cost" value="0" required>
-                                    </td>
-                                </tr>
-                                <tr>
                                     <td colspan="2">
                                         <div class="col-12"
                                              style="display: flex; justify-content: space-between; gap: 10px;">
                                             <a href="#"
-                                               onclick="window.location.href='/report_eventlist/{{session.user_Clubno}}'; return false;"
+                                               onclick="window.location.href='/report_memberlist/{{session.user_Clubno}}'; return false;"
                                                class="btn btn-dark"
-                                               role="button" style="flex: 0 0 30%;">봉사 목록으로 돌아가기</a>
+                                               role="button" style="flex: 0 0 30%;">보고 목록으로 돌아가기</a>
                                             <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">변경내용저장
                                             </button>
                                         </div>
@@ -322,26 +301,6 @@
             size: 20
         });
     });
-
-    function displayFileInfo(input) {
-        const file = input.files[0];
-        const fileSizeElement = document.getElementById("fileSize");
-        const previewElement = document.getElementById("imagePreview");
-        if (file) {
-            const sizeInMB = (file.size / (1024 * 1024)).toFixed(2); // MB로 변환
-            fileSizeElement.textContent = `Selected file size: ${sizeInMB} MB`;
-            // 이미지 미리보기
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                previewElement.src = e.target.result;
-                previewElement.style.display = "block"; // 이미지 보이기
-            };
-            reader.readAsDataURL(file);
-        } else {
-            fileSizeElement.textContent = "";
-            previewElement.style.display = "none"; // 이미지 숨기기
-        }
-    }
 
     (function () {
         var checkAll = document.getElementById('checkAll');
