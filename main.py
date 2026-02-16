@@ -26,9 +26,12 @@ from pathlib import Path
 import secrets
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pathlib import Path
+import calendar
+from datetime import date
 
 dotenv.load_dotenv()
 DATABASE_URL = os.getenv("dburl")
+current_period = os.getenv("cperiod")
 engine = create_async_engine(
     DATABASE_URL,
     pool_pre_ping=True,
@@ -56,7 +59,6 @@ CLUBLOGOS_DIR = "./static/img/clubLogos"
 GOVLOGOS_DIR = "./static/img/govLogos"
 EVENTPHOTO_DIR =  "./static/img/event"
 BASE_DIR = Path(__file__).resolve().parent
-
 
 # 데이터베이스 세션 생성
 async def get_db():
@@ -349,6 +351,23 @@ async def get_club(db: AsyncSession = Depends(get_db)):
     return [dict(row._mapping) for row in result.fetchall()]
 
 
+async def get_memberreports(clubno:int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.periodNo, a.periodMonth,a.clubNo,b.periodTitle2, 
+                           SUM(CASE WHEN a.statusType = 'JOIN'  THEN 1 ELSE 0 END) AS joinc,
+                           SUM(CASE WHEN a.statusType = 'RETIR' THEN 1 ELSE 0 END) AS retir,
+                           SUM(CASE WHEN a.statusType = 'REPEL' THEN 1 ELSE 0 END) AS repel,
+                           SUM(CASE WHEN a.statusType = 'RIP'   THEN 1 ELSE 0 END) AS rip,
+                           SUM(CASE WHEN a.statusType = 'TRANS' THEN 1 ELSE 0 END) AS trans FROM yk_memberStatus a
+        LEFT JOIN yk_period b ON a.periodNo = b.periodNo
+        WHERE a.clubNo = :clubNo and a.attrib = :xapp
+        GROUP BY
+            a.periodNo, a.periodMonth, a.clubNo
+        ORDER BY
+            a.periodNo,a.periodMonth """)
+    result = await db.execute(query, {"xapp": "1000010000", "clubNo": clubno})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
 async def get_clubstaff(clubno:int,db: AsyncSession = Depends(get_db)):
     query = text("""SELECT a.*,b1.memberName as n1,b2.memberName as n2,b3.memberName as n3,b4.memberName as n4,b5.memberName as n5,b6.memberName as n6,b7.memberName as n7,b8.memberName as n8, c1.periodTitle2 as per1 
                     FROM yk_clubStaff a left join yk_members b1 on a.chairmanNo = b1.memberNo
@@ -497,6 +516,7 @@ async def login_post(
     request.session["user_Region"] = user[3]
     request.session["user_Clubno"] = user[4]
     request.session["otp"] = otp
+    request.session["cperiod"] = current_period
     return RedirectResponse(url="/success", status_code=303)
 
 
@@ -563,8 +583,6 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
 # User
 
 # Report Member
-
-
 @app.api_route("/report_event/{clubno}",response_class=HTMLResponse ,methods=["GET", "POST"] )
 async def reportevent(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
@@ -607,8 +625,69 @@ async def reportmember(request: Request, clubno:int, db: AsyncSession = Depends(
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         periodlist = await getperiod(db)
+        reportlist = await get_memberreports(clubno,db)
+        return templates.TemplateResponse(
+            "report/reportmemberlist.html", {"request": request,
+                "session": dict(request.session),
+                "periodlist": periodlist,
+                "reportlist": reportlist})
+
+
+@app.api_route("/report_member/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"] )
+async def reportmember(request: Request,clubno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
         memberlist = await get_clubmember(clubno,db)
-        return templates.TemplateResponse("report/reportmemberlist.html", {"request": request, "session": dict(request.session),"periodlist": periodlist, "memberlist": memberlist})
+        periodlist = await getperiod(db)
+        return templates.TemplateResponse("report/reportmember.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "periodlist": periodlist})
+
+
+@app.post("/insert_clubmember_report")
+async def insert_clubmember_report(request: Request, db: AsyncSession = Depends(get_db)):
+    clubno = request.session.get("user_Clubno")
+    if not clubno:
+        return RedirectResponse(url="/login", status_code=303)
+    form = await request.form()
+    period_no = to_int(form.get("period"))
+    period_month = to_int(form.get("periodmonth"))
+    status_type = (form.get("status") or "").strip().upper()
+    # 멤버 선택
+    member_nos = form.getlist("memberNo")
+    member_nos = [to_int(x) for x in member_nos if to_int(x) > 0]
+    # 필수값 검증
+    if period_no <= 0 or period_month <= 0 or status_type == "" or len(member_nos) == 0:
+        return RedirectResponse(url=f"/report_memberlist/{clubno}", status_code=303)
+    year = to_int(form.get("year"), date.today().year)
+    if status_type == "JOIN":
+        status_from = date(year, period_month, 1)
+    else:
+        last_day = calendar.monthrange(year, period_month)[1]
+        status_from = date(year, period_month, last_day)
+    status_to = None
+    insert_sql = text("""
+        INSERT INTO yk_memberStatus
+            (clubNo, memberNo, statusFrom, statusTo, statusType, periodNo, periodMonth)
+        VALUES
+            (:clubNo, :memberNo, :statusFrom, :statusTo, :statusType, :periodNo, :periodMonth)
+    """)
+    try:
+        for m_no in member_nos:
+            params = {
+                "clubNo": clubno,
+                "memberNo": m_no,
+                "statusFrom": status_from,
+                "statusTo": status_to,
+                "statusType": status_type,
+                "periodNo": period_no,
+                "periodMonth": period_month,
+            }
+            await db.execute(insert_sql, params)
+            await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+    return RedirectResponse(url=f"/report_memberlist/{clubno}", status_code=303)
 
 
 @app.post("/insert_clubevent/")
@@ -846,17 +925,7 @@ async def insertcevent(request: Request, eventno:int, clubno:int, db: AsyncSessi
     await db.commit()
     return RedirectResponse(f"/club_eventlist/{clubno}", status_code=303)
 
-
 #Club Report List
-@app.api_route("/report_member/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"] )
-async def reportmember(request: Request,clubno:int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        memberlist = await get_clubmember(clubno,db)
-        periodlist = await getperiod(db)
-        return templates.TemplateResponse("report/reportmember.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "periodlist": periodlist})
-
 
 # Basic Data
 @app.get("/mst_rank", response_class=HTMLResponse)

@@ -24,7 +24,7 @@
                             <div class="col-md-3 ml-auto">
                                 <select id="statusFilter" style="text-align: center" class="form-control">
                                     {% for prd in periodlist %}
-                                    <option value="{{ prd.periodNo }}"{% if loop.last %}selected{% endif %} >{{ prd.periodTitle2 }} 회기</option>
+                                    <option value="{{ prd.periodNo }}"{% if prd.periodNo == session.cperiod %}selected{% endif %} >{{ prd.periodTitle2 }} 회기</option>
                                     {% endfor %}
                                 </select>
                             </div>

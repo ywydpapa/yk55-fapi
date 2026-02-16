@@ -151,7 +151,7 @@
                             <tbody>
                             <form method="POST" id="editor-form" action="/insert_clubmember_report">
                                 <tr>
-                                    <td> 행사명</td>
+                                    <td> 회원상태</td>
                                     <td>
                                         <div class="form-row">
                                             <div class="col-12 col-md-3 mb-2 mb-md-0">
@@ -159,7 +159,7 @@
                                                 <select style="text-align: center" class="form-control" name="period"
                                                         id="periodSelect">
                                                     {% for pd in periodlist %}
-                                                    <option value="{{pd.periodNo}}" {% if loop.last %}selected{% endif
+                                                    <option value="{{pd.periodNo}}" {% if pd.periodNo == session.cperiod %}selected{% endif
                                                             %}>{{pd.periodTitle2}} 회기
                                                     </option>
                                                     {% endfor %}
