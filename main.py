@@ -352,7 +352,7 @@ async def get_club(db: AsyncSession = Depends(get_db)):
 
 
 async def get_memberreports(clubno:int, db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT a.periodNo, a.periodMonth,a.clubNo,b.periodTitle2, 
+    query = text("""SELECT a.periodNo, a.periodMonth,a.clubNo,b.periodTitle2,(select count(*) from yk_members where clubNo = :clubNo and memberStatus = :stat) act, 
                            SUM(CASE WHEN a.statusType = 'JOIN'  THEN 1 ELSE 0 END) AS joinc,
                            SUM(CASE WHEN a.statusType = 'RETIR' THEN 1 ELSE 0 END) AS retir,
                            SUM(CASE WHEN a.statusType = 'REPEL' THEN 1 ELSE 0 END) AS repel,
@@ -364,7 +364,7 @@ async def get_memberreports(clubno:int, db: AsyncSession = Depends(get_db)):
             a.periodNo, a.periodMonth, a.clubNo
         ORDER BY
             a.periodNo,a.periodMonth """)
-    result = await db.execute(query, {"xapp": "1000010000", "clubNo": clubno})
+    result = await db.execute(query, {"xapp": "1000010000", "clubNo": clubno, "stat": "ACTIV"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
