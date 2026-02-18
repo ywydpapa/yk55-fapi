@@ -1,7 +1,7 @@
 from urllib import request
 import status
 import uvicorn
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi import Form, Response, HTTPException, File, UploadFile, Body
 from fastapi.templating import Jinja2Templates
@@ -994,7 +994,7 @@ async def api_member_prize_list(memberno: int, request: Request, db: AsyncSessio
 
 
 @app.get("/dist_stafflist/{clubno}", response_class=HTMLResponse)
-async def dist_stafflist(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
+async def dist_stafflist(request: Request, clubno:int,periodno: int | None = Query(None), db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
@@ -1002,7 +1002,7 @@ async def dist_stafflist(request: Request, clubno:int, db: AsyncSession = Depend
         ranklist = await get_rank(db)
         stafflist = await get_diststaff(clubno, db)
         periods = await getperiod(db)
-        cperiod = current_period
+        cperiod = periodno if periodno is not None else current_period
         return templates.TemplateResponse("club/dstafflist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "stafflist": stafflist, "periods": periods, "ranklist": ranklist, "periodno": cperiod })
 
 
@@ -1062,7 +1062,7 @@ async def updatedstaff(request: Request, db: AsyncSession = Depends(get_db)):
     clubno = request.session.get("user_Clubno")
     periodno = _clean_int(form_data.get("speriod"))
     if clubno is None or periodno is None:
-        return RedirectResponse("/dist_stafflist/{clubno}", status_code=303)
+        return RedirectResponse(f"/dist_stafflist/{clubno}?periodno={periodno}", status_code=303)
     data = {
         "clubNo": clubno,
         "periodNo": periodno,
@@ -1074,7 +1074,7 @@ async def updatedstaff(request: Request, db: AsyncSession = Depends(get_db)):
     vals = ", ".join([f":{k}" for k in insert_fields])
     update_keys = [k for k in data.keys() if k not in ("clubNo", "periodNo") and data[k] is not None]
     if not update_keys:
-        return RedirectResponse(f"/dist_stafflist/{clubno}", status_code=303)
+        return RedirectResponse(f"/dist_stafflist/{clubno}?periodno={periodno}", status_code=303)
     update_clause = ", ".join([f"{k} = VALUES({k})" for k in update_keys])
     q = text(f"""
         INSERT INTO yk_distStaff ({cols})
@@ -1084,7 +1084,7 @@ async def updatedstaff(request: Request, db: AsyncSession = Depends(get_db)):
     """)
     await db.execute(q, data)
     await db.commit()
-    return RedirectResponse(f"/dist_stafflist/{clubno}", status_code=303)
+    return RedirectResponse(f"/dist_stafflist/{clubno}?periodno={periodno}", status_code=303)
 
 @app.get("/club_eventlist/{clubno}", response_class=HTMLResponse)
 async def ceventlist(request: Request,clubno:int,db: AsyncSession = Depends(get_db)):
@@ -1093,7 +1093,7 @@ async def ceventlist(request: Request,clubno:int,db: AsyncSession = Depends(get_
     else:
         periodlist = await getperiod(db)
         ceventlist = await get_clubevents(clubno,db)
-        return templates.TemplateResponse("club/club_eventlist.html", {"request": request,"session": dict(request.session), "periodlist": periodlist, "ceventlist": ceventlist, "periodno": None})
+        return templates.TemplateResponse("club/club_eventlist.html", {"request": request,"session": dict(request.session), "periodlist": periodlist, "ceventlist": ceventlist, "periodno": current_period})
 
 
 @app.get("/club_eventlist/{clubno}/{periodno}", response_class=HTMLResponse)

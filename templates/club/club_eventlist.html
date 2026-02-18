@@ -25,7 +25,7 @@
                                 <span class="mr-3">회기</span>
                                     <select style="text-align: center" class="form-control" id="eventperiod" name="eventperiod" onchange="onPeriodChange()">
                                         {% for per in periodlist %}
-                                            <option value="{{ per.periodNo }}" {% if periodno is not none and per.periodNo == periodno %}selected{% elif periodno is none and loop.last %}selected{% endif %}>{{ per.periodTitle2 }}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
+                                            <option value="{{ per.periodNo }}" {% if per.periodNo|int == periodno|int %}selected{% endif %}>{{ per.periodTitle2 }}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
                                         {% endfor %}
                                     </select>
                             </div>

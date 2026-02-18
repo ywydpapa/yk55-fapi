@@ -3,12 +3,11 @@
 <head>
     {% include '/common/commHeader.html' %}
     <style>
-  /* dataTable2의 1열(회기)만 세로 가운데 */
-  #dataTable2 td:first-child,
-  #dataTable2 th:first-child {
-    vertical-align: middle !important;
-  }
-</style>
+        #dataTable2 td:first-child,
+        #dataTable2 th:first-child {
+            vertical-align: middle !important;
+        }
+    </style>
 </head>
 <body id="page-top">
 <!-- Page Wrapper -->
@@ -28,49 +27,55 @@
                     </div>
                     <div class="card-body">
                         <form action="/dist_staffupdate" method="post" id="editor-form">
-                        <div class="row mb-3">
-                            <div class="col-md-3 ml-auto">
-                                <select id="speriod" name="speriod" class="form-control">
-                                    {% for per in periods %}
-                                    <option value="{{ per.periodNo }}" {% if per.periodNo == periodno %}selected{% endif %}>{{ per.periodTitle2 }} 회기</option>
-                                    {% endfor %}
-                                </select>
+                            <div class="row mb-3">
+                                <div class="col-md-3 ml-auto">
+                                    <select id="speriod" name="speriod" class="form-control" style="text-align: center">
+                                        {% for per in periods %}
+                                        <option value="{{ per.periodNo }}" {% if per.periodNo|int== periodno|int
+                                                %}selected{% endif %}>{{ per.periodTitle2 }} 회기
+                                        </option>
+                                        {% endfor %}
+                                        <option value="ALL">전체표시</option>
+                                    </select>
+                                </div>
                             </div>
-                        </div>
-                        <hr>
-                        <div class="table-responsive">
-                            <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
-                                <tbody>
-                                <tr style="text-align: center">
-                                <th style="vertical-align: middle">지구직책</th>
-                                <td>
-                                    <select class="form-control"  style="text-align: center" id="drank" name="drank" required>
-                                            <option value="">미지정</option>
-                                            {% for rank in ranklist %}
-                                            <option value="{{rank.rankNo}}">{{rank.rankTitle}}</option>
-                                            {% endfor %}
-                                        </select>
-                                </td>
-                                    <th style="vertical-align: middle">회원명</th>
-                                    <td>
-                                        <select class="form-control"  style="text-align: center" id="dstaff" name="dstaff" required>
-                                            <option value="">미지정</option>
-                                            {% for mem in memberlist %}
-                                            <option value="{{mem.memberNo}}">{{mem.memberName}}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </td>
-                                    <td>
-                                        <div class="row justify-content-end">
-                                            <div class="col" style="max-width: 100%">
-                                                <button type="submit" class="form-control btn btn-danger">지구임원 저장</button>
+                            <div class="table-responsive">
+                                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                                    <tbody>
+                                    <tr style="text-align: center">
+                                        <th style="vertical-align: middle">지구직책</th>
+                                        <td>
+                                            <select class="form-control" style="text-align: center" id="drank"
+                                                    name="drank" required>
+                                                <option value="">미지정</option>
+                                                {% for rank in ranklist %}
+                                                <option value="{{rank.rankNo}}">{{rank.rankTitle}}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </td>
+                                        <th style="vertical-align: middle">회원명</th>
+                                        <td>
+                                            <select class="form-control" style="text-align: center" id="dstaff"
+                                                    name="dstaff" required>
+                                                <option value="">미지정</option>
+                                                {% for mem in memberlist %}
+                                                <option value="{{mem.memberNo}}">{{mem.memberName}}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <div class="row justify-content-end">
+                                                <div class="col" style="max-width: 100%">
+                                                    <button type="submit" class="form-control btn btn-danger">지구임원 저장
+                                                    </button>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <hr>
                         </form>
                         <table class="table table-bordered" id="dataTable2" width="100%" cellspacing="0">
                             <tbody>
@@ -80,10 +85,10 @@
                                 <th>성명</th>
                             </tr>
                             {% for staff in stafflist %}
-                            <tr style="text-align: center">
-                                <td>{{staff.per1}}</td>
-                                <td>{{staff.r1 or '-'}}</td>
-                                <td>{{staff.n1 or '-'}}</td>
+                            <tr style="text-align: center" class="staff-row" data-period="{{ staff.periodNo }}">
+                                <td class="per-cell">{{ staff.per1 }}</td>
+                                <td>{{ staff.r1 or '-' }}</td>
+                                <td>{{ staff.n1 or '-' }}</td>
                             </tr>
                             {% endfor %}
                             </tbody>
@@ -116,8 +121,16 @@
 {% include '/common/adscripttable.html' %}
 <script>
   $(document).ready(function () {
-    function mergeTableRowspan(tableSelector, colIndex) {
-      const $rows = $(tableSelector + " tbody tr");
+
+    function resetMerge(tableSelector, colIndex) {
+      $(tableSelector + " tbody tr").each(function () {
+        const $cell = $(this).children("th, td").eq(colIndex);
+        $cell.show().removeAttr("rowspan");
+      });
+    }
+
+    function mergeTableRowspanVisible(tableSelector, colIndex) {
+      const $rows = $(tableSelector + " tbody tr:visible");
       if ($rows.length <= 1) return;
 
       let lastText = null;
@@ -125,11 +138,8 @@
       let span = 1;
 
       $rows.each(function (i) {
-        // 첫 번째 행이 헤더(회기/직책/성명)라면 건너뜀
-        if (i === 0) return;
-
-        const $cells = $(this).children("th, td");
-        const $cell = $cells.eq(colIndex);
+        if (i === 0) return; // 헤더 스킵(첫 tr)
+        const $cell = $(this).children("th, td").eq(colIndex);
         const text = $.trim($cell.text());
 
         if (lastText === null) {
@@ -142,7 +152,7 @@
         if (text === lastText) {
           span += 1;
           $lastCell.attr("rowspan", span);
-          $cell.hide(); // 중복 셀 숨김(병합 효과)
+          $cell.hide();
         } else {
           lastText = text;
           $lastCell = $cell;
@@ -151,9 +161,27 @@
       });
     }
 
-    // 회기 컬럼 = 0번째(첫 번째) 컬럼
-    mergeTableRowspan("#dataTable2", 0);
+    function filterByPeriod() {
+      const selected = $.trim(String($("#speriod").val()));
+
+      if (selected === "ALL") {
+        $("#dataTable2 tbody tr.staff-row").show();
+      } else {
+        $("#dataTable2 tbody tr.staff-row").each(function () {
+          const rowPeriodNo = $.trim(String($(this).data("period")));
+          $(this).toggle(rowPeriodNo === selected);
+        });
+      }
+
+      resetMerge("#dataTable2", 0);
+      mergeTableRowspanVisible("#dataTable2", 0);
+    }
+
+    filterByPeriod();
+    $("#speriod").on("change", filterByPeriod);
+
   });
 </script>
+
 </body>
 </html>

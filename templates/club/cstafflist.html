@@ -30,9 +30,9 @@
                         <form action="/club_staffupdate" method="post" id="editor-form">
                         <div class="row mb-3">
                             <div class="col-md-3 ml-auto">
-                                <select id="speriod" name="speriod" class="form-control">
+                                <select id="speriod" name="speriod" class="form-control" style="text-align: center">
                                     {% for per in periods %}
-                                    <option value="{{ per.periodNo }}" {% if periodno is not none and per.periodNo == periodno %}selected{% elif periodno is none and loop.last %}selected{% endif %}>{{ per.periodTitle2 }} 회기</option>
+                                    <option value="{{ per.periodNo }}" {% if per.periodNo|int == periodno|int %}selected{% endif %}>{{ per.periodTitle2 }} 회기</option>
                                     {% endfor %}
                                 </select>
                             </div>
