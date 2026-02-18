@@ -21,14 +21,14 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">새행사 등록</h1>
+                <h1 class="h3 mb-4 text-gray-800">지구행사 수정</h1>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
                         <table class="table table-bordered text-center">
                             <thead>
                             </thead>
                             <tbody>
-                            <form method="POST" id="editor-form" action="/cevent_update/{{eventdtl[0]}}/{{session.user_Clubno}}">
+                            <form method="POST" id="editor-form" action="/devent_update/{{eventdtl[0]}}">
                                 <tr>
                                     <td> 행사명 </td>
                                     <td> <input class="form-control" id="ceventtitle" name="ceventtitle" type="text"  value="{{ eventdtl[2] }}" required ></td>
@@ -70,7 +70,7 @@
                                     <td colspan="2">
                                         <div class="col-12"
                                              style="display: flex; justify-content: space-between; gap: 10px;">
-                                            <a href="#" onclick="window.location.href='/club_eventlist/{{session.user_Clubno}}'; return false;"
+                                            <a href="#" onclick="window.location.href='/dist_eventlist'; return false;"
                                                class="btn btn-dark"
                                                role="button" style="flex: 0 0 30%;">행사 목록으로 돌아가기</a>
                                             <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">변경내용 저장

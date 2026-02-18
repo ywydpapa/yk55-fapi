@@ -17,46 +17,48 @@
                 <!-- Page Heading -->
                 <div class="card shadow mb-4">
                     <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary">인사말, 축사  목록</h6>
+                        <h6 class="m-0 font-weight-bold text-primary">봉사실적 보고 목록</h6>
                     </div>
                     <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-3 ml-auto">
+                                <select id="statusFilter" style="text-align: center" class="form-control">
+                                    {% for prd in periodlist %}
+                                    <option value="{{ prd.periodNo }}"{% if prd.periodNo|int == periodno|int %}selected{% endif %} >{{ prd.periodTitle2 }} 회기</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <hr>
                         <div class="table-responsive">
                             <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
                                 <thead>
                                 <tr style="text-align: center">
-                                    <th>작성목적</th>
-                                    <th>작성자</th>
-                                    <th>제목</th>
-                                    <th>등록일/수정일</th>
-                                    <th>배치순서</th>
-                                    <th>미리보기</th>
+                                    <th>행사명</th>
+                                    <th>행사구분</th>
+                                    <th>기간</th>
+                                    <th>참여인원</th>
+                                    <th>소요비용</th>
+                                    <th>기타</th>
                                 </tr>
                                 </thead>
                                 <tbody>
-                                    {% for doc in doclist %}
-                                    <tr>
-                                    <td style="text-align: center">{{ doc[12] }}</td>
-                                    <td style="text-align: center">{{ doc[3] }}{{ doc[4] }}</td>
-                                    <td style="text-align: center"><a href = /yk55greet_edit/{{doc[0]}}>{{ doc[1] }}</a></td>
-                                    <td style="text-align: center">{{ doc[9] }}{% if doc[10] is not none %}  / {{ doc[10] }}{% endif %}</td>
+                                {% for evt in eventlist %}
+                                <tr style="text-align: center">
+                                    <td><a href="/report_eventedit/{{ evt.eventNo }}">{{ evt.eventTitle }}</a></td>
+                                    <td>{% if evt.eventType == 'CLUBE'%}클럽행사{% else %}지구행사{% endif %}</td>
+                                    <td>{{ evt.eventFrom }} ~ {{ evt.eventTo }}</td>
+                                    <td>{{ evt.cnt }}</td>
                                     <td></td>
-                                    <td style="text-align: center">
-                                        <button
-                                            type="button"
-                                            class="btn btn-outline-primary btn-sm"
-                                            title="미리보기"
-                                            onclick="openPreview({{ doc[0] }})" >
-                                        <i class="fas fa-print"></i>
-                                        </button>
-                                    </td>
-                                    </tr>
-                                    {% endfor %}
+                                    <td></td>
+                                </tr>
+                                {% endfor %}
                                 </tbody>
                             </table>
                         </div>
                         <div class="row justify-content-end">
                                 <div class="col" style="max-width: 30%">
-                                  <button type="button" class="form-control btn btn-danger" onclick="regnew()">새문서 등록 </button>
+                                  <button type="button" class="form-control btn btn-danger" onclick="regnew()">새로운 보고 등록 </button>
                                 </div>
                         </div>
                     </div>
@@ -84,32 +86,27 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/common/commonScript.html' %}
+{% include '/common/adscripttable.html' %}
 <script>
-function regnew() {
+  $(document).ready(function () {
+      const table = $('#dataTable').DataTable({
+          pageLength: 20,
+          order: [[4, "asc"]],
+          columnDefs: [
+              {className: "dt-center", targets: "_all"}
+          ]
+      });
+  })
+
+    function regnew() {
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = '/yk55greet_reg';
+    form.action = '/report_event/{{session.user_Clubno}}';
     document.body.appendChild(form);
     form.submit();
     document.body.removeChild(form);
-}
-
-function openPreview(greetno) {
-  const url = `/yk55greet_preview/${greetno}`;
-
-  // A4 비율에 가까운 팝업 크기 (대략 1:1.414)
-  const w = 900;
-  const h = 1270;
-
-  const left = Math.max(0, (window.screen.width - w) / 2);
-  const top = Math.max(0, (window.screen.height - h) / 2);
-
-  window.open(
-    url,
-    "greet_preview",
-    `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`
-  );
-}
+  }
 </script>
+
 </body>
 </html>

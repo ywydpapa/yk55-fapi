@@ -179,7 +179,7 @@
                                                 <select style="text-align: center" class="form-control" name="period"
                                                         id="periodSelect">
                                                     {% for pd in periodlist %}
-                                                    <option value="{{pd.periodNo}}" {% if pd.periodNo == session.cperiod %}selected{% endif
+                                                    <option value="{{pd.periodNo}}" {% if pd.periodNo|int == periodno|int %}selected{% endif
                                                             %}>{{pd.periodTitle2}} 회기
                                                     </option>
                                                     {% endfor %}
@@ -191,7 +191,7 @@
                                                 <select class="form-control" name="event" id="eventSelect" required>
                                                     {% for ev in eventlist %}
                                                     <option value="{{ev.eventNo}}" data-period="{{ev.periodNo}}">
-                                                        {{ev.eventTitle}}
+                                                        {{ev.eventTitle}} (예산 : {{ev.eventCost|currency}})
                                                     </option>
                                                     {% endfor %}
                                                 </select>

@@ -70,14 +70,23 @@
             <span>공지사항 관리</span></a>
     </li>
     <li class="nav-item">
-        <a class="nav-link" href="#">
+        <a class="nav-link" href="/dist_eventlist">
             <i class="fas fa-fw fa-text-width"></i>
             <span>행사 관리</span></a>
     </li>
     <li class="nav-item">
-        <a class="nav-link" href="#">
-            <i class="fas fa-fw fa-chart-area"></i>
-            <span>클럽 업무 보고 </span></a>
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseReports"
+           aria-expanded="true" aria-controls="collapseReports">
+            <i class="fas fa-fw fa-cog"></i>
+            <span>클럽 업무 보고</span>
+        </a>
+        <div id="collapseReports" class="collapse" aria-labelledby="headingUtilities"
+             data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="/report_lists_clubevent">행사 보고</a>
+                <a class="collapse-item" href="/report_lists_clubmember">인원 보고</a>
+            </div>
+        </div>
     </li>
     <li class="nav-item">
         <a class="nav-link" href="#">

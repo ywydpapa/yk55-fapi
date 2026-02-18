@@ -49,14 +49,23 @@
                                 </tr>
                                 <tr>
                                     <td> 행사종료 </td>
-                                    <td><input class="form-control" id="eventto" name="eventto" type="datetime-local" required ></tr>
+                                    <td><input class="form-control" id="eventto" name="eventto" type="datetime-local" required ></td>
+                                </tr>
                                 <tr>
                                     <td> 적용회기 </td>
                                     <td> <select class="form-control" id="eventperiod" name="eventperiod">
                                         {% for per in periodlist %}
-                                        <option value="{{per.periodNo}}" {% if loop.last %}selected{% endif %}>{{per.periodTitle2}}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
+                                        <option value="{{per.periodNo}}" {% if per.periodNo == periodno %}selected{% endif %}>{{per.periodTitle2}}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
                                         {% endfor %}
                                         </select></td>
+                                </tr>
+                                <tr>
+                                    <td> 소요비용 </td>
+                                    <td><input style="text-align: right" class="form-control" id="eventcost" name="eventcost" type="number" required value="10000"></td>
+                                </tr>
+                                <tr>
+                                    <td> 배치순서 </td>
+                                    <td><input style="text-align: right" class="form-control" id="sortno" name="sortno" type="number" required value="100"></td>
                                 </tr>
                                 <tr>
                                     <td colspan="2">

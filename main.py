@@ -28,6 +28,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pathlib import Path
 import calendar
 from datetime import date
+from fastapi.templating import Jinja2Templates
 
 dotenv.load_dotenv()
 DATABASE_URL = os.getenv("dburl")
@@ -50,15 +51,34 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def currency(value, symbol="₩", suffix="", places=0):
+    if value is None or value == "":
+        return ""
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return value
+    if places == 0:
+        formatted = f"{int(round(n)):,}"
+    else:
+        formatted = f"{n:,.{places}f}"
+    return f"{symbol}{formatted}{suffix}"
+
+
 templates = Jinja2Templates(directory="templates")
+templates.env.filters["currency"] = currency
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/thumbnails", StaticFiles(directory="static/img/members/"), name="thumbnails")
 THUMBNAIL_DIR = "./static/img/memberThumb"
 MEMBERPHOTO_DIR = "./static/img/members"
 CLUBLOGOS_DIR = "./static/img/clubLogos"
 GOVLOGOS_DIR = "./static/img/govLogos"
-EVENTPHOTO_DIR =  "./static/img/event"
+EVENTPHOTO_DIR = "./static/img/event"
+DOCPHOTO_DIR = "./static/img/docs"
 BASE_DIR = Path(__file__).resolve().parent
+
 
 # 데이터베이스 세션 생성
 async def get_db():
@@ -119,6 +139,20 @@ async def save_memberPhoto(image_data: bytes, memberno: int, size=(200, 300)):
     return thumbnail_path
 
 
+async def save_docPhoto(image_data: bytes, docno: int, size=(200, 300)):
+    # 디렉토리가 없으면 생성
+    os.makedirs(DOCPHOTO_DIR, exist_ok=True)
+    # 원본 이미지를 Pillow로 열기
+    image = Image.open(io.BytesIO(image_data))
+    # 썸네일 생성
+    image.thumbnail(size)
+    # 저장 경로
+    thumbnail_path = os.path.join(DOCPHOTO_DIR, f"docphoto_{docno}.png")
+    # 썸네일 저장
+    image.save(thumbnail_path, format="PNG")
+    return thumbnail_path
+
+
 async def save_eventPhoto(image_data: bytes, eventno: int, size=(200, 300)):
     # 디렉토리가 없으면 생성
     os.makedirs(EVENTPHOTO_DIR, exist_ok=True)
@@ -135,31 +169,34 @@ async def save_eventPhoto(image_data: bytes, eventno: int, size=(200, 300)):
 
 async def get_member_prize_list(memberno: int, db: AsyncSession = Depends(get_db)):
     q = text("""
-        SELECT d.mpNo as id,
-               d.prizeNo,
-               c.prizeTitle,
-               d.prizeMemo,
-               DATE_FORMAT(d.prizeDate, '%Y-%m-%d') AS prizeDate
-          FROM yk_memberPrize d
-          JOIN yk_prize c ON c.prizeNo = d.prizeNo
-         WHERE d.memberNo = :mno
-           AND d.attrib = :xapp
-         ORDER BY d.prizeDate ASC
-    """)
+             SELECT d.mpNo                               as id,
+                    d.prizeNo,
+                    c.prizeTitle,
+                    d.prizeMemo,
+                    DATE_FORMAT(d.prizeDate, '%Y-%m-%d') AS prizeDate
+             FROM yk_memberPrize d
+                      JOIN yk_prize c ON c.prizeNo = d.prizeNo
+             WHERE d.memberNo = :mno
+               AND d.attrib = :xapp
+             ORDER BY d.prizeDate ASC
+             """)
     result = await db.execute(q, {"mno": memberno, "xapp": "1000010000"})
     return [dict(r._mapping) for r in result.fetchall()]
 
 
 async def get_member_detail_list(memberno: int, db: AsyncSession = Depends(get_db)):
     q = text("""
-        SELECT d.infoNo as id, d.catNo, c.catTitle, d.detailInfo,
-               DATE_FORMAT(d.regDate, '%Y-%m-%d') AS regDate
-          FROM yk_memberDetailinfo d
-          JOIN yk_category c ON c.catNo = d.catNo
-         WHERE d.memberNo = :mno
-           AND d.attrib = :xapp
-         ORDER BY d.regDate, d.infoNo
-    """)
+             SELECT d.infoNo                           as id,
+                    d.catNo,
+                    c.catTitle,
+                    d.detailInfo,
+                    DATE_FORMAT(d.regDate, '%Y-%m-%d') AS regDate
+             FROM yk_memberDetailinfo d
+                      JOIN yk_category c ON c.catNo = d.catNo
+             WHERE d.memberNo = :mno
+               AND d.attrib = :xapp
+             ORDER BY d.regDate, d.infoNo
+             """)
     result = await db.execute(q, {"mno": memberno, "xapp": "1000010000"})
     return [dict(r._mapping) for r in result.fetchall()]
 
@@ -170,6 +207,7 @@ def _clean_str(value: object) -> str | None:
     s = str(value).strip()
     return s if s != "" else None
 
+
 def _clean_int(value: object) -> int | None:
     s = _clean_str(value)
     if s is None:
@@ -179,6 +217,7 @@ def _clean_int(value: object) -> int | None:
     except ValueError:
         raise ValueError(f"Invalid integer input: {s!r}")
 
+
 def to_int(s, default=0):
     try:
         return int(s)
@@ -187,7 +226,8 @@ def to_int(s, default=0):
 
 
 @app.post("/uploadmphoto/{memberno}")
-async def upload_logoimage(request: Request,memberno: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+async def upload_logoimage(request: Request, memberno: int, file: UploadFile = File(...),
+                           db: AsyncSession = Depends(get_db)):
     try:
         # 이미지 파일인지 확인
         if not file.content_type.startswith('image/'):
@@ -207,8 +247,29 @@ async def upload_logoimage(request: Request,memberno: int, file: UploadFile = Fi
         return RedirectResponse(f"/member_edit/{memberno}", status_code=303)
 
 
+@app.post("/uploaddocmphoto/{docno}")
+async def upload_docimage(request: Request, docno: int, file: UploadFile = File(...),
+                           db: AsyncSession = Depends(get_db)):
+    try:
+        # 이미지 파일인지 확인
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File type not supported.")
+        # 파일 읽기
+        contents = await file.read()
+        # 이미지 사이즈 조절
+        contents = await resize_image_if_needed(contents, max_bytes=102400)
+        # 이미지 저장
+        await save_docPhoto(contents, docno)
+
+        return RedirectResponse(f"/yk55greet_edit/{docno}", status_code=303)
+    except Exception as e:
+        print(f"Error: {e}")
+        return RedirectResponse(f"/yk55greet_edit/{docno}", status_code=303)
+
+
 @app.post("/uploadcephoto/{eventno}")
-async def upload_eventimage(request: Request,eventno: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+async def upload_eventimage(request: Request, eventno: int, file: UploadFile = File(...),
+                            db: AsyncSession = Depends(get_db)):
     try:
         # 이미지 파일인지 확인
         if not file.content_type.startswith('image/'):
@@ -227,7 +288,8 @@ async def upload_eventimage(request: Request,eventno: int, file: UploadFile = Fi
 
 
 @app.post("/uploadcmphoto/{memberno}")
-async def upload_cmimage(request: Request,memberno: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+async def upload_cmimage(request: Request, memberno: int, file: UploadFile = File(...),
+                         db: AsyncSession = Depends(get_db)):
     try:
         # 이미지 파일인지 확인
         if not file.content_type.startswith('image/'):
@@ -251,7 +313,7 @@ async def generate_otp():
     return str(secrets.randbelow(10 ** 9)).zfill(9)
 
 
-async def reg_otp(otp:str, userNo:int, db:AsyncSession = Depends(get_db)):
+async def reg_otp(otp: str, userNo: int, db: AsyncSession = Depends(get_db)):
     try:
         query = text("INSERT INTO yk_seckey (userNo, otp) VALUES (:userNo, :otp)")
         await db.execute(query, {"userNo": userNo, "otp": otp})
@@ -261,7 +323,7 @@ async def reg_otp(otp:str, userNo:int, db:AsyncSession = Depends(get_db)):
         return False
 
 
-async def exp_otp(userNo:int, db:AsyncSession = Depends(get_db)):
+async def exp_otp(userNo: int, db: AsyncSession = Depends(get_db)):
     try:
         now = datetime.datetime.now()
         query = text("UPDATE yk_seckey SET modDate = now(), attrib = :xup where userNo = :userNo and attrib = :xapp")
@@ -272,19 +334,19 @@ async def exp_otp(userNo:int, db:AsyncSession = Depends(get_db)):
         return False
 
 
-async def getdocList(db:AsyncSession = Depends(get_db)):
+async def getdocList(db: AsyncSession = Depends(get_db)):
     try:
-        query = text("SELECT * FROM yk_doc where attrib = :xapp")
-        doclist = await db.execute(query, {"xapp":'1000010000'})
+        query = text("SELECT a.*, b.eventTitle FROM yk_doc a left join yk_event b on a.docEvent = b.eventNo where a.attrib = :xapp")
+        doclist = await db.execute(query, {"xapp": '1000010000'})
         return doclist.fetchall()
     except Exception as e:
         return None
 
 
-async def getregionList(db:AsyncSession = Depends(get_db)):
+async def getregionList(db: AsyncSession = Depends(get_db)):
     try:
         query = text("SELECT * FROM yk_region where attrib = :xapp")
-        regionlist = await db.execute(query, {"xapp":'1000010000'})
+        regionlist = await db.execute(query, {"xapp": '1000010000'})
         return regionlist.fetchall()
     except Exception as e:
         return None
@@ -292,175 +354,314 @@ async def getregionList(db:AsyncSession = Depends(get_db)):
 
 async def getperiod(db: AsyncSession = Depends(get_db)):
     query = text("""
-        SELECT periodNo, yearFr, yearTo, periodTitle, periodTitle2 FROM yk_period WHERE attrib = :xapp ORDER BY periodNo """)
+                 SELECT periodNo, yearFr, yearTo, periodTitle, periodTitle2
+                 FROM yk_period
+                 WHERE attrib = :xapp
+                 ORDER BY periodNo """)
     result = await db.execute(query, {"xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def getcategory(cattype: str,db: AsyncSession = Depends(get_db)):
+async def getcategory(cattype: str, db: AsyncSession = Depends(get_db)):
     query = text("""
-        SELECT catNo, catTitle, catTitleEng FROM yk_category WHERE attrib = :xapp and catType = :cattype""")
+                 SELECT catNo, catTitle, catTitleEng
+                 FROM yk_category
+                 WHERE attrib = :xapp
+                   and catType = :cattype""")
     result = await db.execute(query, {"xapp": "1000010000", "cattype": cattype})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
 async def getprizelist(db: AsyncSession = Depends(get_db)):
     query = text("""
-        SELECT prizeNo, prizeTitle, prizeType FROM yk_prize WHERE attrib = :xapp""")
+                 SELECT prizeNo, prizeTitle, prizeType
+                 FROM yk_prize
+                 WHERE attrib = :xapp""")
     result = await db.execute(query, {"xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_event_dist_club(clubno:int, db: AsyncSession = Depends(get_db)):
+async def get_event_dist_club(clubno: int, db: AsyncSession = Depends(get_db)):
     query = text("""
-        SELECT a.eventNo, a.periodNo,a.eventTitle,a.eventTitleEng,a.eventType,a.eventFrom,a.eventTo,a.clubNo, count(b.eventNo) as cnt FROM yk_event a left join yk_eventMember b on a.eventNo = b.eventNo and b.attrib = :xapp 
-        WHERE a.attrib = :xapp and (a.clubNo = :clubno or a.regionNo = 0) group by b.eventNo ORDER BY a.eventFrom """)
+                 SELECT a.eventNo,
+                        a.periodNo,
+                        a.eventTitle,
+                        a.eventTitleEng,
+                        a.eventType,
+                        a.eventFrom,
+                        a.eventTo,
+                        a.clubNo,
+                        count(b.eventNo) as cnt,
+                        a.eventCost
+                 FROM yk_event a
+                          left join yk_eventMember b on a.eventNo = b.eventNo and b.attrib = :xapp
+                 WHERE a.attrib = :xapp
+                   and (a.clubNo = :clubno or a.regionNo = 0)
+                 group by b.eventNo
+                 HAVING COUNT(b.eventNo) > 0
+                 ORDER BY a.eventFrom, a.sortNo """)
     result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_clubevents(clubno:int, db: AsyncSession = Depends(get_db)):
+async def get_clubevents(clubno: int, db: AsyncSession = Depends(get_db)):
     query = text("""
-        SELECT eventNo, periodNo,eventTitle,eventTitleEng,eventType,eventFrom,eventTo,clubNo FROM yk_event WHERE attrib = :xapp and clubNo = :clubno ORDER BY eventFrom """)
+                 SELECT eventNo,
+                        periodNo,
+                        eventTitle,
+                        eventTitleEng,
+                        eventType,
+                        eventFrom,
+                        eventTo,
+                        clubNo,
+                        eventCost,
+                        sortNo
+                 FROM yk_event
+                 WHERE attrib = :xapp
+                   and clubNo = :clubno
+                 ORDER BY eventFrom """)
     result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno})
     # Row -> dict
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_clubeventsperiod(clubno:int,periodno:int ,db: AsyncSession = Depends(get_db)):
+async def get_distevents(db: AsyncSession = Depends(get_db)):
     query = text("""
-        SELECT eventNo, periodNo,eventTitle,eventTitleEng,eventType,eventFrom,eventTo,clubNo FROM yk_event WHERE attrib = :xapp and clubNo = :clubno and periodNo = :periodno ORDER BY eventFrom """)
+                 SELECT eventNo,
+                        periodNo,
+                        eventTitle,
+                        eventTitleEng,
+                        eventType,
+                        eventFrom,
+                        eventTo,
+                        clubNo,
+                        eventCost,
+                        sortNo
+                 FROM yk_event
+                 WHERE attrib = :xapp
+                   and regionNo = :regionno
+                     and clubNo is null 
+                 ORDER BY eventFrom """)
+    result = await db.execute(query, {"xapp": "1000010000", "regionno": 0})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_clubeventsperiod(clubno: int, periodno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""
+                 SELECT eventNo,
+                        periodNo,
+                        eventTitle,
+                        eventTitleEng,
+                        eventType,
+                        eventFrom,
+                        eventTo,
+                        clubNo,
+                        eventCost,
+                        sortNo
+                 FROM yk_event
+                 WHERE attrib = :xapp
+                   and (clubNo = :clubno or regionNo = 0)
+                   and periodNo = :periodno
+                 ORDER BY eventFrom """)
     result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno, "periodno": periodno})
     # Row -> dict
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_eventdtl(eventno:int, db: AsyncSession = Depends(get_db)):
+async def get_eventdtl(eventno: int, db: AsyncSession = Depends(get_db)):
     query = text("""
-        SELECT * FROM yk_event WHERE attrib = :xapp and eventNo = :eventno""")
+                 SELECT *
+                 FROM yk_event
+                 WHERE attrib = :xapp
+                   and eventNo = :eventno""")
     result = await db.execute(query, {"xapp": "1000010000", "eventno": eventno})
     return result.fetchone()
 
 
-async def get_eventmembers(eventno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * from yk_eventMember where attrib = :xapp and eventNo = :eno""")
+async def get_eventmembers(eventno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT *
+                    from yk_eventMember
+                    where attrib = :xapp
+                      and eventNo = :eno""")
     result = await db.execute(query, {"xapp": "1000010000", "eno": eventno})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_cabhist(periodno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * from yk_distStaff where attrib = :xapp and periodNo = :pno and cabYn = :cyn """)
+async def get_cabhist(periodno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT *
+                    from yk_distStaff
+                    where attrib = :xapp
+                      and periodNo = :pno
+                      and cabYn = :cyn """)
     result = await db.execute(query, {"xapp": "1000010000", "pno": periodno, "cyn": 'Y'})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_dmemberhist(periodno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * from yk_distStaff where attrib = :xapp and periodNo = :pno """)
+async def get_dmemberhist(periodno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT *
+                    from yk_distStaff
+                    where attrib = :xapp
+                      and periodNo = :pno """)
     result = await db.execute(query, {"xapp": "1000010000", "pno": periodno})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_dmemberhist_wname(periodno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT a.*, b.rankTitle, c.memberName, d.clubName, b.sortNo from yk_distStaff a left join yk_rank b on a.rankNo = b.rankNo left join yk_members c on a.memberNo = c.memberNo left join yk_club d on a.clubNo = d.clubNo where a.attrib = :xapp and a.periodNo = :pno order by b.sortNo""")
+async def get_dmemberhist_wname(periodno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.*, b.rankTitle, c.memberName, d.clubName, b.sortNo
+                    from yk_distStaff a
+                             left join yk_rank b on a.rankNo = b.rankNo
+                             left join yk_members c on a.memberNo = c.memberNo
+                             left join yk_club d on a.clubNo = d.clubNo
+                    where a.attrib = :xapp
+                      and a.periodNo = :pno
+                    order by b.sortNo""")
     result = await db.execute(query, {"xapp": "1000010000", "pno": periodno})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
 async def get_rank(db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * FROM yk_rank where attrib = :xapp order by sortNo""")
+    query = text("""SELECT *
+                    FROM yk_rank
+                    where attrib = :xapp
+                    order by sortNo""")
     result = await db.execute(query, {"xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
 async def get_category(db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT a.* FROM yk_category a where a.attrib = :xapp""")
+    query = text("""SELECT a.*
+                    FROM yk_category a
+                    where a.attrib = :xapp""")
     result = await db.execute(query, {"xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_cat_detail(catno:int, db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT a.* FROM yk_category a where a.attrib = :xapp and a.catNo = :catno""")
+async def get_cat_detail(catno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.*
+                    FROM yk_category a
+                    where a.attrib = :xapp
+                      and a.catNo = :catno""")
     result = await db.execute(query, {"xapp": "1000010000", "catno": catno})
     return result.fetchone()
 
 
 async def get_prize(db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT a.* FROM yk_prize a where a.attrib = :xapp""")
+    query = text("""SELECT a.*
+                    FROM yk_prize a
+                    where a.attrib = :xapp""")
     result = await db.execute(query, {"xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_prize_detail(prizeno:int, db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT a.* FROM yk_prize a where a.attrib = :xapp and a.prizeNo = :prizeno""")
+async def get_prize_detail(prizeno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.*
+                    FROM yk_prize a
+                    where a.attrib = :xapp
+                      and a.prizeNo = :prizeno""")
     result = await db.execute(query, {"xapp": "1000010000", "prizeno": prizeno})
     return result.fetchone()
 
 
 async def get_member(db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT a.*, b.clubName FROM yk_members a left join yk_club b on a.clubNo = b.clubNo where a.attrib = :xapp""")
+    query = text("""SELECT a.*, b.clubName
+                    FROM yk_members a
+                             left join yk_club b on a.clubNo = b.clubNo
+                    where a.attrib = :xapp""")
     result = await db.execute(query, {"xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_clubmember(clubno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * FROM yk_members where clubNo = :cno and attrib = :xapp order by memberEntdate""")
+async def get_clubmember(clubno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT *
+                    FROM yk_members
+                    where clubNo = :cno
+                      and attrib = :xapp
+                    order by memberEntdate""")
     result = await db.execute(query, {"cno": clubno, "xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_clubsponser(clubno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT memberNo, memberName FROM yk_members where clubNo = :cno and attrib = :xapp order by memberEntdate""")
+async def get_clubsponser(clubno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT memberNo, memberName
+                    FROM yk_members
+                    where clubNo = :cno
+                      and attrib = :xapp
+                    order by memberEntdate""")
     result = await db.execute(query, {"cno": clubno, "xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_member_dtl(memberno:int, db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * FROM yk_members where attrib = :xapp and memberNo = :membno""")
+async def get_member_dtl(memberno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT *
+                    FROM yk_members
+                    where attrib = :xapp
+                      and memberNo = :membno""")
     result = await db.execute(query, {"xapp": "1000010000", "membno": memberno})
     return result.fetchone()
 
 
 async def get_club(db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * FROM yk_club where attrib = :xapp order by clubCno""")
+    query = text("""SELECT *
+                    FROM yk_club
+                    where attrib = :xapp
+                    order by clubCno""")
     result = await db.execute(query, {"xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_memberreports(clubno:int, db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT a.periodNo, a.periodMonth,a.clubNo,b.periodTitle2,(select count(*) from yk_members where clubNo = :clubNo and memberStatus = :stat) act, 
-                           SUM(CASE WHEN a.statusType = 'JOIN'  THEN 1 ELSE 0 END) AS joinc,
-                           SUM(CASE WHEN a.statusType = 'RETIR' THEN 1 ELSE 0 END) AS retir,
-                           SUM(CASE WHEN a.statusType = 'REPEL' THEN 1 ELSE 0 END) AS repel,
-                           SUM(CASE WHEN a.statusType = 'RIP'   THEN 1 ELSE 0 END) AS rip,
-                           SUM(CASE WHEN a.statusType = 'TRANS' THEN 1 ELSE 0 END) AS trans FROM yk_memberStatus a
-        LEFT JOIN yk_period b ON a.periodNo = b.periodNo
-        WHERE a.clubNo = :clubNo and a.attrib = :xapp
-        GROUP BY
-            a.periodNo, a.periodMonth, a.clubNo
-        ORDER BY
-            a.periodNo,a.periodMonth """)
+async def get_memberreports(clubno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.periodNo,
+                           a.periodMonth,
+                           a.clubNo,
+                           b.periodTitle2,
+                           (select count(*) from yk_members where clubNo = :clubNo and memberStatus = :stat) act,
+                           SUM(CASE WHEN a.statusType = 'JOIN' THEN 1 ELSE 0 END)  AS                        joinc,
+                           SUM(CASE WHEN a.statusType = 'RETIR' THEN 1 ELSE 0 END) AS                        retir,
+                           SUM(CASE WHEN a.statusType = 'REPEL' THEN 1 ELSE 0 END) AS                        repel,
+                           SUM(CASE WHEN a.statusType = 'RIP' THEN 1 ELSE 0 END)   AS                        rip,
+                           SUM(CASE WHEN a.statusType = 'TRANS' THEN 1 ELSE 0 END) AS                        trans
+                    FROM yk_memberStatus a
+                             LEFT JOIN yk_period b ON a.periodNo = b.periodNo
+                    WHERE a.clubNo = :clubNo
+                      and a.attrib = :xapp
+                    GROUP BY a.periodNo, a.periodMonth, a.clubNo
+                    ORDER BY a.periodNo, a.periodMonth """)
     result = await db.execute(query, {"xapp": "1000010000", "clubNo": clubno, "stat": "ACTIV"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_clubstaff(clubno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT a.*,b1.memberName as n1,b2.memberName as n2,b3.memberName as n3,b4.memberName as n4,b5.memberName as n5,b6.memberName as n6,b7.memberName as n7,b8.memberName as n8, c1.periodTitle2 as per1 
-                    FROM yk_clubStaff a left join yk_members b1 on a.chairmanNo = b1.memberNo
-                         left join yk_members b2 on a.vice1stNo = b2.memberNo 
-                         left join yk_members b3 on a.vice2ndNo = b3.memberNo
-                         left join yk_members b4 on a.vice3rdNo = b4.memberNo
-                         left join yk_members b5 on a.secretaryNo = b5.memberNo
-                         left join yk_members b6 on a.treasureNo = b6.memberNo
-                         left join yk_members b7 on a.lionsteamerNo = b7.memberNo
-                         left join yk_members b8 on a.tailtNo = b8.memberNo
-                         left join yk_period c1 on a.periodNo = c1.periodNo
-                    where a.clubNo = :clubno and a.attrib = :xapp order by a.periodNo""")
+async def get_clubstaff(clubno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.*,
+                           b1.memberName   as n1,
+                           b2.memberName   as n2,
+                           b3.memberName   as n3,
+                           b4.memberName   as n4,
+                           b5.memberName   as n5,
+                           b6.memberName   as n6,
+                           b7.memberName   as n7,
+                           b8.memberName   as n8,
+                           c1.periodTitle2 as per1
+                    FROM yk_clubStaff a
+                             left join yk_members b1 on a.chairmanNo = b1.memberNo
+                             left join yk_members b2 on a.vice1stNo = b2.memberNo
+                             left join yk_members b3 on a.vice2ndNo = b3.memberNo
+                             left join yk_members b4 on a.vice3rdNo = b4.memberNo
+                             left join yk_members b5 on a.secretaryNo = b5.memberNo
+                             left join yk_members b6 on a.treasureNo = b6.memberNo
+                             left join yk_members b7 on a.lionsteamerNo = b7.memberNo
+                             left join yk_members b8 on a.tailtNo = b8.memberNo
+                             left join yk_period c1 on a.periodNo = c1.periodNo
+                    where a.clubNo = :clubno
+                      and a.attrib = :xapp
+                    order by a.periodNo""")
     result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_clubstaffhist(memberno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT c1.periodTitle2 AS p1, a.clubNo, GROUP_CONCAT(DISTINCT CASE 
+async def get_clubstaffhist(memberno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT c1.periodTitle2                         AS p1,
+                           a.clubNo,
+                           GROUP_CONCAT(DISTINCT CASE 
             WHEN a.chairmanNo    = :memberNo THEN '회장'
             WHEN a.vice1stNo     = :memberNo THEN '1부회장'
             WHEN a.vice2ndNo     = :memberNo THEN '2부회장'
@@ -481,55 +682,103 @@ async def get_clubstaffhist(memberno:int,db: AsyncSession = Depends(get_db)):
                 WHEN a.tailtNo       = :memberNo THEN 8
             END
             SEPARATOR '/') AS roles
-            FROM yk_clubStaff a 
-            LEFT JOIN yk_period c1 ON a.periodNo = c1.periodNo
-            WHERE :memberNo IN (a.chairmanNo, a.vice1stNo, a.vice2ndNo, a.vice3rdNo,a.secretaryNo, a.treasureNo, a.lionsteamerNo, a.tailtNo) GROUP BY c1.periodTitle2, a.clubNo """)
+                    FROM yk_clubStaff a
+                             LEFT JOIN yk_period c1 ON a.periodNo = c1.periodNo
+                    WHERE :memberNo IN
+                          (a.chairmanNo, a.vice1stNo, a.vice2ndNo, a.vice3rdNo, a.secretaryNo, a.treasureNo,
+                           a.lionsteamerNo, a.tailtNo)
+                    GROUP BY c1.periodTitle2, a.clubNo """)
     result = await db.execute(query, {"memberNo": memberno})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_diststaff(clubno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT a.*,b1.memberName as n1, c1.periodTitle2 as per1, d1.rankTitle as r1 
-                    FROM yk_distStaff a left join yk_members b1 on a.memberNo = b1.memberNo
-                         left join yk_period c1 on a.periodNo = c1.periodNo
-                        left join yk_rank d1 on a.rankNo = d1.rankNo
-                    where a.clubNo = :clubno and a.attrib = :xapp order by a.periodNo, d1.sortNo""")
+async def get_diststaff(clubno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.*, b1.memberName as n1, c1.periodTitle2 as per1, d1.rankTitle as r1
+                    FROM yk_distStaff a
+                             left join yk_members b1 on a.memberNo = b1.memberNo
+                             left join yk_period c1 on a.periodNo = c1.periodNo
+                             left join yk_rank d1 on a.rankNo = d1.rankNo
+                    where a.clubNo = :clubno
+                      and a.attrib = :xapp
+                    order by a.periodNo, d1.sortNo""")
     result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_diststaffmem(clubno:int,memberno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT a.*,b1.memberName as n1, c1.periodTitle2 as per1, d1.rankTitle as r1 
-                    FROM yk_distStaff a left join yk_members b1 on a.memberNo = b1.memberNo
-                         left join yk_period c1 on a.periodNo = c1.periodNo
-                        left join yk_rank d1 on a.rankNo = d1.rankNo
-                    where a.clubNo = :clubno and a.attrib = :xapp and a.memberNo = :memn order by a.periodNo, d1.sortNo""")
+async def get_diststaffmem(clubno: int, memberno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.*, b1.memberName as n1, c1.periodTitle2 as per1, d1.rankTitle as r1
+                    FROM yk_distStaff a
+                             left join yk_members b1 on a.memberNo = b1.memberNo
+                             left join yk_period c1 on a.periodNo = c1.periodNo
+                             left join yk_rank d1 on a.rankNo = d1.rankNo
+                    where a.clubNo = :clubno
+                      and a.attrib = :xapp
+                      and a.memberNo = :memn
+                    order by a.periodNo, d1.sortNo""")
     result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno, "memn": memberno})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
-async def get_club_spon(clubno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT clubNo, clubName, clubNameEng FROM yk_club where attrib = :xapp and clubNo < :clubno""")
+async def get_event_reports(db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.eventNo,
+                           c.clubName,
+                           b.eventTitle,
+                           b.eventFrom,
+                           b.eventTo,
+                           count(a.memberNo) mcnt,
+                           sum(a.supportAmt) eamt
+                    FROM yk_eventMember a
+                             left join yk_event b on a.eventNo = b.eventNo
+                             left join yk_club c on b.clubNo = c.clubNo
+                    where a.attrib = :xapp
+                    group by eventNo""")
+    result = await db.execute(query, {"xapp": "1000010000"})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_member_reports(db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.*, b1.memberName as n1, c1.periodTitle2 as per1, d1.rankTitle as r1
+                    FROM yk_distStaff a
+                             left join yk_members b1 on a.memberNo = b1.memberNo
+                             left join yk_period c1 on a.periodNo = c1.periodNo
+                             left join yk_rank d1 on a.rankNo = d1.rankNo
+                    where a.attrib = :xapp
+                    order by a.periodNo, d1.sortNo""")
+    result = await db.execute(query, {"xapp": "1000010000"})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_club_spon(clubno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT clubNo, clubName, clubNameEng
+                    FROM yk_club
+                    where attrib = :xapp
+                      and clubNo < :clubno""")
     result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno})
     return result.fetchall()
 
 
-async def get_club_dtl(clubno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * FROM yk_club where attrib = :xapp and clubNo = :clubno""")
+async def get_club_dtl(clubno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT *
+                    FROM yk_club
+                    where attrib = :xapp
+                      and clubNo = :clubno""")
     result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno})
     return result.fetchone()
 
 
-async def get_rank_dtl(rankno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * FROM yk_rank where rankNo = :rankno""")
+async def get_rank_dtl(rankno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT *
+                    FROM yk_rank
+                    where rankNo = :rankno""")
     result = await db.execute(query, {"rankno": rankno})
     return result.fetchone()
 
 
-async def getdocdetail(docno:int,db:AsyncSession = Depends(get_db)):
+async def getdocdetail(docno: int, db: AsyncSession = Depends(get_db)):
     try:
-        query = text("SELECT docNo, docEvent, memberTitle, memberName, docTitle, CONVERT(docContents using utf8mb4), docType, regDate, modDate, attrib FROM yk_doc where docNo = :docno and attrib = :xapp")
-        docconts = await db.execute(query, {"docno":docno,"xapp":'1000010000'})
+        query = text(
+            "SELECT a.docNo, a.docEvent, a.memberTitle, a.memberName, a.docTitle, CONVERT(a.docContents using utf8mb4), a.docType, a.regDate, a.modDate, b.eventTitle FROM yk_doc a left join yk_event b on a.docEvent = b.eventNo where a.docNo = :docno and a.attrib = :xapp")
+        docconts = await db.execute(query, {"docno": docno, "xapp": '1000010000'})
         row = docconts.fetchone()
         return row
     except Exception as e:
@@ -547,7 +796,7 @@ async def require_login(request: Request):
     return user_no
 
 
-async def session_chk(otp:str):
+async def session_chk(otp: str):
     try:
         sotp = request.session.get("otp")
         if otp != sotp:
@@ -582,7 +831,7 @@ async def login_post(
     result = await db.execute(query, {"username": username, "password": password})
     user = result.fetchone()
     if user is None:
-        return templates.TemplateResponse("login/login.html",{"request": request, "error": "Invalid credentials"})
+        return templates.TemplateResponse("login/login.html", {"request": request, "error": "Invalid credentials"})
     otp = await generate_otp()
     # 서버 세션에 사용자 ID 저장
     request.session["user_No"] = user[0]
@@ -596,15 +845,15 @@ async def login_post(
 
 
 # 로그인 성공 페이지
-@app.get("/success",response_class=HTMLResponse)
-async def success_page(request: Request,db:AsyncSession = Depends(get_db)):
+@app.get("/success", response_class=HTMLResponse)
+async def success_page(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
     user_Role = request.session.get("user_Role")
     user_region = request.session.get("user_Region")
     user_clubno = request.session.get("user_Clubno")
     otp = request.session.get("otp")
-    otpstat = await reg_otp(otp,user_No,db)
+    otpstat = await reg_otp(otp, user_No, db)
     msg = ""
     if otpstat is False:
         msg = "OTP 등록 실패"
@@ -614,11 +863,12 @@ async def success_page(request: Request,db:AsyncSession = Depends(get_db)):
     member_count = sum(1 for m in clubmember if m.get("memberStatus") == "ACTIV")
     template_name = "main/indexc.html" if user_Role == "CUSER" else "main/index.html"
     return templates.TemplateResponse(template_name,
-                                      {"request": request, "session": dict(request.session), "message": msg,"membercnt": member_count })
+                                      {"request": request, "session": dict(request.session), "message": msg,
+                                       "membercnt": member_count})
 
 
-@app.get("/mainpage",response_class=HTMLResponse)
-async def main_page(request: Request,db:AsyncSession = Depends(get_db)):
+@app.get("/mainpage", response_class=HTMLResponse)
+async def main_page(request: Request, db: AsyncSession = Depends(get_db)):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
     user_Role = request.session.get("user_Role")
@@ -626,19 +876,20 @@ async def main_page(request: Request,db:AsyncSession = Depends(get_db)):
     user_clubno = request.session.get("user_Clubno")
     otp = request.session.get("otp")
     msg = ""
-    clubmember = await get_clubmember(user_clubno,db)
+    clubmember = await get_clubmember(user_clubno, db)
     member_count = sum(1 for m in clubmember if m.get("memberStatus") == "ACTIV")
     if not user_No:
         return RedirectResponse(url="/")
     template_name = "main/indexc.html" if user_Role == "CUSER" else "main/index.html"
     return templates.TemplateResponse(template_name,
-                                      {"request": request,"session": dict(request.session), "message": msg, "membercnt": member_count})
+                                      {"request": request, "session": dict(request.session), "message": msg,
+                                       "membercnt": member_count})
 
 
 @app.post("/changeuserpass")
 async def change_password(
-    data: dict = Body(...),  # JSON body를 dict로 받음
-    db: AsyncSession = Depends(get_db)
+        data: dict = Body(...),  # JSON body를 dict로 받음
+        db: AsyncSession = Depends(get_db)
 ):
     sql = text("UPDATE yk_user SET userPassword = PASSWORD(:passwd) WHERE userNo = :userno")
     await db.execute(sql, {"passwd": data["passwd"], "userno": data["uno"]})
@@ -661,67 +912,108 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
     except Exception as e:
         return RedirectResponse(url="/", status_code=303)
 
+
 # User
 
 # Report Member
-@app.api_route("/report_event/{clubno}",response_class=HTMLResponse ,methods=["GET", "POST"] )
-async def reportevent(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
+@app.api_route("/report_event/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"])
+async def reportevent(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         ranklist = await get_rank(db)
         periodlist = await getperiod(db)
-        memberlist = await get_clubmember(clubno,db)
+        memberlist = await get_clubmember(clubno, db)
         eventlist = await get_event_dist_club(clubno, db)
-        return templates.TemplateResponse("report/reportevent.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "ranklist": ranklist, "periodlist": periodlist, "eventlist": eventlist})
+        periodno = current_period
+        return templates.TemplateResponse("report/reportevent.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "memberlist": memberlist, "ranklist": ranklist, "periodlist": periodlist,
+                                           "eventlist": eventlist, "periodno": periodno})
 
 
-@app.api_route("/report_eventedit/{eventno}",response_class=HTMLResponse ,methods=["GET", "POST"] )
-async def reportevent(request: Request, eventno:int, db: AsyncSession = Depends(get_db)):
+@app.api_route("/report_eventedit/{eventno}", response_class=HTMLResponse, methods=["GET", "POST"])
+async def reportevent(request: Request, eventno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         clubno = request.session.get("user_Clubno")
         ranklist = await get_rank(db)
         periodlist = await getperiod(db)
-        memberlist = await get_clubmember(clubno,db)
+        memberlist = await get_clubmember(clubno, db)
         eventdtl = await get_eventdtl(eventno, db)
         joinmember = await get_eventmembers(eventno, db)
-        return templates.TemplateResponse("report/reporteventedit.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "ranklist": ranklist, "periodlist": periodlist, "joinmember": joinmember, "eventdtl": eventdtl})
+        return templates.TemplateResponse("report/reporteventedit.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "memberlist": memberlist, "ranklist": ranklist, "periodlist": periodlist,
+                                           "joinmember": joinmember, "eventdtl": eventdtl})
+
+
+@app.get("/report_lists_clubevent", response_class=HTMLResponse)
+async def reportlistsevnt(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        periodlist = await getperiod(db)
+        eventreport = await get_event_reports(db)
+        periodno = current_period
+        return templates.TemplateResponse("report/reportlist_cevent.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "periodlist": periodlist, "eventreports": eventreport,
+                                           "periodno": periodno})
+
+
+@app.get("/report_lists_clubmember", response_class=HTMLResponse)
+async def reportlistsmem(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        periodlist = await getperiod(db)
+        eventreport = await get_event_reports(db)
+        periodno = current_period
+        return templates.TemplateResponse("report/reportlist_cevent.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "periodlist": periodlist, "eventreports": eventreport,
+                                           "periodno": periodno})
 
 
 @app.get("/report_eventlist/{clubno}", response_class=HTMLResponse)
-async def reportevent(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
+async def reportevent(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         periodlist = await getperiod(db)
         eventlist = await get_event_dist_club(clubno, db)
-        return templates.TemplateResponse("report/reporteventlist.html", {"request": request, "session": dict(request.session),"periodlist": periodlist, "eventlist": eventlist})
+        periodno = current_period
+        return templates.TemplateResponse("report/reporteventlist.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "periodlist": periodlist, "eventlist": eventlist, "periodno": periodno})
 
 
 @app.get("/report_memberlist/{clubno}", response_class=HTMLResponse)
-async def reportmember(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
+async def reportmember(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         periodlist = await getperiod(db)
-        reportlist = await get_memberreports(clubno,db)
+        reportlist = await get_memberreports(clubno, db)
         return templates.TemplateResponse(
             "report/reportmemberlist.html", {"request": request,
-                "session": dict(request.session),
-                "periodlist": periodlist,
-                "reportlist": reportlist})
+                                             "session": dict(request.session),
+                                             "periodlist": periodlist,
+                                             "reportlist": reportlist})
 
 
-@app.api_route("/report_member/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"] )
-async def reportmember(request: Request,clubno:int, db: AsyncSession = Depends(get_db)):
+@app.api_route("/report_member/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"])
+async def reportmember(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        memberlist = await get_clubmember(clubno,db)
+        memberlist = await get_clubmember(clubno, db)
         periodlist = await getperiod(db)
-        return templates.TemplateResponse("report/reportmember.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "periodlist": periodlist})
+        return templates.TemplateResponse("report/reportmember.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "memberlist": memberlist, "periodlist": periodlist})
 
 
 @app.post("/insert_clubmember_report")
@@ -747,11 +1039,10 @@ async def insert_clubmember_report(request: Request, db: AsyncSession = Depends(
         status_from = date(year, period_month, last_day)
     status_to = None
     insert_sql = text("""
-        INSERT INTO yk_memberStatus
-            (clubNo, memberNo, statusFrom, statusTo, statusType, periodNo, periodMonth)
-        VALUES
-            (:clubNo, :memberNo, :statusFrom, :statusTo, :statusType, :periodNo, :periodMonth)
-    """)
+                      INSERT INTO yk_memberStatus
+                      (clubNo, memberNo, statusFrom, statusTo, statusType, periodNo, periodMonth)
+                      VALUES (:clubNo, :memberNo, :statusFrom, :statusTo, :statusType, :periodNo, :periodMonth)
+                      """)
     try:
         for m_no in member_nos:
             params = {
@@ -772,7 +1063,7 @@ async def insert_clubmember_report(request: Request, db: AsyncSession = Depends(
 
 
 @app.post("/insert_clubevent/")
-async def save_clubevent(request: Request,db: AsyncSession = Depends(get_db)):
+async def save_clubevent(request: Request, db: AsyncSession = Depends(get_db)):
     clubno = request.session.get("user_Clubno")
     form = await request.form()
     event_no = to_int(form.get("event"))
@@ -791,7 +1082,9 @@ async def save_clubevent(request: Request,db: AsyncSession = Depends(get_db)):
             if m_no > 0:
                 support_map[m_no] = amt
     rows = []
-    sql = text("""UPDATE yk_eventMember SET attrib = :xxxup WHERE eventNo = :eventNo """)
+    sql = text("""UPDATE yk_eventMember
+                  SET attrib = :xxxup
+                  WHERE eventNo = :eventNo """)
     await db.execute(sql, {"xxxup": "XXXUPXXXUP", "eventNo": event_no})
     await db.commit()
     for m_no in member_nos:
@@ -800,48 +1093,56 @@ async def save_clubevent(request: Request,db: AsyncSession = Depends(get_db)):
             "memberNo": m_no,
             "supportAmt": support_map.get(m_no, 0)
         })
-        sql = text(""" INSERT INTO yk_eventMember (eventNo, memberNo, supportAmt) VALUES (:eventNo, :memberNo, :supportAmt) """)
+        sql = text(""" INSERT INTO yk_eventMember (eventNo, memberNo, supportAmt)
+                       VALUES (:eventNo, :memberNo, :supportAmt) """)
         await db.execute(sql, rows[-1])
         await db.commit()
     return RedirectResponse(url=f"/report_eventlist/{clubno}", status_code=303)
 
 
-#Club business
+# Club business
 
 
-#Club Member List
+# Club Member List
 @app.get("/club_memberlist/{clubno}", response_class=HTMLResponse)
-async def club_memberlist(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
+async def club_memberlist(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        memberlist = await get_clubmember(clubno,db)
-        return templates.TemplateResponse("club/cmemberlist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist})
+        memberlist = await get_clubmember(clubno, db)
+        return templates.TemplateResponse("club/cmemberlist.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "memberlist": memberlist})
 
 
 @app.get("/cmember_edit/{memberno}", response_class=HTMLResponse)
-async def cmemberedit(request: Request,memberno:int, db: AsyncSession = Depends(get_db)):
+async def cmemberedit(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         clubno = request.session.get("user_Clubno")
         clubs = await get_club(db)
         spons = await get_clubsponser(clubno, db)
-        member = await get_member_dtl(memberno,db)
-        dstaffhist = await get_diststaffmem(clubno, memberno,db)
+        member = await get_member_dtl(memberno, db)
+        dstaffhist = await get_diststaffmem(clubno, memberno, db)
         cstaffhist = await get_clubstaffhist(memberno, db)
-        catlist = await getcategory("MIDTL",db)
+        catlist = await getcategory("MIDTL", db)
         prizelist = await getprizelist(db)
         midtl_list = await get_member_detail_list(memberno, db)
         member_prize_list = await get_member_prize_list(memberno, db)
-        return templates.TemplateResponse("club/cmemberedit.html", {"request": request, "clubs": clubs,"session": dict(request.session),"memberdtl": member, "spons": spons, "dstaffhist": dstaffhist, "cstaffhist":cstaffhist, "catlist": catlist, "member_detail_list": midtl_list, "member_prize_list": member_prize_list, "prizelist": prizelist})
+        return templates.TemplateResponse("club/cmemberedit.html",
+                                          {"request": request, "clubs": clubs, "session": dict(request.session),
+                                           "memberdtl": member, "spons": spons, "dstaffhist": dstaffhist,
+                                           "cstaffhist": cstaffhist, "catlist": catlist,
+                                           "member_detail_list": midtl_list, "member_prize_list": member_prize_list,
+                                           "prizelist": prizelist})
 
 
 @app.post("/insert_MIDTL/{memberno}/")
 async def insert_midt_detail(
-    request: Request,
-    memberno: int,
-    db: AsyncSession = Depends(get_db)
+        request: Request,
+        memberno: int,
+        db: AsyncSession = Depends(get_db)
 ):
     if not request.session.get("user_No"):
         # AJAX면 JSON으로, 아니면 로그인으로 리다이렉트
@@ -861,30 +1162,35 @@ async def insert_midt_detail(
         async with db.begin():  # begin 블록이 commit/rollback 관리
             # 기존 동일키(memberNo+catNo) 유효행을 폐기
             q_up = text("""
-                UPDATE yk_memberDetailinfo
-                   SET attrib = :xup, modDate = NOW()
-                 WHERE memberNo = :mno
-                   AND catNo = :cno
-                   AND attrib = :xapp
-            """)
+                        UPDATE yk_memberDetailinfo
+                        SET attrib  = :xup,
+                            modDate = NOW()
+                        WHERE memberNo = :mno
+                          AND catNo = :cno
+                          AND attrib = :xapp
+                        """)
             await db.execute(q_up, {"xup": "XXXUPXXXUP", "mno": memberno, "cno": cat_no, "xapp": "1000010000"})
 
             # 신규 insert (attrib 기본을 유효값으로)
             q_in = text("""
-                INSERT INTO yk_memberDetailinfo (memberNo, catNo, detailInfo, attrib, regDate)
-                VALUES (:mno, :cno, :info, :xapp, NOW())
-            """)
+                        INSERT INTO yk_memberDetailinfo (memberNo, catNo, detailInfo, attrib, regDate)
+                        VALUES (:mno, :cno, :info, :xapp, NOW())
+                        """)
             result = await db.execute(q_in, {"mno": memberno, "cno": cat_no, "info": detail_info, "xapp": "1000010000"})
             new_id = result.lastrowid
 
             # 화면에 추가할 데이터(카테고리 타이틀 포함) 조회해서 반환
             q_sel = text("""
-                SELECT d.infoNo as id, d.memberNo, d.catNo, c.catTitle, d.detailInfo,
-                       DATE_FORMAT(d.regDate, '%Y-%m-%d') AS regDate
-                  FROM yk_memberDetailinfo d
-                  JOIN yk_category c ON c.catNo = d.catNo
-                 WHERE d.infoNo = :id
-            """)
+                         SELECT d.infoNo                           as id,
+                                d.memberNo,
+                                d.catNo,
+                                c.catTitle,
+                                d.detailInfo,
+                                DATE_FORMAT(d.regDate, '%Y-%m-%d') AS regDate
+                         FROM yk_memberDetailinfo d
+                                  JOIN yk_category c ON c.catNo = d.catNo
+                         WHERE d.infoNo = :id
+                         """)
             row = (await db.execute(q_sel, {"id": new_id})).mappings().first()
 
         return JSONResponse({"ok": True, "row": dict(row) if row else None})
@@ -895,9 +1201,9 @@ async def insert_midt_detail(
 
 @app.post("/insert_PRIZE/{memberno}/")
 async def insert_member_prize(
-    request: Request,
-    memberno: int,
-    db: AsyncSession = Depends(get_db)
+        request: Request,
+        memberno: int,
+        db: AsyncSession = Depends(get_db)
 ):
     if not request.session.get("user_No"):
         # AJAX면 JSON으로, 아니면 로그인으로 리다이렉트
@@ -918,30 +1224,36 @@ async def insert_member_prize(
         async with db.begin():  # begin 블록이 commit/rollback 관리
             # 기존 동일키(memberNo+catNo) 유효행을 폐기
             q_up = text("""
-                UPDATE yk_memberPrize
-                   SET attrib = :xup, modDate = NOW()
-                 WHERE memberNo = :mno
-                   AND prizeNo = :cno
-                   AND attrib = :xapp
-                   AND prizeDate = :prizedate 
-            """)
-            await db.execute(q_up, {"xup": "XXXUPXXXUP", "mno": memberno, "cno": prize_no, "xapp": "1000010000", "prizedate": prize_date})
+                        UPDATE yk_memberPrize
+                        SET attrib  = :xup,
+                            modDate = NOW()
+                        WHERE memberNo = :mno
+                          AND prizeNo = :cno
+                          AND attrib = :xapp
+                          AND prizeDate = :prizedate
+                        """)
+            await db.execute(q_up, {"xup": "XXXUPXXXUP", "mno": memberno, "cno": prize_no, "xapp": "1000010000",
+                                    "prizedate": prize_date})
 
             # 신규 insert (attrib 기본을 유효값으로)
             q_in = text("""
-                INSERT INTO yk_memberPrize (memberNo, prizeNo, prizeMemo, prizeDate)
-                VALUES (:mno, :pno, :memo, :pdate)
-            """)
+                        INSERT INTO yk_memberPrize (memberNo, prizeNo, prizeMemo, prizeDate)
+                        VALUES (:mno, :pno, :memo, :pdate)
+                        """)
             result = await db.execute(q_in, {"mno": memberno, "pno": prize_no, "memo": prize_info, "pdate": prize_date})
             new_id = result.lastrowid
             # 화면에 추가할 데이터(카테고리 타이틀 포함) 조회해서 반환
             q_sel = text("""
-                SELECT d.mpNo as id, d.memberNo, d.prizeNo, c.prizeTitle, d.prizeMemo,
-                       DATE_FORMAT(d.prizeDate, '%Y-%m-%d') AS prizeDate
-                  FROM yk_memberPrize d
-                  JOIN yk_prize c ON c.prizeNo = d.prizeNo
-                 WHERE d.mpNo = :id
-            """)
+                         SELECT d.mpNo                               as id,
+                                d.memberNo,
+                                d.prizeNo,
+                                c.prizeTitle,
+                                d.prizeMemo,
+                                DATE_FORMAT(d.prizeDate, '%Y-%m-%d') AS prizeDate
+                         FROM yk_memberPrize d
+                                  JOIN yk_prize c ON c.prizeNo = d.prizeNo
+                         WHERE d.mpNo = :id
+                         """)
             row = (await db.execute(q_sel, {"id": new_id})).mappings().first()
 
         return JSONResponse({"ok": True, "row": dict(row) if row else None})
@@ -956,17 +1268,17 @@ async def api_member_midt_list(memberno: int, request: Request, db: AsyncSession
         return JSONResponse({"ok": False, "message": "login required"}, status_code=401)
 
     q = text("""
-        SELECT d.infoNo as id,
-               d.catNo,
-               c.catTitle,
-               d.detailInfo,
-               DATE_FORMAT(d.regDate, '%Y-%m-%d') AS regDate
-          FROM yk_memberDetailinfo d
-          JOIN yk_category c ON c.catNo = d.catNo
-         WHERE d.memberNo = :mno
-           AND d.attrib = :xapp
-         ORDER BY d.catNo ASC
-    """)
+             SELECT d.infoNo                           as id,
+                    d.catNo,
+                    c.catTitle,
+                    d.detailInfo,
+                    DATE_FORMAT(d.regDate, '%Y-%m-%d') AS regDate
+             FROM yk_memberDetailinfo d
+                      JOIN yk_category c ON c.catNo = d.catNo
+             WHERE d.memberNo = :mno
+               AND d.attrib = :xapp
+             ORDER BY d.catNo ASC
+             """)
     result = await db.execute(q, {"mno": memberno, "xapp": "1000010000"})
     rows = [dict(r._mapping) for r in result.fetchall()]
     return {"ok": True, "rows": rows}
@@ -977,45 +1289,51 @@ async def api_member_prize_list(memberno: int, request: Request, db: AsyncSessio
     if not request.session.get("user_No"):
         return JSONResponse({"ok": False, "message": "login required"}, status_code=401)
     q = text("""
-        SELECT d.mpNo as id,
-               d.prizeNo,
-               c.prizeTitle,
-               d.prizeMemo,
-               DATE_FORMAT(d.prizeDate, '%Y-%m-%d') AS prizeDate
-          FROM yk_memberPrize d
-          JOIN yk_prize c ON c.prizeNo = d.prizeNo
-         WHERE d.memberNo = :mno
-           AND d.attrib = :xapp
-         ORDER BY d.prizeDate ASC
-    """)
+             SELECT d.mpNo                               as id,
+                    d.prizeNo,
+                    c.prizeTitle,
+                    d.prizeMemo,
+                    DATE_FORMAT(d.prizeDate, '%Y-%m-%d') AS prizeDate
+             FROM yk_memberPrize d
+                      JOIN yk_prize c ON c.prizeNo = d.prizeNo
+             WHERE d.memberNo = :mno
+               AND d.attrib = :xapp
+             ORDER BY d.prizeDate ASC
+             """)
     result = await db.execute(q, {"mno": memberno, "xapp": "1000010000"})
     rows = [dict(r._mapping) for r in result.fetchall()]
     return {"ok": True, "rows": rows}
 
 
 @app.get("/dist_stafflist/{clubno}", response_class=HTMLResponse)
-async def dist_stafflist(request: Request, clubno:int,periodno: int | None = Query(None), db: AsyncSession = Depends(get_db)):
+async def dist_stafflist(request: Request, clubno: int, periodno: int | None = Query(None),
+                         db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        memberlist = await get_clubsponser(clubno,db)
+        memberlist = await get_clubsponser(clubno, db)
         ranklist = await get_rank(db)
         stafflist = await get_diststaff(clubno, db)
         periods = await getperiod(db)
         cperiod = periodno if periodno is not None else current_period
-        return templates.TemplateResponse("club/dstafflist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "stafflist": stafflist, "periods": periods, "ranklist": ranklist, "periodno": cperiod })
+        return templates.TemplateResponse("club/dstafflist.html", {"request": request, "session": dict(request.session),
+                                                                   "memberlist": memberlist, "stafflist": stafflist,
+                                                                   "periods": periods, "ranklist": ranklist,
+                                                                   "periodno": cperiod})
 
 
 @app.get("/club_stafflist/{clubno}", response_class=HTMLResponse)
-async def club_stafflist(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
+async def club_stafflist(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        memberlist = await get_clubsponser(clubno,db)
+        memberlist = await get_clubsponser(clubno, db)
         stafflist = await get_clubstaff(clubno, db)
         periods = await getperiod(db)
         cperiod = current_period
-        return templates.TemplateResponse("club/cstafflist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "stafflist": stafflist, "periods": periods, "periodno": cperiod })
+        return templates.TemplateResponse("club/cstafflist.html", {"request": request, "session": dict(request.session),
+                                                                   "memberlist": memberlist, "stafflist": stafflist,
+                                                                   "periods": periods, "periodno": cperiod})
 
 
 @app.post("/club_staffupdate", response_class=HTMLResponse)
@@ -1086,48 +1404,109 @@ async def updatedstaff(request: Request, db: AsyncSession = Depends(get_db)):
     await db.commit()
     return RedirectResponse(f"/dist_stafflist/{clubno}?periodno={periodno}", status_code=303)
 
+
 @app.get("/club_eventlist/{clubno}", response_class=HTMLResponse)
-async def ceventlist(request: Request,clubno:int,db: AsyncSession = Depends(get_db)):
+async def ceventlist(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         periodlist = await getperiod(db)
-        ceventlist = await get_clubevents(clubno,db)
-        return templates.TemplateResponse("club/club_eventlist.html", {"request": request,"session": dict(request.session), "periodlist": periodlist, "ceventlist": ceventlist, "periodno": current_period})
+        ceventlist = await get_clubevents(clubno, db)
+        return templates.TemplateResponse("club/club_eventlist.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "periodlist": periodlist, "ceventlist": ceventlist,
+                                           "periodno": current_period})
+
+
+@app.get("/dist_eventlist", response_class=HTMLResponse)
+async def deventlist(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        periodlist = await getperiod(db)
+        deventlist = await get_distevents(db)
+        return templates.TemplateResponse("dist/dist_eventlist.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "periodlist": periodlist, "deventlist": deventlist,
+                                           "periodno": current_period})
+
+
+@app.get("/dist_eventlist/{periodno}", response_class=HTMLResponse)
+async def deventlist(request: Request, periodno: int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        periodlist = await getperiod(db)
+        deventlist = await get_distevents(db)
+        return templates.TemplateResponse("dist/dist_eventlist.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "periodlist": periodlist, "deventlist": deventlist,
+                                           "periodno": periodno})
 
 
 @app.get("/club_eventlist/{clubno}/{periodno}", response_class=HTMLResponse)
-async def ceventlist(request: Request,clubno:int,periodno:int,db: AsyncSession = Depends(get_db)):
+async def ceventlist(request: Request, clubno: int, periodno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         periodlist = await getperiod(db)
-        ceventlist = await get_clubeventsperiod(clubno,periodno,db)
-        return templates.TemplateResponse("club/club_eventlist.html", {"request": request,"session": dict(request.session), "periodlist": periodlist, "ceventlist": ceventlist, "periodno": periodno})
+        ceventlist = await get_clubeventsperiod(clubno, periodno, db)
+        return templates.TemplateResponse("club/club_eventlist.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "periodlist": periodlist, "ceventlist": ceventlist, "periodno": periodno})
 
 
 @app.post("/club_eventnew/{clubno}", response_class=HTMLResponse)
-async def ceventnew(request: Request,clubno:int,db: AsyncSession = Depends(get_db)):
+async def ceventnew(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
+        periodno = current_period
         periodlist = await getperiod(db)
-        return templates.TemplateResponse("club/club_eventnew.html", {"request": request,"session": dict(request.session), "periodlist": periodlist,})
+        return templates.TemplateResponse("club/club_eventnew.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "periodlist": periodlist, "periodno": periodno})
+
+
+@app.post("/dist_eventnew", response_class=HTMLResponse)
+async def deventnew(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        periodno = current_period
+        periodlist = await getperiod(db)
+        return templates.TemplateResponse("dist/dist_eventnew.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "periodlist": periodlist, "periodno": periodno})
 
 
 @app.get("/club_eventedit/{eventno}", response_class=HTMLResponse)
-async def ceventedit(request: Request,eventno:int,db: AsyncSession = Depends(get_db)):
+async def ceventedit(request: Request, eventno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         periodlist = await getperiod(db)
-        eventdtl = await get_eventdtl(eventno,db)
-        return templates.TemplateResponse("club/club_eventedit.html", {"request": request,"session": dict(request.session), "periodlist": periodlist, "eventdtl": eventdtl})
+        eventdtl = await get_eventdtl(eventno, db)
+        return templates.TemplateResponse("club/club_eventedit.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "periodlist": periodlist, "eventdtl": eventdtl})
 
 
-#cevent_insert
+@app.get("/dist_eventedit/{eventno}", response_class=HTMLResponse)
+async def ceventedit(request: Request, eventno: int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        periodlist = await getperiod(db)
+        eventdtl = await get_eventdtl(eventno, db)
+        return templates.TemplateResponse("dist/dist_eventedit.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "periodlist": periodlist, "eventdtl": eventdtl})
+
+
+# cevent_insert
 @app.post("/cevent_insert/{clubno}", response_class=HTMLResponse)
-async def insertcevent(request: Request, clubno:int, db: AsyncSession = Depends(get_db)):
+async def insertcevent(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     data4insert = {
         "eventTitle": form_data.get("ceventtitle"),
@@ -1135,8 +1514,10 @@ async def insertcevent(request: Request, clubno:int, db: AsyncSession = Depends(
         "eventFrom": form_data.get("eventfrom"),
         "eventTo": form_data.get("eventto"),
         "periodNo": form_data.get("eventperiod"),
+        "eventCost": form_data.get("eventcost"),
+        "sortNo": form_data.get("sortno"),
         "clubNo": clubno,
-        }
+    }
     insert_fields = {key: value for key, value in data4insert.items() if value is not None}
     columns = ", ".join(insert_fields.keys())
     values = ", ".join([f":{key}" for key in insert_fields.keys()])
@@ -1146,8 +1527,30 @@ async def insertcevent(request: Request, clubno:int, db: AsyncSession = Depends(
     return RedirectResponse(f"/club_eventlist/{clubno}", status_code=303)
 
 
+@app.post("/devent_insert", response_class=HTMLResponse)
+async def insertcevent(request: Request, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    data4insert = {
+        "eventTitle": form_data.get("ceventtitle"),
+        "eventType": form_data.get("eventtype"),
+        "eventFrom": form_data.get("eventfrom"),
+        "eventTo": form_data.get("eventto"),
+        "periodNo": form_data.get("eventperiod"),
+        "eventCost": form_data.get("eventcost"),
+        "sortNo": form_data.get("sortno"),
+        "regionNo": 0,
+    }
+    insert_fields = {key: value for key, value in data4insert.items() if value is not None}
+    columns = ", ".join(insert_fields.keys())
+    values = ", ".join([f":{key}" for key in insert_fields.keys()])
+    query = text(f"INSERT INTO yk_event ({columns}) VALUES ({values})")
+    await db.execute(query, insert_fields)
+    await db.commit()
+    return RedirectResponse(f"/dist_eventlist", status_code=303)
+
+
 @app.post("/cevent_update/{eventno}/{clubno}", response_class=HTMLResponse)
-async def insertcevent(request: Request, eventno:int, clubno:int, db: AsyncSession = Depends(get_db)):
+async def insertcevent(request: Request, eventno: int, clubno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     data4update = {
         "eventTitle": form_data.get("ceventtitle"),
@@ -1155,6 +1558,8 @@ async def insertcevent(request: Request, eventno:int, clubno:int, db: AsyncSessi
         "eventFrom": form_data.get("eventfrom"),
         "eventTo": form_data.get("eventto"),
         "periodNo": form_data.get("eventperiod"),
+        "eventCost": form_data.get("eventcost"),
+        "sortNo": form_data.get("sortno"),
         "clubNo": clubno,
     }
     update_fields = {k: v for k, v in data4update.items() if v is not None}
@@ -1168,7 +1573,32 @@ async def insertcevent(request: Request, eventno:int, clubno:int, db: AsyncSessi
     await db.commit()
     return RedirectResponse(f"/club_eventlist/{clubno}", status_code=303)
 
-#Club Report List
+
+@app.post("/devent_update/{eventno}", response_class=HTMLResponse)
+async def insertcevent(request: Request, eventno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    data4update = {
+        "eventTitle": form_data.get("ceventtitle"),
+        "eventType": form_data.get("eventtype"),
+        "eventFrom": form_data.get("eventfrom"),
+        "eventTo": form_data.get("eventto"),
+        "periodNo": form_data.get("eventperiod"),
+        "eventCost": form_data.get("eventcost"),
+        "sortNo": form_data.get("sortno"),
+        "regionNo": 0,
+    }
+    update_fields = {k: v for k, v in data4update.items() if v is not None}
+    if not update_fields:
+        return RedirectResponse(f"/dist_eventlist", status_code=303)
+    set_clause = ", ".join([f"{k} = :{k}" for k in update_fields.keys()])
+    params = dict(update_fields)
+    params["eventNo"] = eventno
+    query = text(f"""UPDATE yk_event SET {set_clause} WHERE eventNo = :eventNo""")
+    await db.execute(query, params)
+    await db.commit()
+    return RedirectResponse(f"/dist_eventlist", status_code=303)
+
+# Club Report List
 
 # Basic Data
 @app.get("/mst_rank", response_class=HTMLResponse)
@@ -1177,7 +1607,8 @@ async def rankmaster(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         ranklist = await get_rank(db)
-        return templates.TemplateResponse("master/ranklist.html", {"request": request, "session": dict(request.session),"ranklist": ranklist})
+        return templates.TemplateResponse("master/ranklist.html",
+                                          {"request": request, "session": dict(request.session), "ranklist": ranklist})
 
 
 @app.post("/rank_reg", response_class=HTMLResponse)
@@ -1185,16 +1616,17 @@ async def rankmaster(request: Request):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        return templates.TemplateResponse("master/rankreg.html", {"request": request,"session": dict(request.session)})
+        return templates.TemplateResponse("master/rankreg.html", {"request": request, "session": dict(request.session)})
 
 
 @app.get("/rank_edit/{rankno}", response_class=HTMLResponse)
-async def rankmaster(request: Request, rankno:int ,db: AsyncSession = Depends(get_db)):
+async def rankmaster(request: Request, rankno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        rank = await get_rank_dtl(rankno,db)
-        return templates.TemplateResponse("master/rankedit.html", {"request": request, "rank": rank,"session": dict(request.session)})
+        rank = await get_rank_dtl(rankno, db)
+        return templates.TemplateResponse("master/rankedit.html",
+                                          {"request": request, "rank": rank, "session": dict(request.session)})
 
 
 @app.api_route("/rank_update/{rankno}", response_class=HTMLResponse, methods=["GET", "POST"])
@@ -1205,8 +1637,10 @@ async def updaterank(request: Request, rankno: int, db: AsyncSession = Depends(g
     rtitlechn = form_data.get("rtitlechn")
     rtype = form_data.get("rtype")
     rsortno = form_data.get("rsortno")
-    query = text(f"update yk_rank set rankTitle=:rtitle,rankTitleEng=:rtitleeng, rankTitleCn=:rtitlechn, rankType=:rtype, sortNo=:rsortno, modDate=now() where rankNo=:rankno")
-    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "rsortno": rsortno, "rankno": rankno})
+    query = text(
+        f"update yk_rank set rankTitle=:rtitle,rankTitleEng=:rtitleeng, rankTitleCn=:rtitlechn, rankType=:rtype, sortNo=:rsortno, modDate=now() where rankNo=:rankno")
+    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype,
+                             "rsortno": rsortno, "rankno": rankno})
     await db.commit()
     return RedirectResponse(f"/mst_rank", status_code=303)
 
@@ -1219,8 +1653,10 @@ async def insertrank(request: Request, db: AsyncSession = Depends(get_db)):
     rtitlechn = form_data.get("rtitlechn")
     rtype = form_data.get("rtype")
     rsortno = form_data.get("rsortno")
-    query = text(f"INSERT INTO yk_rank (rankTitle,rankTitleEng,rankTitleCn, rankType, sortNo) values (:rtitle,:rtitleeng,:rtitlechn,:rtype,:rsortno)")
-    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "rsortno": rsortno})
+    query = text(
+        f"INSERT INTO yk_rank (rankTitle,rankTitleEng,rankTitleCn, rankType, sortNo) values (:rtitle,:rtitleeng,:rtitlechn,:rtype,:rsortno)")
+    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype,
+                             "rsortno": rsortno})
     await db.commit()
     return RedirectResponse(f"/mst_rank", status_code=303)
 
@@ -1231,7 +1667,8 @@ async def catgorymaster(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         catlist = await get_category(db)
-        return templates.TemplateResponse("master/categorylist.html", {"request": request, "session": dict(request.session),"catlist": catlist})
+        return templates.TemplateResponse("master/categorylist.html",
+                                          {"request": request, "session": dict(request.session), "catlist": catlist})
 
 
 @app.post("/cat_reg", response_class=HTMLResponse)
@@ -1239,16 +1676,18 @@ async def catgoryreg(request: Request, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        return templates.TemplateResponse("master/categoryreg.html", {"request": request, "session": dict(request.session)})
+        return templates.TemplateResponse("master/categoryreg.html",
+                                          {"request": request, "session": dict(request.session)})
 
 
 @app.get("/cat_edit/{catno}", response_class=HTMLResponse)
-async def catgoryedit(request: Request, catno:int, db: AsyncSession = Depends(get_db)):
+async def catgoryedit(request: Request, catno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        catdtl = await get_cat_detail(catno,db)
-        return templates.TemplateResponse("master/categoryedit.html", {"request": request, "session": dict(request.session), "catdtl": catdtl})
+        catdtl = await get_cat_detail(catno, db)
+        return templates.TemplateResponse("master/categoryedit.html",
+                                          {"request": request, "session": dict(request.session), "catdtl": catdtl})
 
 
 @app.api_route("/cat_insert", response_class=HTMLResponse, methods=["GET", "POST"])
@@ -1258,7 +1697,8 @@ async def insertcat(request: Request, db: AsyncSession = Depends(get_db)):
     rtitleeng = form_data.get("rtitleeng")
     rtitlechn = form_data.get("rtitlechn")
     rtype = form_data.get("rtype")
-    query = text(f"INSERT INTO yk_category (catTitle,catTitleEng,catTitleCn, catType) values (:rtitle,:rtitleeng,:rtitlechn,:rtype)")
+    query = text(
+        f"INSERT INTO yk_category (catTitle,catTitleEng,catTitleCn, catType) values (:rtitle,:rtitleeng,:rtitlechn,:rtype)")
     await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype})
     await db.commit()
     return RedirectResponse(f"/mst_cat", status_code=303)
@@ -1271,8 +1711,10 @@ async def updatecat(request: Request, catno: int, db: AsyncSession = Depends(get
     rtitleeng = form_data.get("rtitleeng")
     rtitlechn = form_data.get("rtitlechn")
     rtype = form_data.get("rtype")
-    query = text(f"update yk_category set catTitle=:rtitle,catTitleEng=:rtitleeng, catTitleCn=:rtitlechn, catType=:rtype, modDate=now() where catNo=:catno")
-    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "catno": catno})
+    query = text(
+        f"update yk_category set catTitle=:rtitle,catTitleEng=:rtitleeng, catTitleCn=:rtitlechn, catType=:rtype, modDate=now() where catNo=:catno")
+    await db.execute(query,
+                     {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "catno": catno})
     await db.commit()
     return RedirectResponse(f"/mst_cat", status_code=303)
 
@@ -1283,7 +1725,9 @@ async def prizemaster(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         prizelist = await get_prize(db)
-        return templates.TemplateResponse("master/prizelist.html", {"request": request, "session": dict(request.session),"prizelist": prizelist})
+        return templates.TemplateResponse("master/prizelist.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "prizelist": prizelist})
 
 
 @app.post("/prize_reg", response_class=HTMLResponse)
@@ -1291,16 +1735,18 @@ async def prizereg(request: Request, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        return templates.TemplateResponse("master/prizereg.html", {"request": request, "session": dict(request.session)})
+        return templates.TemplateResponse("master/prizereg.html",
+                                          {"request": request, "session": dict(request.session)})
 
 
 @app.get("/prize_edit/{prizeno}", response_class=HTMLResponse)
-async def prizeedit(request: Request, prizeno:int, db: AsyncSession = Depends(get_db)):
+async def prizeedit(request: Request, prizeno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        prizedtl = await get_prize_detail(prizeno,db)
-        return templates.TemplateResponse("master/prizeedit.html", {"request": request, "session": dict(request.session), "prizedtl": prizedtl})
+        prizedtl = await get_prize_detail(prizeno, db)
+        return templates.TemplateResponse("master/prizeedit.html",
+                                          {"request": request, "session": dict(request.session), "prizedtl": prizedtl})
 
 
 @app.api_route("/prize_insert", response_class=HTMLResponse, methods=["GET", "POST"])
@@ -1311,8 +1757,10 @@ async def insertprize(request: Request, db: AsyncSession = Depends(get_db)):
     rtitlechn = form_data.get("rtitlechn")
     rtype = form_data.get("rtype")
     sortno = form_data.get("sortno")
-    query = text(f"INSERT INTO yk_prize (prizeTitle,prizeTitleEng,prizeTitleCn, prizeType, sortNo) values (:rtitle,:rtitleeng,:rtitlechn,:rtype, :sortno)")
-    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "sortno": sortno})
+    query = text(
+        f"INSERT INTO yk_prize (prizeTitle,prizeTitleEng,prizeTitleCn, prizeType, sortNo) values (:rtitle,:rtitleeng,:rtitlechn,:rtype, :sortno)")
+    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype,
+                             "sortno": sortno})
     await db.commit()
     return RedirectResponse(f"/mst_prize", status_code=303)
 
@@ -1325,8 +1773,10 @@ async def updateprize(request: Request, prizeno: int, db: AsyncSession = Depends
     rtitlechn = form_data.get("rtitlechn")
     rtype = form_data.get("rtype")
     sortno = form_data.get("sortno")
-    query = text(f"update yk_prize set prizeTitle=:rtitle,prizeTitleEng=:rtitleeng, prizeTitleCn=:rtitlechn, prizeType=:rtype, sortNo=:sortno ,modDate=now() where prizeNo=:prizeno")
-    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "prizeno": prizeno, "sortno": sortno})
+    query = text(
+        f"update yk_prize set prizeTitle=:rtitle,prizeTitleEng=:rtitleeng, prizeTitleCn=:rtitlechn, prizeType=:rtype, sortNo=:sortno ,modDate=now() where prizeNo=:prizeno")
+    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype,
+                             "prizeno": prizeno, "sortno": sortno})
     await db.commit()
     return RedirectResponse(f"/mst_prize", status_code=303)
 
@@ -1337,17 +1787,21 @@ async def membermaster(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         memberlist = await get_member(db)
-        return templates.TemplateResponse("master/memberlist.html", {"request": request,"session": dict(request.session),"memberlist": memberlist})
+        return templates.TemplateResponse("master/memberlist.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "memberlist": memberlist})
 
 
 @app.get("/member_edit/{memberno}", response_class=HTMLResponse)
-async def memberedit(request: Request,memberno:int, db: AsyncSession = Depends(get_db)):
+async def memberedit(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         clubs = await get_club(db)
-        member = await get_member_dtl(memberno,db)
-        return templates.TemplateResponse("master/memberedit.html", {"request": request, "clubs": clubs,"session": dict(request.session),"memberdtl": member})
+        member = await get_member_dtl(memberno, db)
+        return templates.TemplateResponse("master/memberedit.html",
+                                          {"request": request, "clubs": clubs, "session": dict(request.session),
+                                           "memberdtl": member})
 
 
 @app.post("/member_reg", response_class=HTMLResponse)
@@ -1356,7 +1810,8 @@ async def memberedit(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         clubs = await get_club(db)
-        return templates.TemplateResponse("master/memberreg.html", {"request": request, "clubs": clubs,"session": dict(request.session)})
+        return templates.TemplateResponse("master/memberreg.html",
+                                          {"request": request, "clubs": clubs, "session": dict(request.session)})
 
 
 @app.post("/member_insert", response_class=HTMLResponse)
@@ -1373,7 +1828,7 @@ async def insertmember(request: Request, db: AsyncSession = Depends(get_db)):
         "regNo": _clean_int(form_data.get("regno")),
         "clubNo": _clean_int(form_data.get("memberclub")),
         "memberStatus": _clean_str(form_data.get("memberstat")),
-        }
+    }
     insert_fields = {key: value for key, value in data4insert.items() if value is not None}
     columns = ", ".join(insert_fields.keys())
     values = ", ".join([f":{key}" for key in insert_fields.keys()])
@@ -1397,7 +1852,7 @@ async def insertcmember(request: Request, db: AsyncSession = Depends(get_db)):
         "regNo": _clean_int(form_data.get("regno")),
         "clubNo": _clean_int(form_data.get("memberclub")),
         "memberStatus": _clean_str(form_data.get("memberstat")),
-        }
+    }
     clubno = _clean_int(form_data.get("memberclub"))
     insert_fields = {key: value for key, value in data4insert.items() if value is not None}
     columns = ", ".join(insert_fields.keys())
@@ -1416,7 +1871,9 @@ async def cmemberreg(request: Request, db: AsyncSession = Depends(get_db)):
         clubno = request.session.get("user_Clubno")
         clubs = await get_club(db)
         spons = await get_clubsponser(clubno, db)
-        return templates.TemplateResponse("club/cmemberreg.html", {"request": request, "clubs": clubs,"session": dict(request.session), "spons": spons})
+        return templates.TemplateResponse("club/cmemberreg.html",
+                                          {"request": request, "clubs": clubs, "session": dict(request.session),
+                                           "spons": spons})
 
 
 @app.post("/cmember_update/{memberno}", response_class=HTMLResponse)
@@ -1434,7 +1891,7 @@ async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depe
         "clubNo": _clean_int(form_data.get("memberclub")),
         "maskYN": _clean_str(form_data.get("membermask")),
         "memberStatus": _clean_str(form_data.get("memberstat")),
-        "memberMemo": form_data.get("membermemo",''),
+        "memberMemo": form_data.get("membermemo", ''),
     }
     clubno = _clean_int(form_data.get("memberclub"))
     update_fields = {k: v for k, v in data4update.items() if v is not None}
@@ -1464,7 +1921,7 @@ async def updatemember(request: Request, memberno: int, db: AsyncSession = Depen
         "clubNo": _clean_int(form_data.get("memberclub")),
         "maskYN": _clean_str(form_data.get("membermask")),
         "memberStatus": _clean_str(form_data.get("memberstat")),
-        "memberMemo": form_data.get("membermemo",''),
+        "memberMemo": form_data.get("membermemo", ''),
     }
     update_fields = {k: v for k, v in data4update.items() if v is not None}
     if not update_fields:
@@ -1483,8 +1940,10 @@ async def regionmaster(request: Request, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        regionlist = await getregionList(db) # 지역 데이터로 변경해야 함
-        return templates.TemplateResponse("master/regionlist.html", {"request": request,"session": dict(request.session), "regionlist": regionlist})
+        regionlist = await getregionList(db)  # 지역 데이터로 변경해야 함
+        return templates.TemplateResponse("master/regionlist.html",
+                                          {"request": request, "session": dict(request.session),
+                                           "regionlist": regionlist})
 
 
 @app.get("/mst_club", response_class=HTMLResponse)
@@ -1493,30 +1952,34 @@ async def clubmaster(request: Request, db: AsyncSession = Depends(get_db)):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         clublist = await get_club(db)
-        return templates.TemplateResponse("master/clublist.html", {"request": request,"session": dict(request.session), "clublist": clublist})
+        return templates.TemplateResponse("master/clublist.html",
+                                          {"request": request, "session": dict(request.session), "clublist": clublist})
 
 
 @app.get("/club_edit/{clubno}", response_class=HTMLResponse)
-async def clubedit(request: Request,clubno:int, db: AsyncSession = Depends(get_db)):
+async def clubedit(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        club = await get_club_dtl(clubno,db)
-        spons = await get_club_spon(clubno,db)
-        return templates.TemplateResponse("master/clubedit.html", {"request": request,"session": dict(request.session), "clubdtl": club, "spons": spons})
+        club = await get_club_dtl(clubno, db)
+        spons = await get_club_spon(clubno, db)
+        return templates.TemplateResponse("master/clubedit.html",
+                                          {"request": request, "session": dict(request.session), "clubdtl": club,
+                                           "spons": spons})
 
 
 @app.post("/club_reg", response_class=HTMLResponse)
-async def clubedit(request: Request,db: AsyncSession = Depends(get_db)):
+async def clubedit(request: Request, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         club = await get_club(db)
-        return templates.TemplateResponse("master/clubreg.html", {"request": request, "session": dict(request.session),"clubs": club})
+        return templates.TemplateResponse("master/clubreg.html",
+                                          {"request": request, "session": dict(request.session), "clubs": club})
 
 
 @app.post("/club_update/{clubno}", response_class=HTMLResponse)
-async def clubupdate(request: Request,clubno:int, db: AsyncSession = Depends(get_db)):
+async def clubupdate(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
     form_data = await request.form()
     clubname = form_data.get("clubname")
     clubnameeng = form_data.get("clubnameeng")
@@ -1531,7 +1994,10 @@ async def clubupdate(request: Request,clubno:int, db: AsyncSession = Depends(get
     query = text(
         f"update yk_club set clubName=:clubname,clubNameEng=:clubnameeng,clubNameCn=:clubnamecn, clubEstdate=:estdate, "
         f"clubCno=:charno, clubTel=:clubtel, clubFax=:clubfax, clubEmail=:clubemail, clubSponser=:clubspon, modDate=now() where clubNo=:clubno")
-    await db.execute(query, {"clubname":clubname, "clubnameeng":clubnameeng, "clubnamecn":clubnamecn, "estdate":estdate, "charno":charno, "clubtel":clubtel, "clubfax":clubfax, "clubemail":clubemail, "clubspon":clubspon, "clubaddr":clubaddr, "clubno":clubno})
+    await db.execute(query,
+                     {"clubname": clubname, "clubnameeng": clubnameeng, "clubnamecn": clubnamecn, "estdate": estdate,
+                      "charno": charno, "clubtel": clubtel, "clubfax": clubfax, "clubemail": clubemail,
+                      "clubspon": clubspon, "clubaddr": clubaddr, "clubno": clubno})
     await db.commit()
     return RedirectResponse(f"/mst_club", status_code=303)
 
@@ -1552,27 +2018,35 @@ async def clubinsert(request: Request, db: AsyncSession = Depends(get_db)):
     query = text(
         f"INSERT INTO yk_club (clubName,clubNameEng,clubNameCn, clubEstdate, clubCno, clubTel, clubFax, clubEmail, clubSponser) "
         f"values (:clubname,:clubnameeng,:clubnamecn,:estdate,:charno,:clubtel,:clubfax,:clubemail,:clubspon)")
-    await db.execute(query, {"clubname":clubname, "clubnameeng":clubnameeng, "clubnamecn":clubnamecn, "estdate":estdate, "charno":charno, "clubtel":clubtel, "clubfax":clubfax, "clubemail":clubemail, "clubspon":clubspon, "clubaddr":clubaddr})
+    await db.execute(query,
+                     {"clubname": clubname, "clubnameeng": clubnameeng, "clubnamecn": clubnamecn, "estdate": estdate,
+                      "charno": charno, "clubtel": clubtel, "clubfax": clubfax, "clubemail": clubemail,
+                      "clubspon": clubspon, "clubaddr": clubaddr})
     await db.commit()
     return RedirectResponse(f"/mst_club", status_code=303)
 
 
-#YK55
+# YK55
 @app.get("/yk55greet", response_class=HTMLResponse)
 async def yk55greet(request: Request, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         doclist = await getdocList(db)
-        return templates.TemplateResponse("yk55/yk55_greetings.html", {"request": request,"session": dict(request.session), "doclist": doclist})
+        return templates.TemplateResponse("yk55/yk55_greetings.html",
+                                          {"request": request, "session": dict(request.session), "doclist": doclist})
 
 
 @app.post("/yk55greet_reg", response_class=HTMLResponse)
-async def yk55greet_reg(request: Request):
+async def yk55greet_reg(request: Request, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        return templates.TemplateResponse("yk55/yk55_greetings_reg.html", {"request": request, "session": dict(request.session)})
+        clubno = request.session.get("user_Clubno")
+        periodno = current_period
+        events = await get_clubeventsperiod(clubno, periodno, db)
+        return templates.TemplateResponse("yk55/yk55_greetings_reg.html",
+                                          {"request": request, "session": dict(request.session), "events": events})
 
 
 @app.get("/yk55greet_edit/{greetno}", response_class=HTMLResponse)
@@ -1581,7 +2055,11 @@ async def yk55greet_reg(request: Request, greetno: int, db: AsyncSession = Depen
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         docs = await getdocdetail(greetno, db)
-        return templates.TemplateResponse("yk55/yk55_greetings_edit.html", {"request": request,"session": dict(request.session), "docs": docs})
+        clubno = request.session.get("user_Clubno")
+        periodno = current_period
+        events = await get_clubeventsperiod(clubno, periodno, db)
+        return templates.TemplateResponse("yk55/yk55_greetings_edit.html",
+                                          {"request": request, "session": dict(request.session), "docs": docs,"events": events})
 
 
 @app.get("/yk55greet_preview/{greetno}", response_class=HTMLResponse)
@@ -1590,7 +2068,8 @@ async def yk55greet_prv(request: Request, greetno: int, db: AsyncSession = Depen
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         docs = await getdocdetail(greetno, db)
-        return templates.TemplateResponse("tmplets/greet01.html", {"request": request,"session": dict(request.session), "docs": docs})
+        return templates.TemplateResponse("tmplets/greet01.html",
+                                          {"request": request, "session": dict(request.session), "docs": docs})
 
 
 @app.api_route("/yk55greetupdate/{docno}", response_class=HTMLResponse, methods=["GET", "POST"])
@@ -1602,8 +2081,10 @@ async def updatedoc(request: Request, docno: int, db: AsyncSession = Depends(get
     docevent = form_data.get("docevent")
     dwriter1 = form_data.get("dwriter1")
     dwriter2 = form_data.get("dwriter2")
-    query = text(f"update yk_doc set docTitle=:doctitle,docContents=:docconts,memberTitle=:dwriter1,memberName=:dwriter2, docType=:doctype,docEvent=:docevent, modDate=now() where docNo=:docno")
-    await db.execute(query, {"docno": docno, "doctitle": doctitle, "docconts": docconts, "doctype": doctype, "dwriter1": dwriter1, "dwriter2": dwriter2, "docevent": docevent})
+    query = text(
+        f"update yk_doc set docTitle=:doctitle,docContents=:docconts,memberTitle=:dwriter1,memberName=:dwriter2, docType=:doctype,docEvent=:docevent, modDate=now() where docNo=:docno")
+    await db.execute(query, {"docno": docno, "doctitle": doctitle, "docconts": docconts, "doctype": doctype,
+                             "dwriter1": dwriter1, "dwriter2": dwriter2, "docevent": docevent})
     await db.commit()
     return RedirectResponse(f"/yk55greet", status_code=303)
 
@@ -1617,65 +2098,74 @@ async def insertdoc(request: Request, db: AsyncSession = Depends(get_db)):
     docevent = form_data.get("docevent")
     dwriter1 = form_data.get("dwriter1")
     dwriter2 = form_data.get("dwriter2")
-    query = text(f"INSERT INTO yk_doc (docTitle, docContents, memberTitle, memberName, userNo, docType, docEvent) values (:doctitle,:docconts,:dwriter1,:dwriter2, :userno, :doctype, :docevent) ")
-    await db.execute(query, {"doctitle": doctitle, "docconts": docconts, "userno": request.session.get("user_No"), "doctype": doctype, "dwriter1": dwriter1, "dwriter2": dwriter2, "docevent": docevent })
+    query = text(
+        f"INSERT INTO yk_doc (docTitle, docContents, memberTitle, memberName, userNo, docType, docEvent) values (:doctitle,:docconts,:dwriter1,:dwriter2, :userno, :doctype, :docevent) ")
+    await db.execute(query, {"doctitle": doctitle, "docconts": docconts, "userno": request.session.get("user_No"),
+                             "doctype": doctype, "dwriter1": dwriter1, "dwriter2": dwriter2, "docevent": docevent})
     await db.commit()
     return RedirectResponse(f"/yk55greet", status_code=303)
 
 
 @app.get("/yk55cabhist", response_class=HTMLResponse)
-async def yk55cabhist(request: Request,db: AsyncSession = Depends(get_db)):
+async def yk55cabhist(request: Request, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         periods = await getperiod(db)
-        return templates.TemplateResponse("yk55/yk55_cabhist.html", {"request": request,"session": dict(request.session), "periods": periods})
-    
-    
+        return templates.TemplateResponse("yk55/yk55_cabhist.html",
+                                          {"request": request, "session": dict(request.session), "periods": periods})
+
+
 @app.get("/yk55cabhist_view/{periodno}", response_class=HTMLResponse)
-async def yk55cabhist(request: Request,periodno:int,db: AsyncSession = Depends(get_db)):
+async def yk55cabhist(request: Request, periodno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         cabs = await get_cabhist(periodno, db)
-        return templates.TemplateResponse("yk55/yk55_cabhistview.html", {"request": request,"session": dict(request.session), "cabs": cabs})
+        return templates.TemplateResponse("yk55/yk55_cabhistview.html",
+                                          {"request": request, "session": dict(request.session), "cabs": cabs})
 
 
 @app.get("/yk55servhist", response_class=HTMLResponse)
-async def yk55servhist(request: Request,db: AsyncSession = Depends(get_db)):
+async def yk55servhist(request: Request, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         periods = await getperiod(db)
-        return templates.TemplateResponse("yk55/yk55_servhist.html", {"request": request,"session": dict(request.session), "periods": periods})
+        return templates.TemplateResponse("yk55/yk55_servhist.html",
+                                          {"request": request, "session": dict(request.session), "periods": periods})
 
 
 @app.get("/yk55servhist_view/{period}", response_class=HTMLResponse)
-async def yk55servhist(request: Request,period:int,db: AsyncSession = Depends(get_db)):
+async def yk55servhist(request: Request, period: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         svrs = await getperiod(db)
-        return templates.TemplateResponse("yk55/yk55_servhistview.html", {"request": request,"session": dict(request.session), "svrs": svrs})
+        return templates.TemplateResponse("yk55/yk55_servhistview.html",
+                                          {"request": request, "session": dict(request.session), "svrs": svrs})
 
 
 @app.get("/yk55membhist", response_class=HTMLResponse)
-async def yk55membhist(request: Request,db: AsyncSession = Depends(get_db)):
+async def yk55membhist(request: Request, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         periods = await getperiod(db)
-        return templates.TemplateResponse("yk55/yk55_memberhist.html", {"request": request,"session": dict(request.session), "periods": periods})
+        return templates.TemplateResponse("yk55/yk55_memberhist.html",
+                                          {"request": request, "session": dict(request.session), "periods": periods})
 
 
 @app.get("/yk55membhist_view/{periodno}", response_class=HTMLResponse)
-async def yk55membhist(request: Request,periodno:int,db: AsyncSession = Depends(get_db)):
+async def yk55membhist(request: Request, periodno: int, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         membs = await get_dmemberhist_wname(periodno, db)
         periods = await getperiod(db)
-        return templates.TemplateResponse("yk55/yk55_memberhistview.html", {"request": request,"session": dict(request.session), "membs": membs, "periodno":periodno, "periods": periods})
+        return templates.TemplateResponse("yk55/yk55_memberhistview.html",
+                                          {"request": request, "session": dict(request.session), "membs": membs,
+                                           "periodno": periodno, "periods": periods})
 
 
 @app.get("/yk55mjfhist", response_class=HTMLResponse)
@@ -1683,5 +2173,5 @@ async def yk55mjfhist(request: Request):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        return templates.TemplateResponse("yk55/yk55_mjfhist.html", {"request": request,"session": dict(request.session)})
-
+        return templates.TemplateResponse("yk55/yk55_mjfhist.html",
+                                          {"request": request, "session": dict(request.session)})

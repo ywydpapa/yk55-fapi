@@ -24,46 +24,48 @@
                 <h1 class="h3 mb-4 text-gray-800">새문서 등록</h1>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
-                        <table class="table table-bordered text-center">
-                            <thead>
-                            </thead>
-                            <tbody>
-                            <form method="POST" id="editor-form" action="/yk55greetinsert">
+                        <form method="POST" id="editor-form" action="/yk55greetinsert">
+                            <table class="table table-bordered text-center">
+                                <thead>
+                                </thead>
+                                <tbody>
                                 <tr>
-                                    <td> 작성자 (소속 /직책) </td>
-                                    <td> <input class="form-control" id="dwriter1" name="dwriter1" type="text" required ></td>
+                                    <td> 작성자 (소속 /직책)</td>
+                                    <td><input class="form-control" id="dwriter1" name="dwriter1" type="text" required>
+                                    </td>
                                 </tr>
                                 <tr>
-                                    <td> 작성자 </td>
-                                    <td> <input class="form-control" id="dwriter2" name="dwriter2" type="text" required ></td>
+                                    <td> 작성자</td>
+                                    <td><input class="form-control" id="dwriter2" name="dwriter2" type="text" required>
+                                    </td>
                                 </tr>
                                 <tr>
-                                    <td> 제목 </td>
-                                    <td> <input class="form-control" id="dtitle" name="dtitle" type="text" required ></td>
+                                    <td> 제목</td>
+                                    <td><input class="form-control" id="dtitle" name="dtitle" type="text" required></td>
                                 </tr>
                                 <tr>
-                                    <td> 내용 </td>
-                                    <td><div id="editor-container" name = "dcontent"></div>
-                                     <input type="hidden" name="dcontent" id="dcontent"></td>
+                                    <td> 내용</td>
+                                    <td>
+                                        <div id="editor-container" name="dcontent"></div>
+                                        <input type="hidden" name="dcontent" id="dcontent"></td>
                                 </tr>
                                 <tr>
-                                    <td> 연결 행사 </td>
-                                    <td> <select class="form-control" id="docevent" name="docevent">
+                                    <td> 연결 행사</td>
+                                    <td><select class="form-control" id="docevent" name="docevent">
                                         <option value="0">미정</option>
+                                        {% for event in events %}
+                                        <option value="{{ event.eventNo }}">{{ event.eventTitle }}</option>
+                                        {% endfor %}
                                     </select></td>
                                 </tr>
                                 <tr>
                                     <td> 문서 종류</td>
-                                    <td> <select class="form-control" id="dtype" name="dtype">
+                                    <td><select class="form-control" id="dtype" name="dtype">
                                         <option value="GREET" selected>축사</option>
                                         <option value="CLEBR">기념사</option>
                                         <option value="MEMOR">회고사</option>
                                     </select>
                                     </td>
-                                </tr>
-                                <tr>
-                                    <td> 첨부 </td>
-                                    <td></td>
                                 </tr>
                                 <tr>
                                     <td colspan="2">
@@ -72,14 +74,15 @@
                                             <a href="#" onclick="window.location.href='/yk55greet'; return false;"
                                                class="btn btn-dark"
                                                role="button" style="flex: 0 0 30%;">문서 목록으로 돌아가기</a>
-                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">신규문서로 저장
+                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">신규문서로
+                                                저장
                                             </button>
                                         </div>
                                     </td>
                                 </tr>
-                            </form>
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -107,30 +110,30 @@
 {% include '/common/commonScript.html' %}
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script>
-    const quill = new Quill('#editor-container', { theme: 'snow' });
-document.getElementById('editor-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    // Quill 내용 input에 넣기
-    document.getElementById('dcontent').value = quill.root.innerHTML;
-    // 폼 데이터 수집
-    const form = event.target;
-    const formData = new FormData(form);
-    // fetch로 전송
-    const response = await fetch(form.action, {
-        method: 'POST',
-        body: formData
-    });
-    if (response.redirected) {
-        window.location.href = response.url;
-    } else {
-        try {
-            const result = await response.json();
-            alert(result.message || "저장 실패");
-        } catch {
-            alert("알 수 없는 오류");
+    const quill = new Quill('#editor-container', {theme: 'snow'});
+    document.getElementById('editor-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        // Quill 내용 input에 넣기
+        document.getElementById('dcontent').value = quill.root.innerHTML;
+        // 폼 데이터 수집
+        const form = event.target;
+        const formData = new FormData(form);
+        // fetch로 전송
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: formData
+        });
+        if (response.redirected) {
+            window.location.href = response.url;
+        } else {
+            try {
+                const result = await response.json();
+                alert(result.message || "저장 실패");
+            } catch {
+                alert("알 수 없는 오류");
+            }
         }
-    }
-});
+    });
 </script>
 </body>
 </html>

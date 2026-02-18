@@ -2,81 +2,202 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <style>
-    @page { size: A4; margin: 0; }
+  <title>축사 인쇄</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap" rel="stylesheet">
 
-    @font-face {
-      font-family: "NotoSansKR";
+  <style>
+    :root {
+      --gold-dark: #B8860B;
+      --paper-bg: #FFFCF5;
     }
 
-    body { margin: 0; font-family: "NotoSansKR", sans-serif; }
+    @page { size: A4; margin: 0; }
 
-      /* 브라우저 기본 여백 제거 */
-  html, body { margin: 0; padding: 0; background: #f3f4f6; }
+    body {
+      margin: 0; padding: 0;
+      background: #555;
+      font-family: "Nanum Myeongjo", serif;
+      -webkit-print-color-adjust: exact;
+    }
 
-  /* 미리보기에서 A4를 화면 중앙에 */
-  .preview-wrap{
-    display: flex;
-    justify-content: center;   /* 좌우 중앙 */
-    padding: 24px 0;
-  }
+    .preview-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 30px 0;
+    }
 
-  .page{
-    width: 210mm;
-    min-height: 297mm;           /* 내용이 길면 늘어나며 다음 페이지로 넘어감 */
-    box-sizing: border-box;
-    /* 배경이 있다면 유지 */
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      background-color: var(--paper-bg);
+      position: relative;
+      box-sizing: border-box;
+      box-shadow: 0 8px 30px rgba(0,0,0,.3);
+      padding: 25mm 25mm;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
-    /* 기존 absolute 배치 대신 패딩으로 여백 확보 */
-    padding: 26mm 22mm 18mm 22mm;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 8px 30px rgba(0,0,0,.12);
-  }
+    /* --- [사진 스타일 수정] --- */
+    .member-photo {
+      position: absolute;
+      top: 25mm;       /* 상단 여백 */
+      right: 25mm;     /* 우측 여백 */
+      width: 35mm;     /* 너비 (조금 더 키움) */
+      height: 45mm;    /* 높이 (증명사진 비율) */
+      object-fit: cover;
+      border: 1px solid #ddd;
+      border-radius: 4px; /* 모서리 살짝 둥글게 */
+      box-shadow: 3px 3px 10px rgba(0,0,0,0.15); /* 입체감 */
+      z-index: 50;
+      background-color: #f0f0f0;
+    }
 
-     .title{
-    text-align: center;
-    font-size: 24pt;
-    font-weight: 700;
-    letter-spacing: 6px;
-    margin: 0 0 12mm 0;
-  }
+    /* --- [직함/이름 영역 수정 (사진 왼쪽으로 이동)] --- */
+    .meta {
+      position: absolute;
+      /* 사진 높이의 중간~하단에 맞춰 배치 */
+      top: 45mm;
+      /* 우측 여백(25mm) + 사진너비(35mm) + 간격(5mm) = 65mm */
+      right: 65mm;
+      text-align: right;
+      z-index: 50;
+      line-height: 1.4;
+      min-width: 100mm; /* 넓게 잡아서 줄바꿈 방지 */
+    }
 
-  .meta{
-    align-self: flex-end;        /* 오른쪽 정렬 */
-    text-align: right;
-    font-size: 12pt;
-    line-height: 1.5;
-    margin-bottom: 18mm;
-  }
+    .meta .position {
+      display: block;
+      font-size: 11pt;
+      color: #555;
+      margin-bottom: 4px;
+    }
 
-  .body{
-    font-size: 11.5pt;
-    line-height: 1.75;
-  }
-  .body p{ margin: 0 0 10px 0; }
+    .meta .name {
+      font-size: 18pt; /* 이름은 크게 */
+      font-weight: 800;
+      color: #000;
+      letter-spacing: 1px;
+    }
 
-  .footer{
-    margin-top: auto;            /* 본문이 짧으면 바닥으로, 길면 본문 뒤로 */
-    padding-top: 8mm;
-    font-size: 9pt;
-    text-align: right;
-    color: #666;
-  }
+    /* 디자인 요소들 */
+    .border-outer {
+      position: absolute;
+      top: 10mm; left: 10mm; right: 10mm; bottom: 10mm;
+      border: 3px solid var(--gold-dark);
+      pointer-events: none;
+    }
+    .border-inner {
+      position: absolute;
+      top: 12mm; left: 12mm; right: 12mm; bottom: 12mm;
+      border: 1px solid var(--gold-dark);
+      pointer-events: none;
+    }
+    .corner {
+      position: absolute;
+      width: 35mm; height: 35mm;
+      pointer-events: none;
+      fill: none; stroke: var(--gold-dark); stroke-width: 1.5;
+    }
+    .top-left { top: 12mm; left: 12mm; }
+    .top-right { top: 12mm; right: 12mm; transform: scaleX(-1); }
+    .bottom-left { bottom: 12mm; left: 12mm; transform: scaleY(-1); }
+    .bottom-right { bottom: 12mm; right: 12mm; transform: scale(-1); }
+
+    /* 콘텐츠 */
+    .content-layer {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      height: 100%;
+      padding-top: 60mm; /* 사진 영역만큼 본문 내려줌 */
+    }
+
+    .title {
+      position: absolute;
+      top: 25mm;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 32pt;
+      font-weight: 800;
+      letter-spacing: 10px;
+      color: #000;
+      z-index: 40;
+    }
+
+    /* 제목 아래 장식선 (선택사항) */
+    .title::after {
+      content: '';
+      display: block;
+      width: 50mm;
+      height: 2px;
+      background: var(--gold-dark);
+      margin: 15px auto 0;
+      opacity: 0.5;
+    }
+
+    .body {
+      font-size: 13.5pt;
+      line-height: 2.1;
+      text-align: justify;
+      word-break: keep-all;
+      margin-top: 10mm;
+    }
+
+    .footer {
+      margin-top: auto;
+      padding-top: 15mm;
+      font-size: 11pt;
+      text-align: center;
+      color: #555;
+      font-weight: bold;
+    }
+
+    @media print {
+      body { background: none; }
+      .preview-wrap { padding: 0; display: block; }
+      .page { margin: 0; box-shadow: none; width: 100%; height: 100%; page-break-after: always; }
+    }
   </style>
 </head>
 <body>
+
 <div class="preview-wrap">
   <div class="page">
-    <div class="title">{{ docs[4] }}</div>
 
+    <!-- 1. 사진 (우측 상단 고정) -->
+    <img src="/static/img/docs/docphoto_{{docs[0]}}.png" class="member-photo" alt="첨부사진" onerror="this.style.display='none'">
+
+    <!-- 2. 직함/이름 (사진 왼쪽 옆에 배치) -->
     <div class="meta">
-      <strong>{{ docs[2] }}</strong>
+      <span class="position">{{ docs[2] }}</span> <!-- 직함 (작게) -->
+      <span class="name">{{ docs[3] }}</span>     <!-- 이름 (크게) -->
     </div>
 
-    <div class="body">{{ docs[5] | safe }}</div>
-    <div class="footer">{{ docs[2] }}</div>
+    <!-- 3. 제목 (중앙 상단) -->
+    <div class="title">{{ docs[4] }}</div>
+
+    <!-- 배경 장식 -->
+    <div class="border-outer"></div>
+    <div class="border-inner"></div>
+
+    <svg class="corner top-left" viewBox="0 0 100 100"><path d="M 5 95 L 5 30 Q 5 5 30 5 L 95 5" /><path d="M 15 95 L 15 35 Q 15 15 35 15 L 95 15" stroke-width="0.5" /><path d="M 5 30 L 0 30 M 30 5 L 30 0" stroke="none" fill="#B8860B" /></svg>
+    <svg class="corner top-right" viewBox="0 0 100 100"><path d="M 5 95 L 5 30 Q 5 5 30 5 L 95 5" /><path d="M 15 95 L 15 35 Q 15 15 35 15 L 95 15" stroke-width="0.5" /></svg>
+    <svg class="corner bottom-left" viewBox="0 0 100 100"><path d="M 5 95 L 5 30 Q 5 5 30 5 L 95 5" /><path d="M 15 95 L 15 35 Q 15 15 35 15 L 95 15" stroke-width="0.5" /></svg>
+    <svg class="corner bottom-right" viewBox="0 0 100 100"><path d="M 5 95 L 5 30 Q 5 5 30 5 L 95 5" /><path d="M 15 95 L 15 35 Q 15 15 35 15 L 95 15" stroke-width="0.5" /></svg>
+
+    <!-- 4. 본문 내용 -->
+    <div class="content-layer">
+      <div class="body">{{ docs[5] | safe }}</div>
+      <div class="footer">{{ docs[9] }}</div>
+    </div>
+
   </div>
 </div>
+
 </body>
 </html>

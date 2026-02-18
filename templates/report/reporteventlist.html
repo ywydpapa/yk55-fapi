@@ -24,7 +24,7 @@
                             <div class="col-md-3 ml-auto">
                                 <select id="statusFilter" style="text-align: center" class="form-control">
                                     {% for prd in periodlist %}
-                                    <option value="{{ prd.periodNo }}"{% if prd.periodNo == session.cperiod %}selected{% endif %} >{{ prd.periodTitle2 }} 회기</option>
+                                    <option value="{{ prd.periodNo }}"{% if prd.periodNo|int == periodno|int %}selected{% endif %} >{{ prd.periodTitle2 }} 회기</option>
                                     {% endfor %}
                                 </select>
                             </div>
@@ -49,7 +49,7 @@
                                     <td>{% if evt.eventType == 'CLUBE'%}클럽행사{% else %}지구행사{% endif %}</td>
                                     <td>{{ evt.eventFrom }} ~ {{ evt.eventTo }}</td>
                                     <td>{{ evt.cnt }}</td>
-                                    <td></td>
+                                    <td style="text-align: right">{{ evt.eventCost|currency }}</td>
                                     <td></td>
                                 </tr>
                                 {% endfor %}

@@ -21,59 +21,60 @@
             <!-- Begin Page Content -->
             <div class="container-fluid">
                 <!-- Page Heading -->
-                <h1 class="h3 mb-4 text-gray-800">새행사 등록</h1>
+                <h1 class="h3 mb-4 text-gray-800">새지구 행사 등록</h1>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
                         <table class="table table-bordered text-center">
                             <thead>
                             </thead>
                             <tbody>
-                            <form method="POST" id="editor-form" action="/cevent_update/{{eventdtl[0]}}/{{session.user_Clubno}}">
+                            <form method="POST" id="editor-form" action="/devent_insert">
                                 <tr>
                                     <td> 행사명 </td>
-                                    <td> <input class="form-control" id="ceventtitle" name="ceventtitle" type="text"  value="{{ eventdtl[2] }}" required ></td>
+                                    <td> <input class="form-control" id="ceventtitle" name="ceventtitle" type="text" required ></td>
                                 </tr>
                                 <tr>
                                     <td> 행사종류 </td>
                                     <td> <select class="form-control" id="eventtype" name="eventtype" >
-                                        <option value="CLUBE" {% if eventdtl[4] == 'CLUBE' %}selected{% endif %}>클럽행사</option>
-                                        <option value="REGIE" {% if eventdtl[4] == 'REGIE' %}selected{% endif %}>지역행사</option>
-                                        <option value="DISTE" {% if eventdtl[4] == 'DISTE' %}selected{% endif %}>지구행사</option>
-                                        <option value="EDIST" {% if eventdtl[4] == 'EDIST' %}selected{% endif %}>복합지구행사</option>
+                                        <option value="CLUBE">클럽행사</option>
+                                        <option value="REGIE">지역행사</option>
+                                        <option value="DISTE" selected>지구행사</option>
+                                        <option value="EDIST">복합지구행사</option>
                                     </select>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td> 행사시작 </td>
-                                    <td> <input class="form-control" id="eventfrom" name="eventfrom" type="datetime-local" required value="{{eventdtl[5]}}"></td>
+                                    <td> <input class="form-control" id="eventfrom" name="eventfrom" type="datetime-local" required ></td>
                                 </tr>
                                 <tr>
                                     <td> 행사종료 </td>
-                                    <td><input class="form-control" id="eventto" name="eventto" type="datetime-local" required value="{{eventdtl[6]}}"></td>
+                                    <td><input class="form-control" id="eventto" name="eventto" type="datetime-local" required ></td>
                                 </tr>
                                 <tr>
                                     <td> 적용회기 </td>
                                     <td> <select class="form-control" id="eventperiod" name="eventperiod">
                                         {% for per in periodlist %}
-                                        <option value="{{per.periodNo}}" {% if per.periodNo == eventdtl[1] %}selected{% endif %}>{{per.periodTitle2}}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
+                                        <option value="{{per.periodNo}}" {% if per.periodNo == periodno %}selected{% endif %}>{{per.periodTitle2}}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
                                         {% endfor %}
                                         </select></td>
                                 </tr>
                                 <tr>
-                                    <td> 행사비용 </td>
-                                    <td><input style="text-align: right" class="form-control" id="eventcost" name="eventcost" type="number" required value="{{eventdtl[10]}}"></tr>
-                                <tr>
-                                    <tr>
-                                    <td> 배치순서 </td>
-                                    <td><input style="text-align: right" class="form-control" id="sortno" name="sortno" type="number" required value="{{eventdtl[7]}}"></td>
+                                    <td> 소요비용 </td>
+                                    <td><input style="text-align: right" class="form-control" id="eventcost" name="eventcost" type="number" required value="10000"></td>
                                 </tr>
+                                <tr>
+                                    <td> 배치순서 </td>
+                                    <td><input style="text-align: right" class="form-control" id="sortno" name="sortno" type="number" required value="100"></td>
+                                </tr>
+                                <tr>
                                     <td colspan="2">
                                         <div class="col-12"
                                              style="display: flex; justify-content: space-between; gap: 10px;">
-                                            <a href="#" onclick="window.location.href='/club_eventlist/{{session.user_Clubno}}'; return false;"
+                                            <a href="#" onclick="window.location.href='/dist_eventlist'; return false;"
                                                class="btn btn-dark"
                                                role="button" style="flex: 0 0 30%;">행사 목록으로 돌아가기</a>
-                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">변경내용 저장
+                                            <button type="submit" class="btn btn-primary" style="flex: 0 0 50%;">신규행사 저장
                                             </button>
                                         </div>
                                     </td>
