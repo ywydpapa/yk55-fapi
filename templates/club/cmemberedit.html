@@ -89,7 +89,7 @@
                 <!-- Page Heading -->
                 <h1 class="h3 mb-4 text-gray-800">회원 정보 수정(클럽)</h1>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
-                    <div class="col-md-9">
+                    <div class="col-md-12">
                         <table class="table table-bordered text-center">
                             <thead>
                             </thead>
@@ -255,7 +255,7 @@
                                                     <a href="#"
                                                        onclick="window.location.href='/club_memberlist/{{session.user_Clubno}}'; return false;"
                                                        class="btn btn-dark"
-                                                       role="button" style="flex: 0 0 30%;">클럽 회원 목록으로 돌아가기</a>
+                                                       role="button" style="flex: 0 0 30%;">회원 목록으로 가기</a>
                                                     <button type="submit" class="btn btn-primary"
                                                             style="flex: 0 0 50%;">변경내용저장
                                                     </button>
@@ -266,28 +266,53 @@
                                     </table>
                                 </form>
                             </div>
-
                             <!-- 상세정보 -->
                             <div class="tab-pane fade" id="pane-detail" role="tabpanel" aria-labelledby="tab-detail">
-                                <form method="POST" id="detail-form" action="">
+                                <!-- 입력 폼 -->
+                                <form method="POST" id="detail-form" action="/insert_MIDTL/{{memberdtl[0]}}/">
                                     <table class="table table-bordered text-center">
                                         <tbody>
                                         <tr>
-                                            <td>연락처</td>
-                                            <td><input class="form-control" name="phone" type="text"
-                                                       value="{{detail.phone if detail}}"></td>
-                                        </tr>
-                                        <tr>
-                                            <td>이메일</td>
-                                            <td><input class="form-control" name="email" type="email"
-                                                       value="{{detail.email if detail}}"></td>
+                                            <td style="width:30%;">
+                                                <select class="form-control" id="mdtlcat" name="dtlcat">
+                                                    {% for cat in catlist %}
+                                                    <option value="{{cat.catNo}}">{{cat.catTitle}}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </td>
+                                            <td style="width:70%;">
+                                                <div class="d-flex align-items-center">
+                                                    <input class="form-control mr-2" id="dtlcont" name="dtlcont"
+                                                           type="text" value="">
+                                                    <button type="submit" class="btn btn-primary"
+                                                            style="white-space:nowrap;">저장
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
                                         </tbody>
                                     </table>
-                                    <button type="submit" class="btn btn-primary">상세정보 저장</button>
                                 </form>
+                                <!-- 저장된 상세정보 목록 -->
+                                <table class="table table-bordered text-center mt-3" id="detail-table">
+                                    <thead>
+                                    <tr>
+                                        <th>회원정보</th>
+                                        <th>내용</th>
+                                        <th>등록일</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="detail-tbody">
+                                    {% for row in member_detail_list %}
+                                    <tr data-id="{{ row.id }}">
+                                        <td>{{ row.catTitle }}</td>
+                                        <td>{{ row.detailInfo }}</td>
+                                        <td>{{ row.regDate }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
-
                             <!-- 클럽경력 -->
                             <div class="tab-pane fade" id="pane-club" role="tabpanel" aria-labelledby="tab-club">
                                 <form method="POST" id="clubcare-form"
@@ -310,10 +335,8 @@
                                         {% endfor %}
                                         </tbody>
                                     </table>
-                                    <button type="submit" class="btn btn-primary">클럽경력 저장</button>
                                 </form>
                             </div>
-
                             <!-- 지구경력 -->
                             <div class="tab-pane fade" id="pane-district" role="tabpanel"
                                  aria-labelledby="tab-district">
@@ -337,39 +360,59 @@
                                         {% endfor %}
                                         </tbody>
                                     </table>
-                                    <button type="submit" class="btn btn-primary">지구경력 저장</button>
                                 </form>
                             </div>
-
                             <!-- 상벌사항 -->
                             <div class="tab-pane fade" id="pane-award" role="tabpanel" aria-labelledby="tab-award">
-                                <form method="POST" id="award-form" action="">
+                                <form method="POST" id="prize-form" action="/insert_PRIZE/{{memberdtl[0]}}/">
                                     <table class="table table-bordered text-center">
-                                        <thead>
-                                        <tr>
-                                            <th>일자</th>
-                                            <th>구분</th>
-                                            <th>내용</th>
-                                        </tr>
-                                        </thead>
                                         <tbody>
                                         <tr>
-                                            <td><input class="form-control" name="date[]" type="date"></td>
-                                            <td>
-                                                <select class="form-control" name="type[]">
-                                                    <option value="AWARD">상</option>
-                                                    <option value="PENALTY">벌</option>
+                                            <td style="width:20%;">
+                                                <select class="form-control" id="prizecat" name="prizecat">
+                                                    {% for prz in prizelist %}
+                                                    <option value="{{prz.prizeNo}}">{{prz.prizeTitle}}</option>
+                                                    {% endfor %}
                                                 </select>
                                             </td>
-                                            <td><input class="form-control" name="content[]" type="text"></td>
+                                            <td style="width:20%;">
+                                                <input class="form-control" id="prizedate" name="prizedate" type="date">
+                                            </td>
+                                            <td style="width:70%;">
+                                                <div class="d-flex align-items-center">
+                                                    <input class="form-control mr-2" id="prizecont" name="prizecont"
+                                                           type="text" value="">
+                                                    <button type="submit" class="btn btn-primary"
+                                                            style="white-space:nowrap;">저장
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
                                         </tbody>
                                     </table>
-                                    <button type="submit" class="btn btn-primary">상벌사항 저장</button>
                                 </form>
+                                <!-- 저장된 상세정보 목록 -->
+                                <table class="table table-bordered text-center mt-3" id="prize-table">
+                                    <thead>
+                                    <tr>
+                                        <th>수상내역</th>
+                                        <th>수상일자</th>
+                                        <th>수상행사</th>
+                                        <th>내용</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="prize-tbody">
+                                    {% for row in member_prize_list %}
+                                    <tr data-id="{{ row.id }}">
+                                        <td>{{ row.prizeTitle }}</td>
+                                        <td>{{ row.prizeDate }}</td>
+                                        <td></td>
+                                        <td>{{ row.prizeMemo }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
-
-
                         </div>
                     </div>
                 </div>
@@ -428,13 +471,99 @@
         }
     }
 
-    $('#editor-form').on('submit', function () {
-        console.log('memberclub(select value)=', $('#memberclub').val());
+</script>
+<script>
+  const MEMBER_NO = "{{ memberdtl[0] }}";
+
+  function renderDetailRows(rows) {
+    const tbody = document.getElementById("detail-tbody");
+    tbody.innerHTML = "";
+    rows.forEach(row => {
+      const tr = document.createElement("tr");
+      tr.setAttribute("data-id", row.id);
+      tr.setAttribute("data-catno", row.catNo);
+      tr.innerHTML = `
+        <td>${row.catTitle}</td>
+        <td>${row.detailInfo}</td>
+        <td>${row.regDate || ""}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // ✅ 수상내역용 렌더러 (prize-tbody를 갱신)
+  function renderPrizeRows(rows) {
+    const tbody = document.getElementById("prize-tbody");
+    tbody.innerHTML = "";
+    rows.forEach(row => {
+      const tr = document.createElement("tr");
+      tr.setAttribute("data-id", row.id);
+
+      tr.innerHTML = `
+        <td>${row.prizeTitle || ""}</td>
+        <td>${row.prizeDate || ""}</td>
+        <td>${row.eventTitle || ""}</td>
+        <td>${row.prizeMemo || ""}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function refreshDetailTable() {
+    const res = await fetch(`/api/member/${MEMBER_NO}/midtl`, {
+      headers: {"X-Requested-With": "XMLHttpRequest"}
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      alert(data.message || "목록 조회 실패");
+      return;
+    }
+    renderDetailRows(data.rows || []);
+  }
+
+  async function refreshPrizeTable() {
+    const res = await fetch(`/api/member/${MEMBER_NO}/prize`, {
+      headers: {"X-Requested-With": "XMLHttpRequest"}
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      alert(data.message || "목록 조회 실패");
+      return;
+    }
+
+    // ❌ renderDetailRows(data.rows || []);
+    // ✅ prize 테이블 갱신
+    renderPrizeRows(data.rows || []);
+  }
+
+  document.getElementById('prize-form')?.addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const form = e.target;
+    const formData = new FormData(form);
+
+    const res = await fetch(form.action, {
+      method: 'POST',
+      body: formData,
+      headers: {"X-Requested-With": "XMLHttpRequest"}
     });
 
-    $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
-        $('.selectpicker').selectpicker('refresh');
-    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      alert(data.message || "저장 실패");
+      return;
+    }
+
+    form.querySelector('input[name="prizecont"]').value = "";
+    await refreshPrizeTable();
+  });
+
+  // 탭 이벤트는 한 번만 등록해서 처리하는 걸 추천
+  $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+    if (e.target && e.target.id === 'tab-detail') refreshDetailTable();
+    if (e.target && e.target.id === 'tab-award')  refreshPrizeTable();
+    $('.selectpicker').selectpicker('refresh');
+  });
 </script>
 
 </body>

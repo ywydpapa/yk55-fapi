@@ -12,7 +12,7 @@
             {% include '/common/topbar.html' %}
 
             <div class="container-fluid">
-                <h1 class="h3 mb-4 text-gray-800">지구현황</h1>
+                <h1 class="h3 mb-4 text-gray-800">클럽현황</h1>
 
                 <div class="d-flex justify-content-center">
                     <div class="col-lg-12 col-xl-11">
@@ -24,23 +24,21 @@
                                 <div class="card shadow-sm h-100">
                                     <div class="card-body text-center">
                                         <h5 class="card-title">회원수</h5>
-                                        <div class="h2 font-weight-bold text-primary mb-1">6,284</div>
-                                        <div class="text-muted small">전월 대비 +18</div>
+                                        <div class="h2 font-weight-bold text-primary mb-1">{{ membercnt }}</div>
                                         <hr>
                                         <a href="#" class="btn btn-sm btn-outline-primary">회원 목록</a>
                                     </div>
                                 </div>
                             </div>
-
                             <!-- 클럽수 -->
                             <div class="col-md-4 mb-3">
                                 <div class="card shadow-sm h-100">
                                     <div class="card-body text-center">
-                                        <h5 class="card-title">클럽수</h5>
-                                        <div class="h2 font-weight-bold text-success mb-1">163</div>
-                                        <div class="text-muted small">활동 클럽 160 / 비활동 3</div>
+                                        <h5 class="card-title">연간 누적 봉사금</h5>
+                                        <div class="h2 font-weight-bold text-success mb-1">12,000천원</div>
+                                        <div class="text-muted small"></div>
                                         <hr>
-                                        <a href="#" class="btn btn-sm btn-outline-success">클럽 현황</a>
+                                        <a href="#" class="btn btn-sm btn-outline-success">봉사 현황</a>
                                     </div>
                                 </div>
                             </div>
@@ -49,7 +47,7 @@
                             <div class="col-md-4 mb-3">
                                 <div class="card shadow-sm h-100">
                                     <div class="card-body text-center">
-                                        <h5 class="card-title">LCIF 기금달성율</h5>
+                                        <h5 class="card-title">회비납입율</h5>
                                         <div class="h2 font-weight-bold text-info mb-2">88%</div>
 
                                         <div class="progress mb-2" style="height: 10px;">
@@ -58,9 +56,9 @@
                                             </div>
                                         </div>
 
-                                        <div class="text-muted small">목표 $900,000 / 달성 780,200</div>
+                                        <div class="text-muted small">68,000천원 / 달성 48,200천원</div>
                                         <hr>
-                                        <a href="#" class="btn btn-sm btn-outline-info">기금 상세</a>
+                                        <a href="#" class="btn btn-sm btn-outline-info">납입 상세</a>
                                     </div>
                                 </div>
                             </div>
@@ -101,15 +99,11 @@
                                         <h5 class="card-title text-center">클럽행사일정</h5>
                                         <ul class="list-group list-group-flush">
                                             <li class="list-group-item d-flex justify-content-between">
-                                                <span>부일 클럽 정기 월례회</span>
+                                                <span>정기 월례회</span>
                                                 <span class="text-muted">2026-02-22</span>
                                             </li>
                                             <li class="list-group-item d-flex justify-content-between">
-                                                <span>육대주 클럽 정기 월례회</span>
-                                                <span class="text-muted">2026-02-22</span>
-                                            </li>
-                                            <li class="list-group-item d-flex justify-content-between">
-                                                <span></span>
+                                                <span>정기 이사회</span>
                                                 <span class="text-muted">2026-02-22</span>
                                             </li>
                                         </ul>

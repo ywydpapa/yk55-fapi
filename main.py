@@ -2,7 +2,7 @@ from urllib import request
 import status
 import uvicorn
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi import Form, Response, HTTPException, File, UploadFile, Body
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -131,6 +131,37 @@ async def save_eventPhoto(image_data: bytes, eventno: int, size=(200, 300)):
     # 썸네일 저장
     image.save(thumbnail_path, format="PNG")
     return thumbnail_path
+
+
+async def get_member_prize_list(memberno: int, db: AsyncSession = Depends(get_db)):
+    q = text("""
+        SELECT d.mpNo as id,
+               d.prizeNo,
+               c.prizeTitle,
+               d.prizeMemo,
+               DATE_FORMAT(d.prizeDate, '%Y-%m-%d') AS prizeDate
+          FROM yk_memberPrize d
+          JOIN yk_prize c ON c.prizeNo = d.prizeNo
+         WHERE d.memberNo = :mno
+           AND d.attrib = :xapp
+         ORDER BY d.prizeDate ASC
+    """)
+    result = await db.execute(q, {"mno": memberno, "xapp": "1000010000"})
+    return [dict(r._mapping) for r in result.fetchall()]
+
+
+async def get_member_detail_list(memberno: int, db: AsyncSession = Depends(get_db)):
+    q = text("""
+        SELECT d.infoNo as id, d.catNo, c.catTitle, d.detailInfo,
+               DATE_FORMAT(d.regDate, '%Y-%m-%d') AS regDate
+          FROM yk_memberDetailinfo d
+          JOIN yk_category c ON c.catNo = d.catNo
+         WHERE d.memberNo = :mno
+           AND d.attrib = :xapp
+         ORDER BY d.regDate, d.infoNo
+    """)
+    result = await db.execute(q, {"mno": memberno, "xapp": "1000010000"})
+    return [dict(r._mapping) for r in result.fetchall()]
 
 
 def _clean_str(value: object) -> str | None:
@@ -263,7 +294,20 @@ async def getperiod(db: AsyncSession = Depends(get_db)):
     query = text("""
         SELECT periodNo, yearFr, yearTo, periodTitle, periodTitle2 FROM yk_period WHERE attrib = :xapp ORDER BY periodNo """)
     result = await db.execute(query, {"xapp": "1000010000"})
-    # Row -> dict
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def getcategory(cattype: str,db: AsyncSession = Depends(get_db)):
+    query = text("""
+        SELECT catNo, catTitle, catTitleEng FROM yk_category WHERE attrib = :xapp and catType = :cattype""")
+    result = await db.execute(query, {"xapp": "1000010000", "cattype": cattype})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def getprizelist(db: AsyncSession = Depends(get_db)):
+    query = text("""
+        SELECT prizeNo, prizeTitle, prizeType FROM yk_prize WHERE attrib = :xapp""")
+    result = await db.execute(query, {"xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
@@ -305,20 +349,51 @@ async def get_eventmembers(eventno:int,db: AsyncSession = Depends(get_db)):
 
 
 async def get_cabhist(periodno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * from yk_cabnet where attrib = :xapp and perionNo = :pno and cabYn = :cyn """)
+    query = text("""SELECT * from yk_distStaff where attrib = :xapp and periodNo = :pno and cabYn = :cyn """)
     result = await db.execute(query, {"xapp": "1000010000", "pno": periodno, "cyn": 'Y'})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
 async def get_dmemberhist(periodno:int,db: AsyncSession = Depends(get_db)):
-    query = text("""SELECT * from yk_cabnet where attrib = :xapp and perionNo = :pno """)
+    query = text("""SELECT * from yk_distStaff where attrib = :xapp and periodNo = :pno """)
     result = await db.execute(query, {"xapp": "1000010000", "pno": periodno})
     return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_dmemberhist_wname(periodno:int,db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.*, b.rankTitle, c.memberName, d.clubName, b.sortNo from yk_distStaff a left join yk_rank b on a.rankNo = b.rankNo left join yk_members c on a.memberNo = c.memberNo left join yk_club d on a.clubNo = d.clubNo where a.attrib = :xapp and a.periodNo = :pno order by b.sortNo""")
+    result = await db.execute(query, {"xapp": "1000010000", "pno": periodno})
+    return [dict(row._mapping) for row in result.fetchall()]
+
 
 async def get_rank(db: AsyncSession = Depends(get_db)):
     query = text("""SELECT * FROM yk_rank where attrib = :xapp order by sortNo""")
     result = await db.execute(query, {"xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_category(db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.* FROM yk_category a where a.attrib = :xapp""")
+    result = await db.execute(query, {"xapp": "1000010000"})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_cat_detail(catno:int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.* FROM yk_category a where a.attrib = :xapp and a.catNo = :catno""")
+    result = await db.execute(query, {"xapp": "1000010000", "catno": catno})
+    return result.fetchone()
+
+
+async def get_prize(db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.* FROM yk_prize a where a.attrib = :xapp""")
+    result = await db.execute(query, {"xapp": "1000010000"})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_prize_detail(prizeno:int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.* FROM yk_prize a where a.attrib = :xapp and a.prizeNo = :prizeno""")
+    result = await db.execute(query, {"xapp": "1000010000", "prizeno": prizeno})
+    return result.fetchone()
 
 
 async def get_member(db: AsyncSession = Depends(get_db)):
@@ -535,8 +610,11 @@ async def success_page(request: Request,db:AsyncSession = Depends(get_db)):
         msg = "OTP 등록 실패"
     if not user_No:
         return RedirectResponse(url="/")
-    return templates.TemplateResponse("main/basic.html",
-                                      {"request": request, "session": dict(request.session), "message": msg})
+    clubmember = await get_clubmember(user_clubno, db)
+    member_count = sum(1 for m in clubmember if m.get("memberStatus") == "ACTIV")
+    template_name = "main/indexc.html" if user_Role == "CUSER" else "main/index.html"
+    return templates.TemplateResponse(template_name,
+                                      {"request": request, "session": dict(request.session), "message": msg,"membercnt": member_count })
 
 
 @app.get("/mainpage",response_class=HTMLResponse)
@@ -548,10 +626,13 @@ async def main_page(request: Request,db:AsyncSession = Depends(get_db)):
     user_clubno = request.session.get("user_Clubno")
     otp = request.session.get("otp")
     msg = ""
+    clubmember = await get_clubmember(user_clubno,db)
+    member_count = sum(1 for m in clubmember if m.get("memberStatus") == "ACTIV")
     if not user_No:
         return RedirectResponse(url="/")
-    return templates.TemplateResponse("main/basic.html",
-                                      {"request": request,"session": dict(request.session), "message": msg})
+    template_name = "main/indexc.html" if user_Role == "CUSER" else "main/index.html"
+    return templates.TemplateResponse(template_name,
+                                      {"request": request,"session": dict(request.session), "message": msg, "membercnt": member_count})
 
 
 @app.post("/changeuserpass")
@@ -749,7 +830,167 @@ async def cmemberedit(request: Request,memberno:int, db: AsyncSession = Depends(
         member = await get_member_dtl(memberno,db)
         dstaffhist = await get_diststaffmem(clubno, memberno,db)
         cstaffhist = await get_clubstaffhist(memberno, db)
-        return templates.TemplateResponse("club/cmemberedit.html", {"request": request, "clubs": clubs,"session": dict(request.session),"memberdtl": member, "spons": spons, "dstaffhist": dstaffhist, "cstaffhist":cstaffhist})
+        catlist = await getcategory("MIDTL",db)
+        prizelist = await getprizelist(db)
+        midtl_list = await get_member_detail_list(memberno, db)
+        member_prize_list = await get_member_prize_list(memberno, db)
+        return templates.TemplateResponse("club/cmemberedit.html", {"request": request, "clubs": clubs,"session": dict(request.session),"memberdtl": member, "spons": spons, "dstaffhist": dstaffhist, "cstaffhist":cstaffhist, "catlist": catlist, "member_detail_list": midtl_list, "member_prize_list": member_prize_list, "prizelist": prizelist})
+
+
+@app.post("/insert_MIDTL/{memberno}/")
+async def insert_midt_detail(
+    request: Request,
+    memberno: int,
+    db: AsyncSession = Depends(get_db)
+):
+    if not request.session.get("user_No"):
+        # AJAX면 JSON으로, 아니면 로그인으로 리다이렉트
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JSONResponse({"ok": False, "message": "login required"}, status_code=401)
+        return RedirectResponse(url="/", status_code=303)
+
+    form = await request.form()
+    cat_no = to_int(form.get("dtlcat"), 0)
+    detail_info = (form.get("dtlcont") or "").strip()
+
+    if cat_no <= 0 or detail_info == "":
+        return JSONResponse({"ok": False, "message": "invalid input"}, status_code=400)
+
+    # 1) 기존값(유효 attrib) 폐기 -> 2) 신규 insert 를 "트랜잭션"으로 처리
+    try:
+        async with db.begin():  # begin 블록이 commit/rollback 관리
+            # 기존 동일키(memberNo+catNo) 유효행을 폐기
+            q_up = text("""
+                UPDATE yk_memberDetailinfo
+                   SET attrib = :xup, modDate = NOW()
+                 WHERE memberNo = :mno
+                   AND catNo = :cno
+                   AND attrib = :xapp
+            """)
+            await db.execute(q_up, {"xup": "XXXUPXXXUP", "mno": memberno, "cno": cat_no, "xapp": "1000010000"})
+
+            # 신규 insert (attrib 기본을 유효값으로)
+            q_in = text("""
+                INSERT INTO yk_memberDetailinfo (memberNo, catNo, detailInfo, attrib, regDate)
+                VALUES (:mno, :cno, :info, :xapp, NOW())
+            """)
+            result = await db.execute(q_in, {"mno": memberno, "cno": cat_no, "info": detail_info, "xapp": "1000010000"})
+            new_id = result.lastrowid
+
+            # 화면에 추가할 데이터(카테고리 타이틀 포함) 조회해서 반환
+            q_sel = text("""
+                SELECT d.infoNo as id, d.memberNo, d.catNo, c.catTitle, d.detailInfo,
+                       DATE_FORMAT(d.regDate, '%Y-%m-%d') AS regDate
+                  FROM yk_memberDetailinfo d
+                  JOIN yk_category c ON c.catNo = d.catNo
+                 WHERE d.infoNo = :id
+            """)
+            row = (await db.execute(q_sel, {"id": new_id})).mappings().first()
+
+        return JSONResponse({"ok": True, "row": dict(row) if row else None})
+
+    except Exception as e:
+        return JSONResponse({"ok": False, "message": str(e)}, status_code=500)
+
+
+@app.post("/insert_PRIZE/{memberno}/")
+async def insert_member_prize(
+    request: Request,
+    memberno: int,
+    db: AsyncSession = Depends(get_db)
+):
+    if not request.session.get("user_No"):
+        # AJAX면 JSON으로, 아니면 로그인으로 리다이렉트
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            return JSONResponse({"ok": False, "message": "login required"}, status_code=401)
+        return RedirectResponse(url="/", status_code=303)
+
+    form = await request.form()
+    prize_no = to_int(form.get("prizecat"), 0)
+    prize_info = (form.get("prizecont") or "").strip()
+    prize_date = form.get("prizedate")
+
+    if prize_no <= 0 or prize_info == "":
+        return JSONResponse({"ok": False, "message": "invalid input"}, status_code=400)
+
+    # 1) 기존값(유효 attrib) 폐기 -> 2) 신규 insert 를 "트랜잭션"으로 처리
+    try:
+        async with db.begin():  # begin 블록이 commit/rollback 관리
+            # 기존 동일키(memberNo+catNo) 유효행을 폐기
+            q_up = text("""
+                UPDATE yk_memberPrize
+                   SET attrib = :xup, modDate = NOW()
+                 WHERE memberNo = :mno
+                   AND prizeNo = :cno
+                   AND attrib = :xapp
+                   AND prizeDate = :prizedate 
+            """)
+            await db.execute(q_up, {"xup": "XXXUPXXXUP", "mno": memberno, "cno": prize_no, "xapp": "1000010000", "prizedate": prize_date})
+
+            # 신규 insert (attrib 기본을 유효값으로)
+            q_in = text("""
+                INSERT INTO yk_memberPrize (memberNo, prizeNo, prizeMemo, prizeDate)
+                VALUES (:mno, :pno, :memo, :pdate)
+            """)
+            result = await db.execute(q_in, {"mno": memberno, "pno": prize_no, "memo": prize_info, "pdate": prize_date})
+            new_id = result.lastrowid
+            # 화면에 추가할 데이터(카테고리 타이틀 포함) 조회해서 반환
+            q_sel = text("""
+                SELECT d.mpNo as id, d.memberNo, d.prizeNo, c.prizeTitle, d.prizeMemo,
+                       DATE_FORMAT(d.prizeDate, '%Y-%m-%d') AS prizeDate
+                  FROM yk_memberPrize d
+                  JOIN yk_prize c ON c.prizeNo = d.prizeNo
+                 WHERE d.mpNo = :id
+            """)
+            row = (await db.execute(q_sel, {"id": new_id})).mappings().first()
+
+        return JSONResponse({"ok": True, "row": dict(row) if row else None})
+
+    except Exception as e:
+        return JSONResponse({"ok": False, "message": str(e)}, status_code=500)
+
+
+@app.get("/api/member/{memberno}/midtl")
+async def api_member_midt_list(memberno: int, request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return JSONResponse({"ok": False, "message": "login required"}, status_code=401)
+
+    q = text("""
+        SELECT d.infoNo as id,
+               d.catNo,
+               c.catTitle,
+               d.detailInfo,
+               DATE_FORMAT(d.regDate, '%Y-%m-%d') AS regDate
+          FROM yk_memberDetailinfo d
+          JOIN yk_category c ON c.catNo = d.catNo
+         WHERE d.memberNo = :mno
+           AND d.attrib = :xapp
+         ORDER BY d.catNo ASC
+    """)
+    result = await db.execute(q, {"mno": memberno, "xapp": "1000010000"})
+    rows = [dict(r._mapping) for r in result.fetchall()]
+    return {"ok": True, "rows": rows}
+
+
+@app.get("/api/member/{memberno}/prize")
+async def api_member_prize_list(memberno: int, request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return JSONResponse({"ok": False, "message": "login required"}, status_code=401)
+    q = text("""
+        SELECT d.mpNo as id,
+               d.prizeNo,
+               c.prizeTitle,
+               d.prizeMemo,
+               DATE_FORMAT(d.prizeDate, '%Y-%m-%d') AS prizeDate
+          FROM yk_memberPrize d
+          JOIN yk_prize c ON c.prizeNo = d.prizeNo
+         WHERE d.memberNo = :mno
+           AND d.attrib = :xapp
+         ORDER BY d.prizeDate ASC
+    """)
+    result = await db.execute(q, {"mno": memberno, "xapp": "1000010000"})
+    rows = [dict(r._mapping) for r in result.fetchall()]
+    return {"ok": True, "rows": rows}
 
 
 @app.get("/dist_stafflist/{clubno}", response_class=HTMLResponse)
@@ -761,7 +1002,8 @@ async def dist_stafflist(request: Request, clubno:int, db: AsyncSession = Depend
         ranklist = await get_rank(db)
         stafflist = await get_diststaff(clubno, db)
         periods = await getperiod(db)
-        return templates.TemplateResponse("club/dstafflist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "stafflist": stafflist, "periods": periods, "periodno": None, "ranklist": ranklist })
+        cperiod = current_period
+        return templates.TemplateResponse("club/dstafflist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "stafflist": stafflist, "periods": periods, "ranklist": ranklist, "periodno": cperiod })
 
 
 @app.get("/club_stafflist/{clubno}", response_class=HTMLResponse)
@@ -772,7 +1014,8 @@ async def club_stafflist(request: Request, clubno:int, db: AsyncSession = Depend
         memberlist = await get_clubsponser(clubno,db)
         stafflist = await get_clubstaff(clubno, db)
         periods = await getperiod(db)
-        return templates.TemplateResponse("club/cstafflist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "stafflist": stafflist, "periods": periods, "periodno": None })
+        cperiod = current_period
+        return templates.TemplateResponse("club/cstafflist.html", {"request": request, "session": dict(request.session),"memberlist": memberlist, "stafflist": stafflist, "periods": periods, "periodno": cperiod })
 
 
 @app.post("/club_staffupdate", response_class=HTMLResponse)
@@ -980,6 +1223,112 @@ async def insertrank(request: Request, db: AsyncSession = Depends(get_db)):
     await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "rsortno": rsortno})
     await db.commit()
     return RedirectResponse(f"/mst_rank", status_code=303)
+
+
+@app.get("/mst_cat", response_class=HTMLResponse)
+async def catgorymaster(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        catlist = await get_category(db)
+        return templates.TemplateResponse("master/categorylist.html", {"request": request, "session": dict(request.session),"catlist": catlist})
+
+
+@app.post("/cat_reg", response_class=HTMLResponse)
+async def catgoryreg(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        return templates.TemplateResponse("master/categoryreg.html", {"request": request, "session": dict(request.session)})
+
+
+@app.get("/cat_edit/{catno}", response_class=HTMLResponse)
+async def catgoryedit(request: Request, catno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        catdtl = await get_cat_detail(catno,db)
+        return templates.TemplateResponse("master/categoryedit.html", {"request": request, "session": dict(request.session), "catdtl": catdtl})
+
+
+@app.api_route("/cat_insert", response_class=HTMLResponse, methods=["GET", "POST"])
+async def insertcat(request: Request, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    rtitle = form_data.get("rtitle")
+    rtitleeng = form_data.get("rtitleeng")
+    rtitlechn = form_data.get("rtitlechn")
+    rtype = form_data.get("rtype")
+    query = text(f"INSERT INTO yk_category (catTitle,catTitleEng,catTitleCn, catType) values (:rtitle,:rtitleeng,:rtitlechn,:rtype)")
+    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype})
+    await db.commit()
+    return RedirectResponse(f"/mst_cat", status_code=303)
+
+
+@app.api_route("/cat_update/{catno}", response_class=HTMLResponse, methods=["GET", "POST"])
+async def updatecat(request: Request, catno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    rtitle = form_data.get("rtitle")
+    rtitleeng = form_data.get("rtitleeng")
+    rtitlechn = form_data.get("rtitlechn")
+    rtype = form_data.get("rtype")
+    query = text(f"update yk_category set catTitle=:rtitle,catTitleEng=:rtitleeng, catTitleCn=:rtitlechn, catType=:rtype, modDate=now() where catNo=:catno")
+    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "catno": catno})
+    await db.commit()
+    return RedirectResponse(f"/mst_cat", status_code=303)
+
+
+@app.get("/mst_prize", response_class=HTMLResponse)
+async def prizemaster(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        prizelist = await get_prize(db)
+        return templates.TemplateResponse("master/prizelist.html", {"request": request, "session": dict(request.session),"prizelist": prizelist})
+
+
+@app.post("/prize_reg", response_class=HTMLResponse)
+async def prizereg(request: Request, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        return templates.TemplateResponse("master/prizereg.html", {"request": request, "session": dict(request.session)})
+
+
+@app.get("/prize_edit/{prizeno}", response_class=HTMLResponse)
+async def prizeedit(request: Request, prizeno:int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        prizedtl = await get_prize_detail(prizeno,db)
+        return templates.TemplateResponse("master/prizeedit.html", {"request": request, "session": dict(request.session), "prizedtl": prizedtl})
+
+
+@app.api_route("/prize_insert", response_class=HTMLResponse, methods=["GET", "POST"])
+async def insertprize(request: Request, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    rtitle = form_data.get("rtitle")
+    rtitleeng = form_data.get("rtitleeng")
+    rtitlechn = form_data.get("rtitlechn")
+    rtype = form_data.get("rtype")
+    sortno = form_data.get("sortno")
+    query = text(f"INSERT INTO yk_prize (prizeTitle,prizeTitleEng,prizeTitleCn, prizeType, sortNo) values (:rtitle,:rtitleeng,:rtitlechn,:rtype, :sortno)")
+    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "sortno": sortno})
+    await db.commit()
+    return RedirectResponse(f"/mst_prize", status_code=303)
+
+
+@app.api_route("/prize_update/{prizeno}", response_class=HTMLResponse, methods=["GET", "POST"])
+async def updateprize(request: Request, prizeno: int, db: AsyncSession = Depends(get_db)):
+    form_data = await request.form()
+    rtitle = form_data.get("rtitle")
+    rtitleeng = form_data.get("rtitleeng")
+    rtitlechn = form_data.get("rtitlechn")
+    rtype = form_data.get("rtype")
+    sortno = form_data.get("sortno")
+    query = text(f"update yk_prize set prizeTitle=:rtitle,prizeTitleEng=:rtitleeng, prizeTitleCn=:rtitlechn, prizeType=:rtype, sortNo=:sortno ,modDate=now() where prizeNo=:prizeno")
+    await db.execute(query, {"rtitle": rtitle, "rtitleeng": rtitleeng, "rtitlechn": rtitlechn, "rtype": rtype, "prizeno": prizeno, "sortno": sortno})
+    await db.commit()
+    return RedirectResponse(f"/mst_prize", status_code=303)
 
 
 @app.get("/mst_member", response_class=HTMLResponse)
@@ -1324,8 +1673,9 @@ async def yk55membhist(request: Request,periodno:int,db: AsyncSession = Depends(
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        membs = await get_dmemberhist(periodno, db)
-        return templates.TemplateResponse("yk55/yk55_memberhistview.html", {"request": request,"session": dict(request.session), "membs": membs})
+        membs = await get_dmemberhist_wname(periodno, db)
+        periods = await getperiod(db)
+        return templates.TemplateResponse("yk55/yk55_memberhistview.html", {"request": request,"session": dict(request.session), "membs": membs, "periodno":periodno, "periods": periods})
 
 
 @app.get("/yk55mjfhist", response_class=HTMLResponse)
