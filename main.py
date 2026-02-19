@@ -1799,6 +1799,7 @@ async def memberedit(request: Request, memberno: int, db: AsyncSession = Depends
     else:
         clubs = await get_club(db)
         member = await get_member_dtl(memberno, db)
+
         return templates.TemplateResponse("master/memberedit.html",
                                           {"request": request, "clubs": clubs, "session": dict(request.session),
                                            "memberdtl": member})
