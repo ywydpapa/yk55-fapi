@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include '/common/commHeader.html' %}
+</head>
+<body id="page-top">
+<!-- Page Wrapper -->
+<div id="wrapper">
+    {% include '/common/sidebar.html' %}
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+        <!-- Main Content -->
+        <div id="content">
+            {% include '/common/topbar.html' %}
+            <!-- Begin Page Content -->
+            <div class="container-fluid">
+                <!-- Page Heading -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary"><a href="/yk55membhist">{{periodno}}대 지구임원</a>
+                        </h6> <a href="/yk55membhist_view/{{periodno}}">리스트로 보기</a>
+                    </div>
+                    <div class="card-body">
+                        <style>
+                            @media (min-width: 1200px) {
+                                .col-xl-2-4 {
+                                    flex: 0 0 20%;
+                                    max-width: 20%;
+                                }
+                            }
+                        </style>
+                        {% set ns = namespace(prev_rank=None, row_open=false) %}
+                        {% for mem in membs %}
+                        {% if ns.prev_rank != mem.rankTitle %}
+                        {% if ns.row_open %}
+                    </div>
+                    {# /.row #}
+                    {% endif %}
+                    <div class="mt-4 mb-2 d-flex align-items-center justify-content-between">
+                        <h6 class="m-0 font-weight-bold text-primary">
+                            {{ mem.rankTitle }}
+                        </h6>
+                    </div>
+                    <hr class="mt-2 mb-3">
+                    <div class="row">
+                        {% set ns.row_open = true %}
+                        {% set ns.prev_rank = mem.rankTitle %}
+                        {% endif %}
+                        <div class="col-6 col-md-4 col-lg-3 col-xl-2-4 mb-3">
+                            <div class="card h-100 shadow-sm">
+                                <div class="card-body p-3 text-center">
+                                    <div class="mt-2 font-weight-bold" style="font-size: 1rem;">
+                                        {{ mem.memberName }}
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.9rem;">
+                                        ({{ mem.clubName }})
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% if ns.row_open %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <!-- /.container-fluid -->
+    </div>
+    <!-- End of Main Content -->
+    <!-- Footer -->
+    <footer class="sticky-footer bg-white">
+        <div class="container my-auto">
+            <div class="copyright text-center my-auto">
+                <span>Copyright &copy; SOFTCORE 2026</span>
+            </div>
+        </div>
+    </footer>
+    <!-- End of Footer -->
+</div>
+<!-- End of Content Wrapper -->
+</div>
+<!-- End of Page Wrapper -->
+<!-- Scroll to Top Button-->
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+<!-- Bootstrap core JavaScript-->
+{% include '/common/commonScript.html' %}
+
+</body>
+</html>

@@ -2171,6 +2171,18 @@ async def yk55membhist(request: Request, periodno: int, db: AsyncSession = Depen
                                            "periodno": periodno, "periods": periods})
 
 
+@app.get("/yk55membhist_tview/{periodno}", response_class=HTMLResponse)
+async def yk55membhist(request: Request, periodno: int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        membs = await get_dmemberhist_wname(periodno, db)
+        periods = await getperiod(db)
+        return templates.TemplateResponse("yk55/yk55_memberhistview_tile.html",
+                                          {"request": request, "session": dict(request.session), "membs": membs,
+                                           "periodno": periodno, "periods": periods})
+
+
 @app.get("/yk55mjfhist", response_class=HTMLResponse)
 async def yk55mjfhist(request: Request):
     if not request.session.get("user_No"):
