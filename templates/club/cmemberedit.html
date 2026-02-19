@@ -564,7 +564,31 @@
     if (e.target && e.target.id === 'tab-award')  refreshPrizeTable();
     $('.selectpicker').selectpicker('refresh');
   });
-</script>
 
+  document.getElementById('detail-form')?.addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    const form = e.target;
+    const formData = new FormData(form);
+
+    const res = await fetch(form.action, {
+      method: 'POST',
+      body: formData,
+      headers: {"X-Requested-With": "XMLHttpRequest"}
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      alert(data.message || "저장 실패");
+      return;
+    }
+
+    // 입력창 비우기
+    form.querySelector('input[name="dtlcont"]').value = "";
+
+    // 테이블 갱신
+    await refreshDetailTable();
+  });
+</script>
 </body>
 </html>

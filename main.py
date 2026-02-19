@@ -1139,28 +1139,19 @@ async def cmemberedit(request: Request, memberno: int, db: AsyncSession = Depend
 
 
 @app.post("/insert_MIDTL/{memberno}/")
-async def insert_midt_detail(
-        request: Request,
-        memberno: int,
-        db: AsyncSession = Depends(get_db)
-):
+async def insert_midt_detail(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
     if not request.session.get("user_No"):
-        # AJAX면 JSON으로, 아니면 로그인으로 리다이렉트
         if request.headers.get("x-requested-with") == "XMLHttpRequest":
             return JSONResponse({"ok": False, "message": "login required"}, status_code=401)
         return RedirectResponse(url="/", status_code=303)
-
     form = await request.form()
     cat_no = to_int(form.get("dtlcat"), 0)
     detail_info = (form.get("dtlcont") or "").strip()
-
     if cat_no <= 0 or detail_info == "":
         return JSONResponse({"ok": False, "message": "invalid input"}, status_code=400)
-
-    # 1) 기존값(유효 attrib) 폐기 -> 2) 신규 insert 를 "트랜잭션"으로 처리
     try:
         async with db.begin():  # begin 블록이 commit/rollback 관리
-            # 기존 동일키(memberNo+catNo) 유효행을 폐기
             q_up = text("""
                         UPDATE yk_memberDetailinfo
                         SET attrib  = :xup,
@@ -1170,16 +1161,12 @@ async def insert_midt_detail(
                           AND attrib = :xapp
                         """)
             await db.execute(q_up, {"xup": "XXXUPXXXUP", "mno": memberno, "cno": cat_no, "xapp": "1000010000"})
-
-            # 신규 insert (attrib 기본을 유효값으로)
             q_in = text("""
                         INSERT INTO yk_memberDetailinfo (memberNo, catNo, detailInfo, attrib, regDate)
                         VALUES (:mno, :cno, :info, :xapp, NOW())
                         """)
             result = await db.execute(q_in, {"mno": memberno, "cno": cat_no, "info": detail_info, "xapp": "1000010000"})
             new_id = result.lastrowid
-
-            # 화면에 추가할 데이터(카테고리 타이틀 포함) 조회해서 반환
             q_sel = text("""
                          SELECT d.infoNo                           as id,
                                 d.memberNo,
@@ -1192,9 +1179,10 @@ async def insert_midt_detail(
                          WHERE d.infoNo = :id
                          """)
             row = (await db.execute(q_sel, {"id": new_id})).mappings().first()
-
-        return JSONResponse({"ok": True, "row": dict(row) if row else None})
-
+        if is_ajax:
+            return JSONResponse({"ok": True, "row": dict(row) if row else None})
+        else:
+            return RedirectResponse(url=request.headers.get("referer", "/"), status_code=303)
     except Exception as e:
         return JSONResponse({"ok": False, "message": str(e)}, status_code=500)
 
