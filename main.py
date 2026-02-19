@@ -2064,17 +2064,16 @@ async def yk55greet_reg(request: Request, greetno: int, db: AsyncSession = Depen
 
 
 @app.get("/yk55greet_preview/{greetno}", response_class=HTMLResponse)
-async def yk55greet_prv(request: Request,greetno: int, type: int = Query(1), db: AsyncSession = Depends(get_db)):
+async def yk55greet_prv(request: Request,greetno: int,type: int = Query(1),db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        docs = await getdocdetail(greetno, db)
-        if type == 2:
-            template_name = "tmplets/greet02.html"
-        else:
-            template_name = "tmplets/greet01.html"
-        return templates.TemplateResponse( template_name, {"request": request, "session": dict(request.session), "docs": docs})
-
+    docs = await getdocdetail(greetno, db)
+    template_name = "tmplets/greet02.html" if type == 2 else "tmplets/greet01.html"
+    resp = templates.TemplateResponse(template_name,{"request": request, "session": dict(request.session), "docs": docs})
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 @app.api_route("/yk55greetupdate/{docno}", response_class=HTMLResponse, methods=["GET", "POST"])
 async def updatedoc(request: Request, docno: int, db: AsyncSession = Depends(get_db)):

@@ -100,12 +100,12 @@ function regnew() {
 }
 
 function openPreview(greetno) {
-  // 1. 해당 행의 선택된 템플릿 타입 가져오기
   const selectBox = document.getElementById(`tmplType_${greetno}`);
-  const type = selectBox ? selectBox.value : '1'; // 기본값 1
+  const type = selectBox ? selectBox.value : '1';
 
-  // 2. URL 뒤에 쿼리 파라미터로 type 추가 (/yk55greet_preview/123?type=2)
-  const url = `/yk55greet_preview/${greetno}?type=${type}`;
+  const ts = Date.now(); // 캐시 무효화용
+
+  const url = `/yk55greet_preview/${greetno}?type=${type}&ts=${ts}`;
 
   const w = 900;
   const h = 1270;
