@@ -35,10 +35,7 @@
       position: relative;
       box-sizing: border-box;
       box-shadow: 0 8px 30px rgba(0,0,0,.3);
-      padding: 20mm;
       overflow: hidden;
-      display: flex;
-      flex-direction: column;
     }
 
     /* --- [헤더 영역] --- */
@@ -59,9 +56,13 @@
       text-align: right;
       z-index: 50;
       min-width: 120mm;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
     }
-    .meta .position { font-size: 11pt; color: #555; margin-right: 5px; }
-    .meta .name { font-size: 16pt; font-weight: 800; color: #000; }
+    .meta .position { font-size: 11pt; color: #555; margin-bottom: 5px; }
+    .meta .name { font-size: 18pt; font-weight: 800; color: #000; }
 
     .title {
       position: absolute;
@@ -72,56 +73,75 @@
       letter-spacing: 5px;
       color: #000;
       z-index: 40;
-      padding-right: 60mm;
-      box-sizing: border-box;
     }
     .title::after {
       content: ''; display: block; width: 40mm; height: 2px;
-      background: var(--gold-dark); margin: 10px auto 0;
-      transform: translateX(30mm); opacity: 0.6;
+      background: var(--gold-dark); margin: 15px auto 0; opacity: 0.6;
     }
 
     /* --- [본문 영역] --- */
     .content-layer {
-      position: relative;
+      position: absolute;
+      top: 70mm;
+      left: 20mm;
+      right: 20mm;
+      /* 하단 테두리(20mm)보다 약간 위에서 끝나도록 설정 */
+      bottom: 25mm;
       z-index: 10;
       display: flex;
       flex-direction: column;
-      flex: 1; /* 남은 높이 모두 차지 */
-      /* 상단 여백: 사진 높이 고려 */
-      padding-top: 55mm;
     }
 
     .body {
-      /* 기본값: 시원하게 설정 (스크립트가 조절함) */
       font-size: 11.5pt;
-      line-height: 1.25;
+      line-height: 1.6;
       text-align: justify;
       word-break: keep-all;
-      flex-grow: 1; /* 공간 차지 */
-      display: flex;
-      flex-direction: column;
+      width: 100%;
     }
-
-    /* 문단 간격 */
     .body p { margin: 0 0 10px 0; }
 
+    /* --- [Footer 영역] --- */
+    /* 테두리(bottom: 18mm) 아래쪽 여백에 위치 */
     .footer {
-      height: 15mm;
-      display: flex; align-items: end; justify-content: center;
-      font-size: 11pt; color: #333; font-weight: bold;
-      padding-bottom: 3mm;
-      flex-shrink: 0; /* 푸터 크기 고정 */
+      position: absolute;
+      bottom: 8mm; /* 페이지 끝에서 8mm 위 */
+      left: 0;
+      width: 100%;
+      text-align: center;
+      font-size: 10pt; /* 하단 문구는 살짝 작게 */
+      color: #333;
+      font-weight: bold;
+      z-index: 60;
     }
 
-    /* 테두리 디자인 */
-    .border-outer { position: absolute; top: 8mm; left: 8mm; right: 8mm; bottom: 8mm; border: 2px solid var(--gold-dark); pointer-events: none; }
-    .border-inner { position: absolute; top: 10mm; left: 10mm; right: 10mm; bottom: 10mm; border: 1px solid var(--gold-dark); pointer-events: none; }
+    /* --- [테두리 디자인] --- */
+    /*
+       상/좌/우: 12mm (균형감 있는 여백)
+       하: 18mm (Footer 텍스트가 들어갈 최소한의 공간만 확보하여 어색함 제거)
+    */
+    .border-outer {
+      position: absolute;
+      top: 12mm; left: 12mm; right: 12mm;
+      bottom: 18mm;
+      border: 2px solid var(--gold-dark);
+      pointer-events: none;
+    }
+    .border-inner {
+      position: absolute;
+      top: 14mm; left: 14mm; right: 14mm;
+      bottom: 20mm; /* 외곽선과 2mm 간격 */
+      border: 1px solid var(--gold-dark);
+      pointer-events: none;
+    }
+
+    /* 모서리 장식 위치 (inner border 기준) */
     .corner { position: absolute; width: 30mm; height: 30mm; pointer-events: none; fill: none; stroke: var(--gold-dark); stroke-width: 1.2; }
-    .top-left { top: 10mm; left: 10mm; }
-    .top-right { top: 10mm; right: 10mm; transform: scaleX(-1); }
-    .bottom-left { bottom: 10mm; left: 10mm; transform: scaleY(-1); }
-    .bottom-right { bottom: 10mm; right: 10mm; transform: scale(-1); }
+
+    .top-left { top: 14mm; left: 14mm; }
+    .top-right { top: 14mm; right: 14mm; transform: scaleX(-1); }
+    .bottom-left { bottom: 20mm; left: 14mm; transform: scaleY(-1); }
+    .bottom-right { bottom: 20mm; right: 14mm; transform: scale(-1); }
 
     @media print {
       body { background: none; }
@@ -155,9 +175,10 @@
       <div class="body" id="contentBody">
         {{ docs[5] | safe }}
       </div>
-      <div class="footer">
-        {{ docs[9] }}
-      </div>
+    </div>
+
+    <div class="footer">
+      {{ docs[9] }}
     </div>
   </div>
 </div>
@@ -167,47 +188,40 @@
   window.onload = function() {
     const body = document.getElementById('contentBody');
     const container = document.querySelector('.content-layer');
-    const footer = document.querySelector('.footer');
 
-    // 1. 사용 가능한 본문 높이 계산 (전체 - 푸터 - 약간의 여유)
-    const availableHeight = container.clientHeight - footer.clientHeight - 10;
+    // 사용 가능한 높이 (컨테이너 높이 그대로 사용)
+    const availableHeight = container.clientHeight;
 
-    let fontSize = 10.5; // 시작 폰트
-    let lineHeight = 1.2; // 시작 줄간격
+    let fontSize = 11.5;
+    let lineHeight = 1.6;
 
-    // 상태 확인 함수
     function isOverflowing() {
       return body.scrollHeight > availableHeight;
     }
     function isTooEmpty() {
-      // 내용이 가용 높이의 85%보다 작으면 '비어있다'고 판단
-      return body.scrollHeight < (availableHeight * 0.85);
+      return body.scrollHeight < (availableHeight * 0.75);
     }
 
-    // A. 내용이 넘칠 때 (줄이기)
+    // A. 내용이 넘칠 때
     if (isOverflowing()) {
       while (isOverflowing() && fontSize > 8) {
-        // 1단계: 줄간격 먼저 줄임
         if (lineHeight > 1.35) {
             lineHeight -= 0.05;
         } else {
-            // 2단계: 폰트 줄임
             fontSize -= 0.2;
-            lineHeight = 1.4; // 폰트 줄일 때 줄간격 재설정
+            lineHeight = 1.4;
         }
         body.style.fontSize = fontSize + 'pt';
         body.style.lineHeight = lineHeight;
       }
     }
-    // B. 내용이 부족할 때 (늘리기)
+    // B. 내용이 부족할 때
     else if (isTooEmpty()) {
       while (isTooEmpty() && lineHeight < 2.3) {
-        // 줄간격만 늘려도 충분히 보기 좋음 (폰트는 너무 크면 이상함)
         lineHeight += 0.05;
         body.style.lineHeight = lineHeight;
 
-        // 줄간격이 너무 넓어지면 폰트도 살짝 키움 (최대 12.5pt)
-        if (lineHeight > 2.0 && fontSize < 12.5) {
+        if (lineHeight > 1.8 && fontSize < 13) {
              fontSize += 0.1;
              body.style.fontSize = fontSize + 'pt';
         }
