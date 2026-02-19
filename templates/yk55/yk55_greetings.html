@@ -40,14 +40,19 @@
                                     <td style="text-align: center"><a href = /yk55greet_edit/{{doc[0]}}>{{ doc[1] }}</a></td>
                                     <td style="text-align: center">{{ doc[9] }}{% if doc[10] is not none %}  / {{ doc[10] }}{% endif %}</td>
                                     <td></td>
+                                    <!-- 기존 코드의 <tbody> 내부 -->
                                     <td style="text-align: center">
-                                        <button
-                                            type="button"
-                                            class="btn btn-outline-primary btn-sm"
-                                            title="미리보기"
-                                            onclick="openPreview({{ doc[0] }})" >
+                                        <div class="d-flex justify-content-center align-items-center">
+                                        <!-- [추가됨] 템플릿 선택 박스 -->
+                                            <select id="tmplType_{{ doc[0] }}" class="form-control form-control-sm mr-2" style="width: 80px;">
+                                                <option value="1">Type 1</option>
+                                                <option value="2">Type 2</option>
+                                            </select>
+                                        <!-- 버튼 (onclick은 그대로 유지) -->
+                                        <button type="button" class="btn btn-outline-primary btn-sm" title="미리보기" onclick="openPreview({{ doc[0] }})" >
                                         <i class="fas fa-print"></i>
                                         </button>
+                                        </div>
                                     </td>
                                     </tr>
                                     {% endfor %}
@@ -95,12 +100,15 @@ function regnew() {
 }
 
 function openPreview(greetno) {
-  const url = `/yk55greet_preview/${greetno}`;
+  // 1. 해당 행의 선택된 템플릿 타입 가져오기
+  const selectBox = document.getElementById(`tmplType_${greetno}`);
+  const type = selectBox ? selectBox.value : '1'; // 기본값 1
 
-  // A4 비율에 가까운 팝업 크기 (대략 1:1.414)
+  // 2. URL 뒤에 쿼리 파라미터로 type 추가 (/yk55greet_preview/123?type=2)
+  const url = `/yk55greet_preview/${greetno}?type=${type}`;
+
   const w = 900;
   const h = 1270;
-
   const left = Math.max(0, (window.screen.width - w) / 2);
   const top = Math.max(0, (window.screen.height - h) / 2);
 

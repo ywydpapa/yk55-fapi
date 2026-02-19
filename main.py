@@ -2064,13 +2064,16 @@ async def yk55greet_reg(request: Request, greetno: int, db: AsyncSession = Depen
 
 
 @app.get("/yk55greet_preview/{greetno}", response_class=HTMLResponse)
-async def yk55greet_prv(request: Request, greetno: int, db: AsyncSession = Depends(get_db)):
+async def yk55greet_prv(request: Request,greetno: int, type: int = Query(1), db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
         docs = await getdocdetail(greetno, db)
-        return templates.TemplateResponse("tmplets/greet01.html",
-                                          {"request": request, "session": dict(request.session), "docs": docs})
+        if type == 2:
+            template_name = "tmplets/greet02.html"
+        else:
+            template_name = "tmplets/greet01.html"
+        return templates.TemplateResponse( template_name, {"request": request, "session": dict(request.session), "docs": docs})
 
 
 @app.api_route("/yk55greetupdate/{docno}", response_class=HTMLResponse, methods=["GET", "POST"])
