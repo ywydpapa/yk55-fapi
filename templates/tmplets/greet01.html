@@ -11,18 +11,13 @@
       --paper-bg: #FFFCF5;
     }
 
-    /* 인쇄 시 기본 설정 */
-    @page {
-      size: A4;
-      margin: 0; /* 브라우저 자체 여백 제거 */
-    }
+    @page { size: A4; margin: 0; }
 
     body {
-      margin: 0;
-      padding: 0;
-      background: #555; /* 미리보기 배경 */
+      margin: 0; padding: 0;
+      background: #555;
       font-family: "Nanum Myeongjo", serif;
-      -webkit-print-color-adjust: exact; /* 배경색/이미지 강제 인쇄 */
+      -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
@@ -33,27 +28,22 @@
       min-height: 100vh;
     }
 
-    /* A4 페이지 정의 */
     .page {
       width: 210mm;
-      height: 297mm; /* min-height 대신 고정 height 사용 */
+      height: 297mm;
       background-color: var(--paper-bg);
       position: relative;
       box-sizing: border-box;
       box-shadow: 0 8px 30px rgba(0,0,0,.3);
-      padding: 20mm; /* 여백을 조금 줄여 본문 공간 확보 (25mm -> 20mm) */
-      overflow: hidden; /* A4 밖으로 나가는 내용 숨김 */
+      padding: 20mm;
+      overflow: hidden;
     }
 
-    /* --- [레이아웃: 상단 헤더 영역] --- */
-
-    /* 1. 사진 (우측 상단) */
+    /* --- [헤더 영역] --- */
     .member-photo {
       position: absolute;
-      top: 20mm;       /* 페이지 패딩과 맞춤 */
-      right: 20mm;
-      width: 35mm;
-      height: 45mm;
+      top: 20mm; right: 20mm;
+      width: 35mm; height: 45mm;
       object-fit: cover;
       border: 1px solid #ccc;
       box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
@@ -61,127 +51,85 @@
       background-color: #f0f0f0;
     }
 
-    /* 2. 직함/이름 (사진 좌측) */
     .meta {
       position: absolute;
-      top: 48mm; /* 사진 하단 라인에 맞춰 정렬 */
-      right: 60mm; /* 사진 너비(35) + 간격(5) + 우측여백(20) */
+      top: 48mm; right: 60mm;
       text-align: right;
       z-index: 50;
       min-width: 120mm;
     }
+    .meta .position { font-size: 11pt; color: #555; margin-right: 5px; }
+    .meta .name { font-size: 16pt; font-weight: 800; color: #000; }
 
-    .meta .position {
-      display: inline-block;
-      font-size: 11pt;
-      color: #555;
-      margin-right: 5px;
-    }
-
-    .meta .name {
-      font-size: 16pt;
-      font-weight: 800;
-      color: #000;
-    }
-
-    /* 3. 제목 (중앙) */
     .title {
       position: absolute;
-      top: 25mm;
-      left: 0;
-      width: 100%;
+      top: 25mm; left: 0; width: 100%;
       text-align: center;
-      font-size: 28pt; /* 제목 크기 조정 */
+      font-size: 28pt;
       font-weight: 800;
       letter-spacing: 5px;
       color: #000;
       z-index: 40;
-      /* 사진과 겹치지 않도록 우측 여백 확보 */
       padding-right: 60mm;
       box-sizing: border-box;
     }
-
-    /* 제목 장식선 */
     .title::after {
-      content: '';
-      display: block;
-      width: 40mm;
-      height: 2px;
-      background: var(--gold-dark);
-      margin: 10px auto 0; /* 중앙 정렬 */
-      /* padding-right 때문에 중앙이 틀어질 수 있으므로 transform 보정 */
-      transform: translateX(30mm);
-      opacity: 0.6;
+      content: ''; display: block; width: 40mm; height: 2px;
+      background: var(--gold-dark); margin: 10px auto 0;
+      transform: translateX(30mm); opacity: 0.6;
     }
 
-    /* --- [디자인 요소: 테두리] --- */
-    .border-outer {
-      position: absolute;
-      top: 8mm; left: 8mm; right: 8mm; bottom: 8mm;
-      border: 2px solid var(--gold-dark);
-      pointer-events: none;
-    }
-    .border-inner {
-      position: absolute;
-      top: 10mm; left: 10mm; right: 10mm; bottom: 10mm;
-      border: 1px solid var(--gold-dark);
-      pointer-events: none;
-    }
-
-    /* 코너 장식 */
-    .corner {
-      position: absolute;
-      width: 30mm; height: 30mm;
-      pointer-events: none;
-      fill: none; stroke: var(--gold-dark); stroke-width: 1.2;
-    }
-    .top-left { top: 10mm; left: 10mm; }
-    .top-right { top: 10mm; right: 10mm; transform: scaleX(-1); }
-    .bottom-left { bottom: 10mm; left: 10mm; transform: scaleY(-1); }
-    .bottom-right { bottom: 10mm; right: 10mm; transform: scale(-1); }
-
-    /* --- [본문 영역] --- */
+    /* --- [본문 스타일 수정 핵심] --- */
     .content-layer {
       position: relative;
       z-index: 10;
       display: flex;
       flex-direction: column;
       height: 100%;
-      /* 상단 여백: 사진 높이(45mm) + 여백(약 15mm) */
-      padding-top: 60mm;
+      /* 상단 여백을 60mm -> 55mm로 줄여 공간 확보 */
+      padding-top: 55mm;
     }
 
     .body {
-      font-size: 11pt;
-      /* 줄간격 1.6으로 변경하여 가독성 확보 (기존 1.1은 너무 좁음) */
-      line-height: 1.6;
-      text-align: justify; /* 양쪽 정렬 */
-      word-break: keep-all; /* 단어 단위 줄바꿈 */
-      flex: 1; /* 남은 공간 모두 차지 */
-      overflow: hidden; /* 넘치는 텍스트 숨김 (필요시 auto로 변경) */
+      /* 1. 글자 크기 축소 (11pt -> 10pt) */
+      font-size: 10pt;
+      /* 2. 줄 간격 축소 (1.6 -> 1.4) */
+      line-height: 1.4;
+      /* 3. 자간 축소 (한 줄에 더 많은 글자가 들어가게 함) */
+      letter-spacing: -0.5px;
+
+      text-align: justify;
+      word-break: keep-all;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* 문단 사이 간격 추가 (가독성 보완) */
+    .body p {
+        margin: 5px 0;
     }
 
     .footer {
-      height: 20mm;
-      display: flex;
-      align-items: end;
-      justify-content: center;
-      font-size: 11pt;
-      color: #333;
-      font-weight: bold;
+      /* 하단 여백 높이 고정 */
+      height: 15mm;
+      display: flex; align-items: end; justify-content: center;
+      font-size: 10pt; color: #333; font-weight: bold;
       padding-bottom: 5mm;
     }
 
-    /* 인쇄 전용 스타일 */
+    /* 테두리 디자인 */
+    .border-outer { position: absolute; top: 8mm; left: 8mm; right: 8mm; bottom: 8mm; border: 2px solid var(--gold-dark); pointer-events: none; }
+    .border-inner { position: absolute; top: 10mm; left: 10mm; right: 10mm; bottom: 10mm; border: 1px solid var(--gold-dark); pointer-events: none; }
+    .corner { position: absolute; width: 30mm; height: 30mm; pointer-events: none; fill: none; stroke: var(--gold-dark); stroke-width: 1.2; }
+    .top-left { top: 10mm; left: 10mm; }
+    .top-right { top: 10mm; right: 10mm; transform: scaleX(-1); }
+    .bottom-left { bottom: 10mm; left: 10mm; transform: scaleY(-1); }
+    .bottom-right { bottom: 10mm; right: 10mm; transform: scale(-1); }
+
     @media print {
       body { background: none; }
       .preview-wrap { padding: 0; display: block; }
-      .page {
-        margin: 0 auto;
-        box-shadow: none;
-        page-break-after: always;
-        border: none;
-      }
+      .page { margin: 0 auto; box-shadow: none; page-break-after: always; border: none; }
     }
   </style>
 </head>
@@ -189,40 +137,63 @@
 
 <div class="preview-wrap">
   <div class="page">
-
-    <!-- 디자인 테두리 -->
     <div class="border-outer"></div>
     <div class="border-inner"></div>
 
+    <!-- 코너 장식 생략 (위와 동일) -->
     <svg class="corner top-left" viewBox="0 0 100 100"><path d="M 5 95 L 5 30 Q 5 5 30 5 L 95 5" /><path d="M 15 95 L 15 35 Q 15 15 35 15 L 95 15" stroke-width="0.5" /><path d="M 5 30 L 0 30 M 30 5 L 30 0" stroke="none" fill="#B8860B" /></svg>
     <svg class="corner top-right" viewBox="0 0 100 100"><path d="M 5 95 L 5 30 Q 5 5 30 5 L 95 5" /><path d="M 15 95 L 15 35 Q 15 15 35 15 L 95 15" stroke-width="0.5" /></svg>
     <svg class="corner bottom-left" viewBox="0 0 100 100"><path d="M 5 95 L 5 30 Q 5 5 30 5 L 95 5" /><path d="M 15 95 L 15 35 Q 15 15 35 15 L 95 15" stroke-width="0.5" /></svg>
     <svg class="corner bottom-right" viewBox="0 0 100 100"><path d="M 5 95 L 5 30 Q 5 5 30 5 L 95 5" /><path d="M 15 95 L 15 35 Q 15 15 35 15 L 95 15" stroke-width="0.5" /></svg>
 
-    <!-- 1. 사진 -->
     <img src="/static/img/docs/docphoto_{{docs[0]}}.png" class="member-photo" alt="사진" onerror="this.style.visibility='hidden'">
 
-    <!-- 2. 직함/이름 -->
     <div class="meta">
       <span class="position">{{ docs[2] }}</span>
       <span class="name">{{ docs[3] }}</span>
     </div>
 
-    <!-- 3. 제목 -->
     <div class="title">{{ docs[4] }}</div>
 
-    <!-- 4. 본문 및 하단 -->
     <div class="content-layer">
-      <div class="body">
+      <!-- id="contentBody" 추가 -->
+      <div class="body" id="contentBody">
         {{ docs[5] | safe }}
       </div>
       <div class="footer">
         {{ docs[9] }}
       </div>
     </div>
-
   </div>
 </div>
+
+<!-- 해결책 2: 내용이 넘치면 자동으로 줄여주는 스크립트 -->
+<script>
+  window.onload = function() {
+    const body = document.getElementById('contentBody');
+    const container = document.querySelector('.content-layer');
+    const footer = document.querySelector('.footer');
+
+    // 본문이 들어갈 수 있는 최대 높이 계산 (전체 - 푸터 - 상단여백)
+    // content-layer 높이(100%)에서 footer 높이를 뺀 만큼이 본문 영역
+
+    let fontSize = 10; // 시작 폰트 사이즈 (pt)
+
+    // 내용이 넘치는지 확인하는 함수
+    function checkOverflow() {
+      // scrollHeight(실제 내용 높이) > clientHeight(보여지는 높이)
+      return body.scrollHeight > body.clientHeight;
+    }
+
+    // 넘치면 폰트를 0.5pt씩 줄임 (최소 8pt까지)
+    while (checkOverflow() && fontSize > 8) {
+      fontSize -= 0.5;
+      body.style.fontSize = fontSize + 'pt';
+      // 줄간격도 같이 조금씩 줄임
+      body.style.lineHeight = (fontSize * 0.14).toFixed(1);
+    }
+  };
+</script>
 
 </body>
 </html>
