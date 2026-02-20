@@ -497,6 +497,19 @@ async def get_cabhist(periodno: int, db: AsyncSession = Depends(get_db)):
     return [dict(row._mapping) for row in result.fetchall()]
 
 
+async def get_cabhist_wname(periodno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT a.*, b.rankTitle, c.memberName, d.clubName, b.sortNo
+                    from yk_distStaff a
+                             left join yk_rank b on a.rankNo = b.rankNo
+                             left join yk_members c on a.memberNo = c.memberNo
+                             left join yk_club d on a.clubNo = d.clubNo
+                    where a.attrib = :xapp and b.rankTitle in ('지구총재','사무총장', '재무총장', '기획총장', '수석부총장', '사무부총장', '재무부총장')
+                      and a.periodNo = :pno
+                    order by b.sortNo""")
+    result = await db.execute(query, {"xapp": "1000010000", "pno": periodno})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
 async def get_dmemberhist(periodno: int, db: AsyncSession = Depends(get_db)):
     query = text("""SELECT *
                     from yk_distStaff
@@ -517,6 +530,9 @@ async def get_dmemberhist_wname(periodno: int, db: AsyncSession = Depends(get_db
                     order by b.sortNo""")
     result = await db.execute(query, {"xapp": "1000010000", "pno": periodno})
     return [dict(row._mapping) for row in result.fetchall()]
+
+
+
 
 
 async def get_rank(db: AsyncSession = Depends(get_db)):
@@ -2112,9 +2128,19 @@ async def yk55cabhist(request: Request, periodno: int, db: AsyncSession = Depend
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
-        cabs = await get_cabhist(periodno, db)
+        cabs = await get_cabhist_wname(periodno, db)
         return templates.TemplateResponse("yk55/yk55_cabhistview.html",
-                                          {"request": request, "session": dict(request.session), "cabs": cabs})
+                                          {"request": request, "session": dict(request.session), "membs": cabs, "periodno": periodno,})
+
+
+@app.get("/yk55cabhist_tview/{periodno}", response_class=HTMLResponse)
+async def yk55cabhisttv(request: Request, periodno: int, db: AsyncSession = Depends(get_db)):
+    if not request.session.get("user_No"):
+        return RedirectResponse(url="login/login.html", status_code=303)
+    else:
+        cabs = await get_cabhist_wname(periodno, db)
+        return templates.TemplateResponse("yk55/yk55_cabhistview_tile.html",
+                                          {"request": request, "session": dict(request.session), "membs": cabs, "periodno": periodno})
 
 
 @app.get("/yk55servhist", response_class=HTMLResponse)
