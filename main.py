@@ -460,7 +460,7 @@ async def get_clubeventsperiod(clubno: int, periodno: int, db: AsyncSession = De
                         sortNo
                  FROM yk_event
                  WHERE attrib = :xapp
-                   and (clubNo = :clubno or regionNo = 0)
+                   and clubNo = :clubno
                    and periodNo = :periodno
                  ORDER BY eventFrom """)
     result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno, "periodno": periodno})
