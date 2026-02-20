@@ -101,7 +101,7 @@ async def save_thumbnail(image_data: bytes, memberno: int, size=(100, 100)):
     return thumbnail_path
 
 
-async def resize_image_if_needed(contents: bytes, max_bytes: int = 102400) -> bytes:
+async def resize_image_if_needed(contents: bytes, max_bytes: int = 314572) -> bytes:
     if len(contents) <= max_bytes:
         return contents
     image = Image.open(io.BytesIO(contents))
