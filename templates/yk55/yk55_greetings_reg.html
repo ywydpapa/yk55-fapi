@@ -54,7 +54,7 @@
                                     <td><select class="form-control" id="docevent" name="docevent">
                                         <option value="0">미정</option>
                                         {% for event in events %}
-                                        <option value="{{ event.eventNo }}">{{ event.eventTitle }}</option>
+                                        <option value="{{ event.eventNo }}">{% if event.clubNo|int > 0 %}({{event.clubName}} 행사) {% endif %} {{ event.eventTitle }}</option>
                                         {% endfor %}
                                     </select></td>
                                 </tr>

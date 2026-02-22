@@ -448,23 +448,46 @@ async def get_distevents(db: AsyncSession = Depends(get_db)):
 
 async def get_clubeventsperiod(clubno: int, periodno: int, db: AsyncSession = Depends(get_db)):
     query = text("""
-                 SELECT eventNo,
-                        periodNo,
-                        eventTitle,
-                        eventTitleEng,
-                        eventType,
-                        eventFrom,
-                        eventTo,
-                        clubNo,
-                        eventCost,
-                        sortNo
-                 FROM yk_event
-                 WHERE attrib = :xapp
-                   and clubNo = :clubno
-                   and periodNo = :periodno
-                 ORDER BY eventFrom """)
+                 SELECT a.eventNo,
+                        a.periodNo,
+                        a.eventTitle,
+                        a.eventTitleEng,
+                        a.eventType,
+                        a.eventFrom,
+                        a.eventTo,
+                        a.clubNo,
+                        a.eventCost,
+                        a.sortNo,
+                        b.clubName
+                 FROM yk_event a
+                     left join yk_club b on a.clubNo = b.clubNo
+                 WHERE a.attrib = :xapp
+                   and a.clubNo = :clubno
+                   and a.periodNo = :periodno
+                 ORDER BY a.eventFrom """)
     result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno, "periodno": periodno})
-    # Row -> dict
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_disteventsperiod(periodno: int, db: AsyncSession = Depends(get_db)):
+    query = text("""
+                 SELECT a.eventNo,
+                        a.periodNo,
+                        a.eventTitle,
+                        a.eventTitleEng,
+                        a.eventType,
+                        a.eventFrom,
+                        a.eventTo,
+                        a.clubNo,
+                        a.eventCost,
+                        a.sortNo,
+                        b.clubName
+                 FROM yk_event a
+                     left join yk_club b on a.clubNo = b.clubNo
+                 WHERE a.attrib = :xapp
+                   and a.periodNo = :periodno
+                 ORDER BY a.clubNo, a.eventFrom """)
+    result = await db.execute(query, {"xapp": "1000010000", "periodno": periodno})
     return [dict(row._mapping) for row in result.fetchall()]
 
 
@@ -595,6 +618,15 @@ async def get_clubmember(clubno: int, db: AsyncSession = Depends(get_db)):
                     order by memberEntdate""")
     result = await db.execute(query, {"cno": clubno, "xapp": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_distmember(db: AsyncSession = Depends(get_db)):
+    query = text("""SELECT count(*)
+                    FROM yk_members
+                    where memberStatus = :sts
+                      and attrib = :xapp""")
+    result = await db.execute(query, { "sts": "ACTIV", "xapp": "1000010000"})
+    return result.fetchone()[0]
 
 
 async def get_clubsponser(clubno: int, db: AsyncSession = Depends(get_db)):
@@ -875,8 +907,11 @@ async def success_page(request: Request, db: AsyncSession = Depends(get_db)):
         msg = "OTP 등록 실패"
     if not user_No:
         return RedirectResponse(url="/")
-    clubmember = await get_clubmember(user_clubno, db)
-    member_count = sum(1 for m in clubmember if m.get("memberStatus") == "ACTIV")
+    if user_Role == 'CUSER':
+        clubmember = await get_clubmember(user_clubno, db)
+        member_count = sum(1 for m in clubmember if m.get("memberStatus") == "ACTIV")
+    else:
+        member_count = await get_distmember(db)
     template_name = "main/indexc.html" if user_Role == "CUSER" else "main/index.html"
     return templates.TemplateResponse(template_name,
                                       {"request": request, "session": dict(request.session), "message": msg,
@@ -2047,9 +2082,13 @@ async def yk55greet_reg(request: Request, db: AsyncSession = Depends(get_db)):
     if not request.session.get("user_No"):
         return RedirectResponse(url="login/login.html", status_code=303)
     else:
+        user_Role = request.session.get("user_Role")
         clubno = request.session.get("user_Clubno")
         periodno = current_period
-        events = await get_clubeventsperiod(clubno, periodno, db)
+        if user_Role == 'CUSER':
+            events = await get_clubeventsperiod(clubno, periodno, db)
+        else:
+            events = await get_disteventsperiod(periodno, db)
         return templates.TemplateResponse("yk55/yk55_greetings_reg.html",
                                           {"request": request, "session": dict(request.session), "events": events})
 
