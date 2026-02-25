@@ -55,7 +55,7 @@
                                     <td> 적용회기 </td>
                                     <td> <select class="form-control" id="eventperiod" name="eventperiod">
                                         {% for per in periodlist %}
-                                        <option value="{{per.periodNo}}" {% if per.periodNo == periodno %}selected{% endif %}>{{per.periodTitle2}}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
+                                        <option value="{{per.periodNo}}" {% if per.periodNo|int == periodno|int %}selected{% endif %}>{{per.periodTitle2}}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
                                         {% endfor %}
                                         </select></td>
                                 </tr>
@@ -108,7 +108,59 @@
 <!-- Bootstrap core JavaScript-->
 {% include '/common/commonScript.html' %}
 <script>
+  function pad2(n) { return String(n).padStart(2, '0'); }
 
+  // datetime-local 형식: YYYY-MM-DDTHH:MM
+  function toLocalDatetimeValue(date) {
+    return [
+      date.getFullYear(),
+      pad2(date.getMonth() + 1),
+      pad2(date.getDate())
+    ].join('-') + 'T' + pad2(date.getHours()) + ':' + pad2(date.getMinutes());
+  }
+
+  function setTime(date, hh, mm) {
+    const d = new Date(date);
+    d.setHours(hh, mm, 0, 0);
+    return d;
+  }
+
+  function parseLocalDatetimeValue(val) {
+    // val: "YYYY-MM-DDTHH:MM"
+    if (!val) return null;
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const startEl = document.getElementById('eventfrom');
+    const endEl = document.getElementById('eventto');
+    if (!startEl || !endEl) return;
+
+    // 기본값 설정 (값이 비어있을 때만)
+    const now = new Date();
+    if (!startEl.value) startEl.value = toLocalDatetimeValue(setTime(now, 9, 0));
+    if (!endEl.value) endEl.value = toLocalDatetimeValue(setTime(now, 18, 0));
+
+    function ensureEndAfterStartPlus4h() {
+      const start = parseLocalDatetimeValue(startEl.value);
+      const end = parseLocalDatetimeValue(endEl.value);
+      if (!start) return;
+
+      // 종료가 없거나, 종료 <= 시작이면 종료를 시작+4시간으로 보정
+      if (!end || end.getTime() <= start.getTime()) {
+        const newEnd = new Date(start.getTime() + 4 * 60 * 60 * 1000);
+        endEl.value = toLocalDatetimeValue(newEnd);
+      }
+    }
+
+    // 시작시간 변경 시 보정
+    startEl.addEventListener('change', ensureEndAfterStartPlus4h);
+
+    // 초기 로드 시에도 한 번 보정
+    ensureEndAfterStartPlus4h();
+  });
 </script>
+
 </body>
 </html>

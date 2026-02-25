@@ -440,7 +440,7 @@ async def get_distevents(db: AsyncSession = Depends(get_db)):
                  FROM yk_event
                  WHERE attrib = :xapp
                    and regionNo = :regionno
-                     and clubNo is null 
+                     and clubNo = :regionno 
                  ORDER BY eventFrom """)
     result = await db.execute(query, {"xapp": "1000010000", "regionno": 0})
     return [dict(row._mapping) for row in result.fetchall()]
