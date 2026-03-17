@@ -29,6 +29,7 @@ from pathlib import Path
 import calendar
 from datetime import date
 from fastapi.templating import Jinja2Templates
+import bcrypt
 
 dotenv.load_dotenv()
 DATABASE_URL = os.getenv("dburl")
@@ -47,11 +48,13 @@ app.add_middleware(SessionMiddleware, secret_key="supersecretkey")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # 모든 도메인 허용
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# 최대 업로드 허용 용량 (25MB)
+MAX_UPLOAD_SIZE = 25 * 1024 * 1024
 
 def currency(value, symbol="₩", suffix="", places=0):
     if value is None or value == "":
@@ -86,17 +89,54 @@ async def get_db():
         yield session
 
 
-# 썸네일 생성 함수
+async def safe_file_read(file: UploadFile, max_size: int = MAX_UPLOAD_SIZE) -> bytes:
+    contents = bytearray()
+    while chunk := await file.read(1024 * 1024):
+        contents.extend(chunk)
+        if len(contents) > max_size:
+            raise HTTPException(
+                status_code=413,
+                detail=f"파일 용량이 너무 큽니다. (최대 {max_size / 1024 / 1024}MB 허용)"
+            )
+    return bytes(contents)
+
+
+def get_password_hash(password: str) -> str:
+    pwd_bytes = password.encode('utf-8')[:72]
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(pwd_bytes, salt)
+    return hashed_password.decode('utf-8')
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    try:
+        pwd_bytes = plain_password.encode('utf-8')[:72]
+        hashed_bytes = hashed_password.encode('utf-8')
+        return bcrypt.checkpw(pwd_bytes, hashed_bytes)
+    except ValueError:
+        return False
+
+
+async def get_current_user(request: Request) -> int:
+    user_no = request.session.get("user_No")
+    if not user_no:
+        if request.headers.get("x-requested-with") == "XMLHttpRequest":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="로그인이 필요합니다."
+            )
+        raise HTTPException(
+            status_code=status.HTTP_303_SEE_OTHER,
+            headers={"Location": "/"}
+        )
+    return user_no
+
+
 async def save_thumbnail(image_data: bytes, memberno: int, size=(100, 100)):
-    # 디렉토리가 없으면 생성
     os.makedirs(THUMBNAIL_DIR, exist_ok=True)
-    # 원본 이미지를 Pillow로 열기
     image = Image.open(io.BytesIO(image_data))
-    # 썸네일 생성
     image.thumbnail(size)
-    # 저장 경로
     thumbnail_path = os.path.join(THUMBNAIL_DIR, f"thumb_{memberno}.png")
-    # 썸네일 저장
     image.save(thumbnail_path, format="PNG")
     return thumbnail_path
 
@@ -225,85 +265,72 @@ def to_int(s, default=0):
         return default
 
 
-@app.post("/uploadmphoto/{memberno}")
-async def upload_logoimage(request: Request, memberno: int, file: UploadFile = File(...),
+# 변경된 코드
+@app.post("/uploadmphoto/{memberno}",dependencies=[Depends(get_current_user)])
+async def upload_memberimage(request: Request, memberno: int, file: UploadFile = File(...),
                            db: AsyncSession = Depends(get_db)):
     try:
-        # 이미지 파일인지 확인
         if not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File type not supported.")
-        # 파일 읽기
-        contents = await file.read()
-        # 이미지 사이즈 조절
+        contents = await safe_file_read(file)
         contents = await resize_image_if_needed(contents, max_bytes=102400)
-        # 이미지 저장
         await save_memberPhoto(contents, memberno)
-        # 썸네일 생성
         await save_thumbnail(contents, memberno, size=(100, 100))
-        # 리다이렉트
         return RedirectResponse(f"/member_edit/{memberno}", status_code=303)
+    except HTTPException as he:
+        raise he
     except Exception as e:
         print(f"Error: {e}")
         return RedirectResponse(f"/member_edit/{memberno}", status_code=303)
 
 
-@app.post("/uploaddocmphoto/{docno}")
+@app.post("/uploaddocmphoto/{docno}",dependencies=[Depends(get_current_user)])
 async def upload_docimage(request: Request, docno: int, file: UploadFile = File(...),
                            db: AsyncSession = Depends(get_db)):
     try:
-        # 이미지 파일인지 확인
         if not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File type not supported.")
-        # 파일 읽기
-        contents = await file.read()
-        # 이미지 사이즈 조절
+        contents = await safe_file_read(file)
         contents = await resize_image_if_needed(contents, max_bytes=102400)
-        # 이미지 저장
         await save_docPhoto(contents, docno)
-
         return RedirectResponse(f"/yk55greet_edit/{docno}", status_code=303)
+    except HTTPException as he:
+        raise he
     except Exception as e:
         print(f"Error: {e}")
         return RedirectResponse(f"/yk55greet_edit/{docno}", status_code=303)
 
 
-@app.post("/uploadcephoto/{eventno}")
+@app.post("/uploadcephoto/{eventno}",dependencies=[Depends(get_current_user)])
 async def upload_eventimage(request: Request, eventno: int, file: UploadFile = File(...),
                             db: AsyncSession = Depends(get_db)):
     try:
-        # 이미지 파일인지 확인
         if not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File type not supported.")
-        # 파일 읽기
-        contents = await file.read()
-        # 이미지 사이즈 조절
+        contents = await safe_file_read(file)
         contents = await resize_image_if_needed(contents, max_bytes=102400)
-        # 이미지 저장
         await save_eventPhoto(contents, eventno)
-        # 리다이렉트
         return RedirectResponse(f"/event_edit/{eventno}", status_code=303)
+    except HTTPException as he:
+        raise he
     except Exception as e:
         print(f"Error: {e}")
         return RedirectResponse(f"/event_edit/{eventno}", status_code=303)
 
 
-@app.post("/uploadcmphoto/{memberno}")
+@app.post("/uploadcmphoto/{memberno}",dependencies=[Depends(get_current_user)])
 async def upload_cmimage(request: Request, memberno: int, file: UploadFile = File(...),
                          db: AsyncSession = Depends(get_db)):
     try:
-        # 이미지 파일인지 확인
         if not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File type not supported.")
-        # 파일 읽기
-        contents = await file.read()
-        # 이미지 사이즈 조절
+        contents = await safe_file_read(file)
         contents = await resize_image_if_needed(contents, max_bytes=102400)
-        # 이미지 저장
         await save_memberPhoto(contents, memberno)
-        # 썸네일 생성
         await save_thumbnail(contents, memberno, size=(100, 100))
-        # 리다이렉트
         return RedirectResponse(f"/cmember_edit/{memberno}", status_code=303)
+    except HTTPException as he:
+        raise he
     except Exception as e:
         print(f"Error: {e}")
         return RedirectResponse(f"/cmember_edit/{memberno}", status_code=303)
@@ -833,17 +860,6 @@ async def getdocdetail(docno: int, db: AsyncSession = Depends(get_db)):
         return None
 
 
-async def require_login(request: Request):
-    user_no = request.session.get("user_No")
-    if not user_no:
-        raise HTTPException(
-            status_code=status.HTTP_303_SEE_OTHER,
-            headers={"Location": "/"},
-            detail="세션이 만료되어 재로그인이 필요합니다."
-        )
-    return user_no
-
-
 async def session_chk(otp: str):
     try:
         sotp = request.session.get("otp")
@@ -865,7 +881,6 @@ async def login_form(request: Request):
         return RedirectResponse(url="/mainpage", status_code=303)
 
 
-# 로그인 요청 처리
 @app.post("/login")
 async def login_post(
         request: Request,
@@ -875,13 +890,15 @@ async def login_post(
         db: AsyncSession = Depends(get_db)
 ):
     query = text(
-        "SELECT userNo, userName, userRole, defaultRegion, defaultClub FROM yk_user WHERE userId = :username AND userPassword = password(:password)")
-    result = await db.execute(query, {"username": username, "password": password})
+        "SELECT userNo, userName, userRole, defaultRegion, defaultClub, userPassword "
+        "FROM yk_user WHERE userId = :username"
+    )
+    result = await db.execute(query, {"username": username})
     user = result.fetchone()
-    if user is None:
+    if user is None or not verify_password(password, user[5]):
         return templates.TemplateResponse("login/login.html", {"request": request, "error": "Invalid credentials"})
+
     otp = await generate_otp()
-    # 서버 세션에 사용자 ID 저장
     request.session["user_No"] = user[0]
     request.session["user_Name"] = user[1]
     request.session["user_Role"] = user[2]
@@ -919,7 +936,7 @@ async def success_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.get("/mainpage", response_class=HTMLResponse)
-async def main_page(request: Request, db: AsyncSession = Depends(get_db)):
+async def main_page(request: Request, db: AsyncSession = Depends(get_db),):
     user_No = request.session.get("user_No")
     user_Name = request.session.get("user_Name")
     user_Role = request.session.get("user_Role")
@@ -937,13 +954,14 @@ async def main_page(request: Request, db: AsyncSession = Depends(get_db)):
                                        "membercnt": member_count})
 
 
-@app.post("/changeuserpass")
+@app.post("/changeuserpass",dependencies=[Depends(get_current_user)])
 async def change_password(
-        data: dict = Body(...),  # JSON body를 dict로 받음
+        data: dict = Body(...),
         db: AsyncSession = Depends(get_db)
 ):
-    sql = text("UPDATE yk_user SET userPassword = PASSWORD(:passwd) WHERE userNo = :userno")
-    await db.execute(sql, {"passwd": data["passwd"], "userno": data["uno"]})
+    hashed_password = get_password_hash(data["passwd"])
+    sql = text("UPDATE yk_user SET userPassword = :passwd WHERE userNo = :userno")
+    await db.execute(sql, {"passwd": hashed_password, "userno": data["uno"]})
     await db.commit()
     return {"result": "success"}
 
@@ -968,118 +986,92 @@ async def logout(request: Request, db: AsyncSession = Depends(get_db)):
 
 # Report Member
 @app.api_route("/report_event/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"])
-async def reportevent(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        ranklist = await get_rank(db)
-        periodlist = await getperiod(db)
-        memberlist = await get_clubmember(clubno, db)
-        eventlist = await get_event_dist_club(clubno, db)
-        periodno = current_period
-        return templates.TemplateResponse("report/reportevent.html",
+async def reportevent(request: Request, clubno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    ranklist = await get_rank(db)
+    periodlist = await getperiod(db)
+    memberlist = await get_clubmember(clubno, db)
+    eventlist = await get_event_dist_club(clubno, db)
+    periodno = current_period
+    return templates.TemplateResponse("report/reportevent.html",
                                           {"request": request, "session": dict(request.session),
                                            "memberlist": memberlist, "ranklist": ranklist, "periodlist": periodlist,
                                            "eventlist": eventlist, "periodno": periodno})
 
 
 @app.api_route("/report_eventedit/{eventno}", response_class=HTMLResponse, methods=["GET", "POST"])
-async def reportevent(request: Request, eventno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        clubno = request.session.get("user_Clubno")
-        ranklist = await get_rank(db)
-        periodlist = await getperiod(db)
-        memberlist = await get_clubmember(clubno, db)
-        eventdtl = await get_eventdtl(eventno, db)
-        joinmember = await get_eventmembers(eventno, db)
-        return templates.TemplateResponse("report/reporteventedit.html",
+async def reportevent(request: Request, eventno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    clubno = request.session.get("user_Clubno")
+    ranklist = await get_rank(db)
+    periodlist = await getperiod(db)
+    memberlist = await get_clubmember(clubno, db)
+    eventdtl = await get_eventdtl(eventno, db)
+    joinmember = await get_eventmembers(eventno, db)
+    return templates.TemplateResponse("report/reporteventedit.html",
                                           {"request": request, "session": dict(request.session),
                                            "memberlist": memberlist, "ranklist": ranklist, "periodlist": periodlist,
                                            "joinmember": joinmember, "eventdtl": eventdtl})
 
 
 @app.get("/report_lists_clubevent", response_class=HTMLResponse)
-async def reportlistsevnt(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periodlist = await getperiod(db)
-        eventreport = await get_event_reports(db)
-        periodno = current_period
-        return templates.TemplateResponse("report/reportlist_cevent.html",
+async def reportlistsevnt(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periodlist = await getperiod(db)
+    eventreport = await get_event_reports(db)
+    periodno = current_period
+    return templates.TemplateResponse("report/reportlist_cevent.html",
                                           {"request": request, "session": dict(request.session),
                                            "periodlist": periodlist, "eventreports": eventreport,
                                            "periodno": periodno})
 
 
 @app.get("/report_lists_clubmember", response_class=HTMLResponse)
-async def reportlistsmem(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periodlist = await getperiod(db)
-        eventreport = await get_event_reports(db)
-        periodno = current_period
-        return templates.TemplateResponse("report/reportlist_cevent.html",
+async def reportlistsmem(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periodlist = await getperiod(db)
+    eventreport = await get_event_reports(db)
+    periodno = current_period
+    return templates.TemplateResponse("report/reportlist_cevent.html",
                                           {"request": request, "session": dict(request.session),
                                            "periodlist": periodlist, "eventreports": eventreport,
                                            "periodno": periodno})
 
 
 @app.get("/report_eventlist/{clubno}", response_class=HTMLResponse)
-async def reportevent(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periodlist = await getperiod(db)
-        eventlist = await get_event_dist_club(clubno, db)
-        periodno = current_period
-        return templates.TemplateResponse("report/reporteventlist.html",
+async def reportevent(request: Request, clubno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periodlist = await getperiod(db)
+    eventlist = await get_event_dist_club(clubno, db)
+    periodno = current_period
+    return templates.TemplateResponse("report/reporteventlist.html",
                                           {"request": request, "session": dict(request.session),
                                            "periodlist": periodlist, "eventlist": eventlist, "periodno": periodno})
 
 
 @app.get("/report_memberlist/{clubno}", response_class=HTMLResponse)
-async def reportmember(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periodlist = await getperiod(db)
-        reportlist = await get_memberreports(clubno, db)
-        return templates.TemplateResponse(
-            "report/reportmemberlist.html", {"request": request,
+async def reportmember(request: Request, clubno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periodlist = await getperiod(db)
+    reportlist = await get_memberreports(clubno, db)
+    return templates.TemplateResponse("report/reportmemberlist.html", {"request": request,
                                              "session": dict(request.session),
                                              "periodlist": periodlist,
                                              "reportlist": reportlist})
 
 
 @app.api_route("/report_member/{clubno}", response_class=HTMLResponse, methods=["GET", "POST"])
-async def reportmember(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        memberlist = await get_clubmember(clubno, db)
-        periodlist = await getperiod(db)
-        return templates.TemplateResponse("report/reportmember.html",
+async def reportmember(request: Request, clubno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    memberlist = await get_clubmember(clubno, db)
+    periodlist = await getperiod(db)
+    return templates.TemplateResponse("report/reportmember.html",
                                           {"request": request, "session": dict(request.session),
                                            "memberlist": memberlist, "periodlist": periodlist})
 
 
 @app.post("/insert_clubmember_report")
-async def insert_clubmember_report(request: Request, db: AsyncSession = Depends(get_db)):
+async def insert_clubmember_report(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     clubno = request.session.get("user_Clubno")
-    if not clubno:
-        return RedirectResponse(url="/login", status_code=303)
     form = await request.form()
     period_no = to_int(form.get("period"))
     period_month = to_int(form.get("periodmonth"))
     status_type = (form.get("status") or "").strip().upper()
-    # 멤버 선택
     member_nos = form.getlist("memberNo")
     member_nos = [to_int(x) for x in member_nos if to_int(x) > 0]
-    # 필수값 검증
     if period_no <= 0 or period_month <= 0 or status_type == "" or len(member_nos) == 0:
         return RedirectResponse(url=f"/report_memberlist/{clubno}", status_code=303)
     year = to_int(form.get("year"), date.today().year)
@@ -1114,7 +1106,7 @@ async def insert_clubmember_report(request: Request, db: AsyncSession = Depends(
 
 
 @app.post("/insert_clubevent/")
-async def save_clubevent(request: Request, db: AsyncSession = Depends(get_db)):
+async def save_clubevent(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     clubno = request.session.get("user_Clubno")
     form = await request.form()
     event_no = to_int(form.get("event"))
@@ -1156,32 +1148,26 @@ async def save_clubevent(request: Request, db: AsyncSession = Depends(get_db)):
 
 # Club Member List
 @app.get("/club_memberlist/{clubno}", response_class=HTMLResponse)
-async def club_memberlist(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        memberlist = await get_clubmember(clubno, db)
-        return templates.TemplateResponse("club/cmemberlist.html",
+async def club_memberlist(request: Request, clubno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    memberlist = await get_clubmember(clubno, db)
+    return templates.TemplateResponse("club/cmemberlist.html",
                                           {"request": request, "session": dict(request.session),
                                            "memberlist": memberlist})
 
 
 @app.get("/cmember_edit/{memberno}", response_class=HTMLResponse)
-async def cmemberedit(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        clubno = request.session.get("user_Clubno")
-        clubs = await get_club(db)
-        spons = await get_clubsponser(clubno, db)
-        member = await get_member_dtl(memberno, db)
-        dstaffhist = await get_diststaffmem(clubno, memberno, db)
-        cstaffhist = await get_clubstaffhist(memberno, db)
-        catlist = await getcategory("MIDTL", db)
-        prizelist = await getprizelist(db)
-        midtl_list = await get_member_detail_list(memberno, db)
-        member_prize_list = await get_member_prize_list(memberno, db)
-        return templates.TemplateResponse("club/cmemberedit.html",
+async def cmemberedit(request: Request, memberno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    clubno = request.session.get("user_Clubno")
+    clubs = await get_club(db)
+    spons = await get_clubsponser(clubno, db)
+    member = await get_member_dtl(memberno, db)
+    dstaffhist = await get_diststaffmem(clubno, memberno, db)
+    cstaffhist = await get_clubstaffhist(memberno, db)
+    catlist = await getcategory("MIDTL", db)
+    prizelist = await getprizelist(db)
+    midtl_list = await get_member_detail_list(memberno, db)
+    member_prize_list = await get_member_prize_list(memberno, db)
+    return templates.TemplateResponse("club/cmemberedit.html",
                                           {"request": request, "clubs": clubs, "session": dict(request.session),
                                            "memberdtl": member, "spons": spons, "dstaffhist": dstaffhist,
                                            "cstaffhist": cstaffhist, "catlist": catlist,
@@ -1245,23 +1231,17 @@ async def insert_member_prize(
         db: AsyncSession = Depends(get_db)
 ):
     if not request.session.get("user_No"):
-        # AJAX면 JSON으로, 아니면 로그인으로 리다이렉트
         if request.headers.get("x-requested-with") == "XMLHttpRequest":
             return JSONResponse({"ok": False, "message": "login required"}, status_code=401)
         return RedirectResponse(url="/", status_code=303)
-
     form = await request.form()
     prize_no = to_int(form.get("prizecat"), 0)
     prize_info = (form.get("prizecont") or "").strip()
     prize_date = form.get("prizedate")
-
     if prize_no <= 0 or prize_info == "":
         return JSONResponse({"ok": False, "message": "invalid input"}, status_code=400)
-
-    # 1) 기존값(유효 attrib) 폐기 -> 2) 신규 insert 를 "트랜잭션"으로 처리
     try:
-        async with db.begin():  # begin 블록이 commit/rollback 관리
-            # 기존 동일키(memberNo+catNo) 유효행을 폐기
+        async with db.begin():
             q_up = text("""
                         UPDATE yk_memberPrize
                         SET attrib  = :xup,
@@ -1273,15 +1253,12 @@ async def insert_member_prize(
                         """)
             await db.execute(q_up, {"xup": "XXXUPXXXUP", "mno": memberno, "cno": prize_no, "xapp": "1000010000",
                                     "prizedate": prize_date})
-
-            # 신규 insert (attrib 기본을 유효값으로)
             q_in = text("""
                         INSERT INTO yk_memberPrize (memberNo, prizeNo, prizeMemo, prizeDate)
                         VALUES (:mno, :pno, :memo, :pdate)
                         """)
             result = await db.execute(q_in, {"mno": memberno, "pno": prize_no, "memo": prize_info, "pdate": prize_date})
             new_id = result.lastrowid
-            # 화면에 추가할 데이터(카테고리 타이틀 포함) 조회해서 반환
             q_sel = text("""
                          SELECT d.mpNo                               as id,
                                 d.memberNo,
@@ -1294,18 +1271,13 @@ async def insert_member_prize(
                          WHERE d.mpNo = :id
                          """)
             row = (await db.execute(q_sel, {"id": new_id})).mappings().first()
-
         return JSONResponse({"ok": True, "row": dict(row) if row else None})
-
     except Exception as e:
         return JSONResponse({"ok": False, "message": str(e)}, status_code=500)
 
 
 @app.get("/api/member/{memberno}/midtl")
-async def api_member_midt_list(memberno: int, request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return JSONResponse({"ok": False, "message": "login required"}, status_code=401)
-
+async def api_member_midt_list(memberno: int, request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     q = text("""
              SELECT d.infoNo                           as id,
                     d.catNo,
@@ -1324,9 +1296,7 @@ async def api_member_midt_list(memberno: int, request: Request, db: AsyncSession
 
 
 @app.get("/api/member/{memberno}/prize")
-async def api_member_prize_list(memberno: int, request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return JSONResponse({"ok": False, "message": "login required"}, status_code=401)
+async def api_member_prize_list(memberno: int, request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     q = text("""
              SELECT d.mpNo                               as id,
                     d.prizeNo,
@@ -1346,37 +1316,31 @@ async def api_member_prize_list(memberno: int, request: Request, db: AsyncSessio
 
 @app.get("/dist_stafflist/{clubno}", response_class=HTMLResponse)
 async def dist_stafflist(request: Request, clubno: int, periodno: int | None = Query(None),
-                         db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        memberlist = await get_clubsponser(clubno, db)
-        ranklist = await get_rank(db)
-        stafflist = await get_diststaff(clubno, db)
-        periods = await getperiod(db)
-        cperiod = periodno if periodno is not None else current_period
-        return templates.TemplateResponse("club/dstafflist.html", {"request": request, "session": dict(request.session),
+                         db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    memberlist = await get_clubsponser(clubno, db)
+    ranklist = await get_rank(db)
+    stafflist = await get_diststaff(clubno, db)
+    periods = await getperiod(db)
+    cperiod = periodno if periodno is not None else current_period
+    return templates.TemplateResponse("club/dstafflist.html", {"request": request, "session": dict(request.session),
                                                                    "memberlist": memberlist, "stafflist": stafflist,
                                                                    "periods": periods, "ranklist": ranklist,
                                                                    "periodno": cperiod})
 
 
 @app.get("/club_stafflist/{clubno}", response_class=HTMLResponse)
-async def club_stafflist(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        memberlist = await get_clubsponser(clubno, db)
-        stafflist = await get_clubstaff(clubno, db)
-        periods = await getperiod(db)
-        cperiod = current_period
-        return templates.TemplateResponse("club/cstafflist.html", {"request": request, "session": dict(request.session),
+async def club_stafflist(request: Request, clubno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    memberlist = await get_clubsponser(clubno, db)
+    stafflist = await get_clubstaff(clubno, db)
+    periods = await getperiod(db)
+    cperiod = current_period
+    return templates.TemplateResponse("club/cstafflist.html", {"request": request, "session": dict(request.session),
                                                                    "memberlist": memberlist, "stafflist": stafflist,
                                                                    "periods": periods, "periodno": cperiod})
 
 
 @app.post("/club_staffupdate", response_class=HTMLResponse)
-async def updatecstaff(request: Request, db: AsyncSession = Depends(get_db)):
+async def updatecstaff(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     clubno = request.session.get("user_Clubno")
     periodno = _clean_int(form_data.get("speriod"))
@@ -1414,7 +1378,7 @@ async def updatecstaff(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.post("/dist_staffupdate", response_class=HTMLResponse)
-async def updatedstaff(request: Request, db: AsyncSession = Depends(get_db)):
+async def updatedstaff(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     clubno = request.session.get("user_Clubno")
     periodno = _clean_int(form_data.get("speriod"))
@@ -1445,107 +1409,82 @@ async def updatedstaff(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.get("/club_eventlist/{clubno}", response_class=HTMLResponse)
-async def ceventlist(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periodlist = await getperiod(db)
-        ceventlist = await get_clubevents(clubno, db)
-        return templates.TemplateResponse("club/club_eventlist.html",
+async def ceventlist(request: Request, clubno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periodlist = await getperiod(db)
+    ceventlist = await get_clubevents(clubno, db)
+    return templates.TemplateResponse("club/club_eventlist.html",
                                           {"request": request, "session": dict(request.session),
                                            "periodlist": periodlist, "ceventlist": ceventlist,
                                            "periodno": current_period})
 
 
 @app.get("/dist_eventlist", response_class=HTMLResponse)
-async def deventlist(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periodlist = await getperiod(db)
-        deventlist = await get_distevents(db)
-        return templates.TemplateResponse("dist/dist_eventlist.html",
+async def deventlist(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periodlist = await getperiod(db)
+    deventlist = await get_distevents(db)
+    return templates.TemplateResponse("dist/dist_eventlist.html",
                                           {"request": request, "session": dict(request.session),
                                            "periodlist": periodlist, "deventlist": deventlist,
                                            "periodno": current_period})
 
 
 @app.get("/dist_eventlist/{periodno}", response_class=HTMLResponse)
-async def deventlist(request: Request, periodno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periodlist = await getperiod(db)
-        deventlist = await get_distevents(db)
-        return templates.TemplateResponse("dist/dist_eventlist.html",
+async def deventlist(request: Request, periodno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periodlist = await getperiod(db)
+    deventlist = await get_distevents(db)
+    return templates.TemplateResponse("dist/dist_eventlist.html",
                                           {"request": request, "session": dict(request.session),
                                            "periodlist": periodlist, "deventlist": deventlist,
                                            "periodno": periodno})
 
 
 @app.get("/club_eventlist/{clubno}/{periodno}", response_class=HTMLResponse)
-async def ceventlist(request: Request, clubno: int, periodno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periodlist = await getperiod(db)
-        ceventlist = await get_clubeventsperiod(clubno, periodno, db)
-        return templates.TemplateResponse("club/club_eventlist.html",
+async def ceventlist(request: Request, clubno: int, periodno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periodlist = await getperiod(db)
+    ceventlist = await get_clubeventsperiod(clubno, periodno, db)
+    return templates.TemplateResponse("club/club_eventlist.html",
                                           {"request": request, "session": dict(request.session),
                                            "periodlist": periodlist, "ceventlist": ceventlist, "periodno": periodno})
 
 
 @app.post("/club_eventnew/{clubno}", response_class=HTMLResponse)
-async def ceventnew(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periodno = current_period
-        periodlist = await getperiod(db)
-        return templates.TemplateResponse("club/club_eventnew.html",
+async def ceventnew(request: Request, clubno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periodno = current_period
+    periodlist = await getperiod(db)
+    return templates.TemplateResponse("club/club_eventnew.html",
                                           {"request": request, "session": dict(request.session),
                                            "periodlist": periodlist, "periodno": periodno})
 
 
 @app.post("/dist_eventnew", response_class=HTMLResponse)
-async def deventnew(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periodno = current_period
-        periodlist = await getperiod(db)
-        return templates.TemplateResponse("dist/dist_eventnew.html",
+async def deventnew(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periodno = current_period
+    periodlist = await getperiod(db)
+    return templates.TemplateResponse("dist/dist_eventnew.html",
                                           {"request": request, "session": dict(request.session),
                                            "periodlist": periodlist, "periodno": periodno})
 
 
 @app.get("/club_eventedit/{eventno}", response_class=HTMLResponse)
-async def ceventedit(request: Request, eventno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periodlist = await getperiod(db)
-        eventdtl = await get_eventdtl(eventno, db)
-        return templates.TemplateResponse("club/club_eventedit.html",
+async def ceventedit(request: Request, eventno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periodlist = await getperiod(db)
+    eventdtl = await get_eventdtl(eventno, db)
+    return templates.TemplateResponse("club/club_eventedit.html",
                                           {"request": request, "session": dict(request.session),
                                            "periodlist": periodlist, "eventdtl": eventdtl})
 
 
 @app.get("/dist_eventedit/{eventno}", response_class=HTMLResponse)
-async def ceventedit(request: Request, eventno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periodlist = await getperiod(db)
-        eventdtl = await get_eventdtl(eventno, db)
-        return templates.TemplateResponse("dist/dist_eventedit.html",
+async def ceventedit(request: Request, eventno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periodlist = await getperiod(db)
+    eventdtl = await get_eventdtl(eventno, db)
+    return templates.TemplateResponse("dist/dist_eventedit.html",
                                           {"request": request, "session": dict(request.session),
                                            "periodlist": periodlist, "eventdtl": eventdtl})
 
 
-# cevent_insert
 @app.post("/cevent_insert/{clubno}", response_class=HTMLResponse)
-async def insertcevent(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+async def insertcevent(request: Request, clubno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     data4insert = {
         "eventTitle": form_data.get("ceventtitle"),
@@ -1567,7 +1506,7 @@ async def insertcevent(request: Request, clubno: int, db: AsyncSession = Depends
 
 
 @app.post("/devent_insert", response_class=HTMLResponse)
-async def insertcevent(request: Request, db: AsyncSession = Depends(get_db)):
+async def insertcevent(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     data4insert = {
         "eventTitle": form_data.get("ceventtitle"),
@@ -1589,7 +1528,7 @@ async def insertcevent(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.post("/cevent_update/{eventno}/{clubno}", response_class=HTMLResponse)
-async def insertcevent(request: Request, eventno: int, clubno: int, db: AsyncSession = Depends(get_db)):
+async def insertcevent(request: Request, eventno: int, clubno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     data4update = {
         "eventTitle": form_data.get("ceventtitle"),
@@ -1614,7 +1553,7 @@ async def insertcevent(request: Request, eventno: int, clubno: int, db: AsyncSes
 
 
 @app.post("/devent_update/{eventno}", response_class=HTMLResponse)
-async def insertcevent(request: Request, eventno: int, db: AsyncSession = Depends(get_db)):
+async def insertcevent(request: Request, eventno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     data4update = {
         "eventTitle": form_data.get("ceventtitle"),
@@ -1637,39 +1576,28 @@ async def insertcevent(request: Request, eventno: int, db: AsyncSession = Depend
     await db.commit()
     return RedirectResponse(f"/dist_eventlist", status_code=303)
 
-# Club Report List
 
-# Basic Data
 @app.get("/mst_rank", response_class=HTMLResponse)
-async def rankmaster(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        ranklist = await get_rank(db)
-        return templates.TemplateResponse("master/ranklist.html",
+async def rankmaster(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    ranklist = await get_rank(db)
+    return templates.TemplateResponse("master/ranklist.html",
                                           {"request": request, "session": dict(request.session), "ranklist": ranklist})
 
 
 @app.post("/rank_reg", response_class=HTMLResponse)
-async def rankmaster(request: Request):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        return templates.TemplateResponse("master/rankreg.html", {"request": request, "session": dict(request.session)})
+async def rankmaster(request: Request,user_no: int = Depends(get_current_user)):
+    return templates.TemplateResponse("master/rankreg.html", {"request": request, "session": dict(request.session)})
 
 
 @app.get("/rank_edit/{rankno}", response_class=HTMLResponse)
-async def rankmaster(request: Request, rankno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        rank = await get_rank_dtl(rankno, db)
-        return templates.TemplateResponse("master/rankedit.html",
+async def rankmaster(request: Request, rankno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    rank = await get_rank_dtl(rankno, db)
+    return templates.TemplateResponse("master/rankedit.html",
                                           {"request": request, "rank": rank, "session": dict(request.session)})
 
 
 @app.api_route("/rank_update/{rankno}", response_class=HTMLResponse, methods=["GET", "POST"])
-async def updaterank(request: Request, rankno: int, db: AsyncSession = Depends(get_db)):
+async def updaterank(request: Request, rankno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     rtitle = form_data.get("rtitle")
     rtitleeng = form_data.get("rtitleeng")
@@ -1685,7 +1613,7 @@ async def updaterank(request: Request, rankno: int, db: AsyncSession = Depends(g
 
 
 @app.api_route("/rank_insert", response_class=HTMLResponse, methods=["GET", "POST"])
-async def insertrank(request: Request, db: AsyncSession = Depends(get_db)):
+async def insertrank(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     rtitle = form_data.get("rtitle")
     rtitleeng = form_data.get("rtitleeng")
@@ -1701,36 +1629,27 @@ async def insertrank(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.get("/mst_cat", response_class=HTMLResponse)
-async def catgorymaster(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        catlist = await get_category(db)
-        return templates.TemplateResponse("master/categorylist.html",
+async def catgorymaster(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    catlist = await get_category(db)
+    return templates.TemplateResponse("master/categorylist.html",
                                           {"request": request, "session": dict(request.session), "catlist": catlist})
 
 
 @app.post("/cat_reg", response_class=HTMLResponse)
-async def catgoryreg(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        return templates.TemplateResponse("master/categoryreg.html",
+async def catgoryreg(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    return templates.TemplateResponse("master/categoryreg.html",
                                           {"request": request, "session": dict(request.session)})
 
 
 @app.get("/cat_edit/{catno}", response_class=HTMLResponse)
-async def catgoryedit(request: Request, catno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        catdtl = await get_cat_detail(catno, db)
-        return templates.TemplateResponse("master/categoryedit.html",
+async def catgoryedit(request: Request, catno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    catdtl = await get_cat_detail(catno, db)
+    return templates.TemplateResponse("master/categoryedit.html",
                                           {"request": request, "session": dict(request.session), "catdtl": catdtl})
 
 
 @app.api_route("/cat_insert", response_class=HTMLResponse, methods=["GET", "POST"])
-async def insertcat(request: Request, db: AsyncSession = Depends(get_db)):
+async def insertcat(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     rtitle = form_data.get("rtitle")
     rtitleeng = form_data.get("rtitleeng")
@@ -1744,7 +1663,7 @@ async def insertcat(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.api_route("/cat_update/{catno}", response_class=HTMLResponse, methods=["GET", "POST"])
-async def updatecat(request: Request, catno: int, db: AsyncSession = Depends(get_db)):
+async def updatecat(request: Request, catno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     rtitle = form_data.get("rtitle")
     rtitleeng = form_data.get("rtitleeng")
@@ -1759,37 +1678,28 @@ async def updatecat(request: Request, catno: int, db: AsyncSession = Depends(get
 
 
 @app.get("/mst_prize", response_class=HTMLResponse)
-async def prizemaster(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        prizelist = await get_prize(db)
-        return templates.TemplateResponse("master/prizelist.html",
+async def prizemaster(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    prizelist = await get_prize(db)
+    return templates.TemplateResponse("master/prizelist.html",
                                           {"request": request, "session": dict(request.session),
                                            "prizelist": prizelist})
 
 
 @app.post("/prize_reg", response_class=HTMLResponse)
-async def prizereg(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        return templates.TemplateResponse("master/prizereg.html",
+async def prizereg(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    return templates.TemplateResponse("master/prizereg.html",
                                           {"request": request, "session": dict(request.session)})
 
 
 @app.get("/prize_edit/{prizeno}", response_class=HTMLResponse)
-async def prizeedit(request: Request, prizeno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        prizedtl = await get_prize_detail(prizeno, db)
-        return templates.TemplateResponse("master/prizeedit.html",
+async def prizeedit(request: Request, prizeno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    prizedtl = await get_prize_detail(prizeno, db)
+    return templates.TemplateResponse("master/prizeedit.html",
                                           {"request": request, "session": dict(request.session), "prizedtl": prizedtl})
 
 
 @app.api_route("/prize_insert", response_class=HTMLResponse, methods=["GET", "POST"])
-async def insertprize(request: Request, db: AsyncSession = Depends(get_db)):
+async def insertprize(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     rtitle = form_data.get("rtitle")
     rtitleeng = form_data.get("rtitleeng")
@@ -1805,7 +1715,7 @@ async def insertprize(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.api_route("/prize_update/{prizeno}", response_class=HTMLResponse, methods=["GET", "POST"])
-async def updateprize(request: Request, prizeno: int, db: AsyncSession = Depends(get_db)):
+async def updateprize(request: Request, prizeno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     rtitle = form_data.get("rtitle")
     rtitleeng = form_data.get("rtitleeng")
@@ -1821,41 +1731,31 @@ async def updateprize(request: Request, prizeno: int, db: AsyncSession = Depends
 
 
 @app.get("/mst_member", response_class=HTMLResponse)
-async def membermaster(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        memberlist = await get_member(db)
-        return templates.TemplateResponse("master/memberlist.html",
+async def membermaster(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    memberlist = await get_member(db)
+    return templates.TemplateResponse("master/memberlist.html",
                                           {"request": request, "session": dict(request.session),
                                            "memberlist": memberlist})
 
 
 @app.get("/member_edit/{memberno}", response_class=HTMLResponse)
-async def memberedit(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        clubs = await get_club(db)
-        member = await get_member_dtl(memberno, db)
-
-        return templates.TemplateResponse("master/memberedit.html",
+async def memberedit(request: Request, memberno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    clubs = await get_club(db)
+    member = await get_member_dtl(memberno, db)
+    return templates.TemplateResponse("master/memberedit.html",
                                           {"request": request, "clubs": clubs, "session": dict(request.session),
                                            "memberdtl": member})
 
 
 @app.post("/member_reg", response_class=HTMLResponse)
-async def memberedit(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        clubs = await get_club(db)
-        return templates.TemplateResponse("master/memberreg.html",
+async def memberedit(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    clubs = await get_club(db)
+    return templates.TemplateResponse("master/memberreg.html",
                                           {"request": request, "clubs": clubs, "session": dict(request.session)})
 
 
 @app.post("/member_insert", response_class=HTMLResponse)
-async def insertmember(request: Request, db: AsyncSession = Depends(get_db)):
+async def insertmember(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     data4insert = {
         "memberName": _clean_str(form_data.get("membername")),
@@ -1879,7 +1779,7 @@ async def insertmember(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.post("/cmember_insert", response_class=HTMLResponse)
-async def insertcmember(request: Request, db: AsyncSession = Depends(get_db)):
+async def insertcmember(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     data4insert = {
         "memberName": _clean_str(form_data.get("membername")),
@@ -1904,20 +1804,17 @@ async def insertcmember(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.post("/cmember_reg", response_class=HTMLResponse)
-async def cmemberreg(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        clubno = request.session.get("user_Clubno")
-        clubs = await get_club(db)
-        spons = await get_clubsponser(clubno, db)
-        return templates.TemplateResponse("club/cmemberreg.html",
+async def cmemberreg(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    clubno = request.session.get("user_Clubno")
+    clubs = await get_club(db)
+    spons = await get_clubsponser(clubno, db)
+    return templates.TemplateResponse("club/cmemberreg.html",
                                           {"request": request, "clubs": clubs, "session": dict(request.session),
                                            "spons": spons})
 
 
 @app.post("/cmember_update/{memberno}", response_class=HTMLResponse)
-async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
+async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     data4update = {
         "memberName": _clean_str(form_data.get("membername")),
@@ -1947,7 +1844,7 @@ async def cupdatemember(request: Request, memberno: int, db: AsyncSession = Depe
 
 
 @app.post("/member_update/{memberno}", response_class=HTMLResponse)
-async def updatemember(request: Request, memberno: int, db: AsyncSession = Depends(get_db)):
+async def updatemember(request: Request, memberno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     data4update = {
         "memberName": _clean_str(form_data.get("membername")),
@@ -1976,50 +1873,38 @@ async def updatemember(request: Request, memberno: int, db: AsyncSession = Depen
 
 
 @app.get("/mst_region", response_class=HTMLResponse)
-async def regionmaster(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        regionlist = await getregionList(db)  # 지역 데이터로 변경해야 함
-        return templates.TemplateResponse("master/regionlist.html",
+async def regionmaster(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    regionlist = await getregionList(db)
+    return templates.TemplateResponse("master/regionlist.html",
                                           {"request": request, "session": dict(request.session),
                                            "regionlist": regionlist})
 
 
 @app.get("/mst_club", response_class=HTMLResponse)
-async def clubmaster(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        clublist = await get_club(db)
-        return templates.TemplateResponse("master/clublist.html",
+async def clubmaster(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    clublist = await get_club(db)
+    return templates.TemplateResponse("master/clublist.html",
                                           {"request": request, "session": dict(request.session), "clublist": clublist})
 
 
 @app.get("/club_edit/{clubno}", response_class=HTMLResponse)
-async def clubedit(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        club = await get_club_dtl(clubno, db)
-        spons = await get_club_spon(clubno, db)
-        return templates.TemplateResponse("master/clubedit.html",
+async def clubedit(request: Request, clubno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    club = await get_club_dtl(clubno, db)
+    spons = await get_club_spon(clubno, db)
+    return templates.TemplateResponse("master/clubedit.html",
                                           {"request": request, "session": dict(request.session), "clubdtl": club,
                                            "spons": spons})
 
 
 @app.post("/club_reg", response_class=HTMLResponse)
-async def clubedit(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        club = await get_club(db)
-        return templates.TemplateResponse("master/clubreg.html",
+async def clubedit(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    club = await get_club(db)
+    return templates.TemplateResponse("master/clubreg.html",
                                           {"request": request, "session": dict(request.session), "clubs": club})
 
 
 @app.post("/club_update/{clubno}", response_class=HTMLResponse)
-async def clubupdate(request: Request, clubno: int, db: AsyncSession = Depends(get_db)):
+async def clubupdate(request: Request, clubno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     clubname = form_data.get("clubname")
     clubnameeng = form_data.get("clubnameeng")
@@ -2043,7 +1928,7 @@ async def clubupdate(request: Request, clubno: int, db: AsyncSession = Depends(g
 
 
 @app.post("/club_insert", response_class=HTMLResponse)
-async def clubinsert(request: Request, db: AsyncSession = Depends(get_db)):
+async def clubinsert(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     clubname = form_data.get("clubname")
     clubnameeng = form_data.get("clubnameeng")
@@ -2068,48 +1953,37 @@ async def clubinsert(request: Request, db: AsyncSession = Depends(get_db)):
 
 # YK55
 @app.get("/yk55greet", response_class=HTMLResponse)
-async def yk55greet(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        doclist = await getdocList(db)
-        return templates.TemplateResponse("yk55/yk55_greetings.html",
+async def yk55greet(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    doclist = await getdocList(db)
+    return templates.TemplateResponse("yk55/yk55_greetings.html",
                                           {"request": request, "session": dict(request.session), "doclist": doclist})
 
 
 @app.post("/yk55greet_reg", response_class=HTMLResponse)
-async def yk55greet_reg(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
+async def yk55greet_reg(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    user_Role = request.session.get("user_Role")
+    clubno = request.session.get("user_Clubno")
+    periodno = current_period
+    if user_Role == 'CUSER':
+        events = await get_clubeventsperiod(clubno, periodno, db)
     else:
-        user_Role = request.session.get("user_Role")
-        clubno = request.session.get("user_Clubno")
-        periodno = current_period
-        if user_Role == 'CUSER':
-            events = await get_clubeventsperiod(clubno, periodno, db)
-        else:
-            events = await get_disteventsperiod(periodno, db)
-        return templates.TemplateResponse("yk55/yk55_greetings_reg.html",
+        events = await get_disteventsperiod(periodno, db)
+    return templates.TemplateResponse("yk55/yk55_greetings_reg.html",
                                           {"request": request, "session": dict(request.session), "events": events})
 
 
 @app.get("/yk55greet_edit/{greetno}", response_class=HTMLResponse)
-async def yk55greet_reg(request: Request, greetno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        docs = await getdocdetail(greetno, db)
-        clubno = request.session.get("user_Clubno")
-        periodno = current_period
-        events = await get_clubeventsperiod(clubno, periodno, db)
-        return templates.TemplateResponse("yk55/yk55_greetings_edit.html",
+async def yk55greet_reg(request: Request, greetno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    docs = await getdocdetail(greetno, db)
+    clubno = request.session.get("user_Clubno")
+    periodno = current_period
+    events = await get_clubeventsperiod(clubno, periodno, db)
+    return templates.TemplateResponse("yk55/yk55_greetings_edit.html",
                                           {"request": request, "session": dict(request.session), "docs": docs,"events": events})
 
 
 @app.get("/yk55greet_preview/{greetno}", response_class=HTMLResponse)
-async def yk55greet_prv(request: Request,greetno: int,type: int = Query(1),db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
+async def yk55greet_prv(request: Request,greetno: int,type: int = Query(1),db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     docs = await getdocdetail(greetno, db)
     template_name = "tmplets/greet02.html" if type == 2 else "tmplets/greet01.html"
     resp = templates.TemplateResponse(template_name,{"request": request, "session": dict(request.session), "docs": docs})
@@ -2119,7 +1993,7 @@ async def yk55greet_prv(request: Request,greetno: int,type: int = Query(1),db: A
     return resp
 
 @app.api_route("/yk55greetupdate/{docno}", response_class=HTMLResponse, methods=["GET", "POST"])
-async def updatedoc(request: Request, docno: int, db: AsyncSession = Depends(get_db)):
+async def updatedoc(request: Request, docno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     doctitle = form_data.get("dtitle")
     docconts = form_data.get("dcontent")
@@ -2136,7 +2010,7 @@ async def updatedoc(request: Request, docno: int, db: AsyncSession = Depends(get
 
 
 @app.api_route("/yk55greetinsert/", response_class=HTMLResponse, methods=["GET", "POST"])
-async def insertdoc(request: Request, db: AsyncSession = Depends(get_db)):
+async def insertdoc(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
     form_data = await request.form()
     doctitle = form_data.get("dtitle")
     docconts = form_data.get("dcontent")
@@ -2153,93 +2027,66 @@ async def insertdoc(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @app.get("/yk55cabhist", response_class=HTMLResponse)
-async def yk55cabhist(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periods = await getperiod(db)
-        return templates.TemplateResponse("yk55/yk55_cabhist.html",
+async def yk55cabhist(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periods = await getperiod(db)
+    return templates.TemplateResponse("yk55/yk55_cabhist.html",
                                           {"request": request, "session": dict(request.session), "periods": periods})
 
 
 @app.get("/yk55cabhist_view/{periodno}", response_class=HTMLResponse)
-async def yk55cabhist(request: Request, periodno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        cabs = await get_cabhist_wname(periodno, db)
-        return templates.TemplateResponse("yk55/yk55_cabhistview.html",
+async def yk55cabhist(request: Request, periodno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    cabs = await get_cabhist_wname(periodno, db)
+    return templates.TemplateResponse("yk55/yk55_cabhistview.html",
                                           {"request": request, "session": dict(request.session), "membs": cabs, "periodno": periodno,})
 
 
 @app.get("/yk55cabhist_tview/{periodno}", response_class=HTMLResponse)
-async def yk55cabhisttv(request: Request, periodno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        cabs = await get_cabhist_wname(periodno, db)
-        return templates.TemplateResponse("yk55/yk55_cabhistview_tile.html",
+async def yk55cabhisttv(request: Request, periodno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    cabs = await get_cabhist_wname(periodno, db)
+    return templates.TemplateResponse("yk55/yk55_cabhistview_tile.html",
                                           {"request": request, "session": dict(request.session), "membs": cabs, "periodno": periodno})
 
 
 @app.get("/yk55servhist", response_class=HTMLResponse)
-async def yk55servhist(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periods = await getperiod(db)
-        return templates.TemplateResponse("yk55/yk55_servhist.html",
+async def yk55servhist(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periods = await getperiod(db)
+    return templates.TemplateResponse("yk55/yk55_servhist.html",
                                           {"request": request, "session": dict(request.session), "periods": periods})
 
 
 @app.get("/yk55servhist_view/{period}", response_class=HTMLResponse)
-async def yk55servhist(request: Request, period: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        svrs = await getperiod(db)
-        return templates.TemplateResponse("yk55/yk55_servhistview.html",
+async def yk55servhist(request: Request, period: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    svrs = await getperiod(db)
+    return templates.TemplateResponse("yk55/yk55_servhistview.html",
                                           {"request": request, "session": dict(request.session), "svrs": svrs})
 
 
 @app.get("/yk55membhist", response_class=HTMLResponse)
-async def yk55membhist(request: Request, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        periods = await getperiod(db)
-        return templates.TemplateResponse("yk55/yk55_memberhist.html",
+async def yk55membhist(request: Request, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    periods = await getperiod(db)
+    return templates.TemplateResponse("yk55/yk55_memberhist.html",
                                           {"request": request, "session": dict(request.session), "periods": periods})
 
 
 @app.get("/yk55membhist_view/{periodno}", response_class=HTMLResponse)
-async def yk55membhist(request: Request, periodno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        membs = await get_dmemberhist_wname(periodno, db)
-        periods = await getperiod(db)
-        return templates.TemplateResponse("yk55/yk55_memberhistview.html",
+async def yk55membhist(request: Request, periodno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    membs = await get_dmemberhist_wname(periodno, db)
+    periods = await getperiod(db)
+    return templates.TemplateResponse("yk55/yk55_memberhistview.html",
                                           {"request": request, "session": dict(request.session), "membs": membs,
                                            "periodno": periodno, "periods": periods})
 
 
 @app.get("/yk55membhist_tview/{periodno}", response_class=HTMLResponse)
-async def yk55membhist(request: Request, periodno: int, db: AsyncSession = Depends(get_db)):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        membs = await get_dmemberhist_wname(periodno, db)
-        periods = await getperiod(db)
-        return templates.TemplateResponse("yk55/yk55_memberhistview_tile.html",
+async def yk55membhist(request: Request, periodno: int, db: AsyncSession = Depends(get_db),user_no: int = Depends(get_current_user)):
+    membs = await get_dmemberhist_wname(periodno, db)
+    periods = await getperiod(db)
+    return templates.TemplateResponse("yk55/yk55_memberhistview_tile.html",
                                           {"request": request, "session": dict(request.session), "membs": membs,
                                            "periodno": periodno, "periods": periods})
 
 
 @app.get("/yk55mjfhist", response_class=HTMLResponse)
-async def yk55mjfhist(request: Request):
-    if not request.session.get("user_No"):
-        return RedirectResponse(url="login/login.html", status_code=303)
-    else:
-        return templates.TemplateResponse("yk55/yk55_mjfhist.html",
+async def yk55mjfhist(request: Request,user_no: int = Depends(get_current_user)):
+    return templates.TemplateResponse("yk55/yk55_mjfhist.html",
                                           {"request": request, "session": dict(request.session)})
