@@ -147,8 +147,6 @@
 
         // 종료일이 존재할 경우
         if (evt.end && evt.end.trim() !== '') {
-            // FullCalendar에서 allDay 이벤트의 end 날짜는 '포함하지 않음(Exclusive)'이므로
-            // 종료일까지 꽉 채워서 색칠하려면 종료일에 1일을 더해줘야 합니다.
             var endDate = new Date(evt.end);
             endDate.setDate(endDate.getDate() + 1);
 
@@ -179,17 +177,33 @@
         // 4. 초기 로드 시 필터링 실행
         filterData();
 
-        // 5. 토글 스위치 이벤트 리스너
-        document.getElementById('viewToggle').addEventListener('change', function() {
+        // 5. sessionStorage에서 이전 보기 상태 확인 및 적용
+        var savedView = sessionStorage.getItem('eventViewMode');
+        var viewToggle = document.getElementById('viewToggle');
+
+        if (savedView === 'calendar') {
+            // 달력 보기 상태 복원
+            viewToggle.checked = true;
+            document.getElementById('listView').style.display = 'none';
+            document.getElementById('calendarView').style.display = 'block';
+            calendar.render();
+        }
+
+        // 6. 토글 스위치 이벤트 리스너 (상태 저장 로직 추가)
+        viewToggle.addEventListener('change', function() {
             if (this.checked) {
                 // 달력 보기 켜짐
                 document.getElementById('listView').style.display = 'none';
                 document.getElementById('calendarView').style.display = 'block';
-                calendar.render(); // 화면에 보일 때 렌더링을 다시 해줘야 크기가 안 깨집니다.
+                calendar.render();
+                // 상태 저장
+                sessionStorage.setItem('eventViewMode', 'calendar');
             } else {
                 // 리스트 보기 켜짐
                 document.getElementById('listView').style.display = 'block';
                 document.getElementById('calendarView').style.display = 'none';
+                // 상태 저장
+                sessionStorage.setItem('eventViewMode', 'list');
             }
         });
     });
