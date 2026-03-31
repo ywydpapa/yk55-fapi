@@ -71,13 +71,12 @@
                         {% endif %}
                         <div class="col-6 col-md-4 col-lg-3 col-xl-2-4 mb-3 d-flex justify-content-center">
                             <div class="card h-100 shadow-sm member-card">
-                                <!-- 카드 상단 사진 (_01.png 우선 로드 -> 실패시 원본 .png -> 실패시 defaultphoto.png) -->
+                                <!-- 카드 상단 사진 -->
                                 <div class="member-photo-wrap">
-                                    <img src="/static/img/members/mphoto_{{ mem.memberNo }}_01.png"
-                                         alt="{{ mem.memberName }} 사진" class="member-photo"
-                                         onerror="if (!this.getAttribute('data-fallback')) { this.setAttribute('data-fallback', 'true'); this.src='/static/img/members/mphoto_{{ mem.memberNo }}.png'; } else { this.onerror=null; this.src='/static/img/defaultphoto.png'; }">
+                                    <!-- 백엔드의 이미지 제공 API를 호출합니다. 캐시 방지를 위해 난수를 붙여줍니다. -->
+                                    <img src="/api/member_photo/{{ mem.memberNo }}/{{ periodno }}?v={{ range(1, 99999) | random }}"
+                                         alt="{{ mem.memberName }} 사진" class="member-photo">
                                 </div>
-
                                 <div class="card-body p-3 text-center">
                                     <div class="mt-2 font-weight-bold" style="font-size: 1rem;">
                                         {% if session.user_Role == 'ADMIN' %}
@@ -126,12 +125,17 @@
 <!-- End of Page Wrapper -->
 
 <!-- 사진 변경 모달 (Photo Edit Modal) -->
-<div class="modal fade" id="photoModal" tabindex="-1" role="dialog" aria-labelledby="photoModalLabel" aria-hidden="true">
+<div class="modal fade" id="photoModal" tabindex="-1" role="dialog" aria-labelledby="photoModalLabel"
+     aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <!-- 백엔드에서 사진 업로드를 처리할 API URL을 action에 입력하세요 (예: /api/upload_photo) -->
-            <form id="photoUploadForm" action="/api/upload_photo" method="POST" enctype="multipart/form-data">
+            <form id="photoUploadForm" action="" method="POST" enctype="multipart/form-data">
+                <!-- 돌아갈 URL -->
                 <input type="hidden" name="returnUrl" id="returnUrl" value="/yk55cabhist_tview/{{periodno}}">
+                <!-- 현재 기수(periodno)를 백엔드로 전달 -->
+                <input type="hidden" name="periodno" value="{{ periodno }}">
+
                 <div class="modal-header">
                     <h5 class="modal-title" id="photoModalLabel">회원 사진 변경</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -139,11 +143,11 @@
                     </button>
                 </div>
                 <div class="modal-body">
-                    <input type="hidden" name="memberNo" id="modalMemberNo">
-                    <p><strong id="modalMemberName" class="text-primary"></strong> 회원의 사진을 변경합니다.</p>
+                    <p><strong id="modalMemberName" class="text-primary"></strong> 회원의 {{ periodno }}대 사진을 변경합니다.</p>
                     <div class="form-group">
-                        <label for="photoFile">새 사진 업로드 (_01.png로 저장됩니다)</label>
-                        <input type="file" class="form-control-file" id="photoFile" name="photoFile" accept="image/png, image/jpeg, image/jpg" required>
+                        <label for="photoFile">새 사진 업로드 (_h{{ periodno }}.png로 저장됩니다)</label>
+                        <input type="file" class="form-control-file" id="photoFile" name="photoFile"
+                               accept="image/png, image/jpeg, image/jpg" required>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -164,8 +168,8 @@
 {% include '/common/commonScript.html' %}
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        $('.photo-edit-btn').on('click', function() {
+    document.addEventListener('DOMContentLoaded', function () {
+        $('.photo-edit-btn').on('click', function () {
             var memberNo = $(this).data('memberno');
             var memberName = $(this).data('membername');
             $('#modalMemberName').text(memberName);

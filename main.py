@@ -75,27 +75,21 @@ async def upload_memberimage(
         request: Request,
         memberno: int,
         photoFile: UploadFile = File(...),
-        returnUrl: str = Form("/yk55cabhist"),  # 프런트에서 넘어온 현재 페이지 URL (기본값 설정)
+        periodno: int = Form(...),  # 프런트에서 넘어온 기수 정보
+        returnUrl: str = Form("/yk55cabhist"),  # 프런트에서 넘어온 돌아갈 주소
         db: AsyncSession = Depends(get_db)
 ):
     try:
         if not photoFile.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File type not supported.")
-
         contents = await safe_file_read(photoFile)
         contents = await resize_image_if_needed(contents, max_bytes=102400)
-
-        # 파일 저장 로직 (_01.png 로 저장)
-        file_path = f"static/img/members/mphoto_{memberno}_01.png"
+        file_path = f"static/img/members/mphoto_{memberno}_h{periodno}.png"
         with open(file_path, "wb") as f:
             f.write(contents)
-
-        # 성공 시 전달받은 returnUrl로 리다이렉트
         return RedirectResponse(url=returnUrl, status_code=303)
-
     except Exception as e:
         print(f"Error: {e}")
-        # 에러 발생 시에도 원래 페이지로 리다이렉트
         return RedirectResponse(url=returnUrl, status_code=303)
 
 @app.post("/uploaddocmphoto/{docno}", dependencies=[Depends(get_current_user)])
@@ -833,3 +827,21 @@ async def yk55membhist_tview(request: Request, periodno: int, db: AsyncSession =
 async def yk55mjfhist(request: Request, user_no: int = Depends(get_current_user)):
     return templates.TemplateResponse("yk55/yk55_mjfhist.html",
                                           {"request": request, "session": dict(request.session)})
+
+
+# ---------------------------------------------------------
+# 1. [신규] 회원 사진 제공 라우터 (Fallback 로직 포함)
+# ---------------------------------------------------------
+@app.get("/api/member_photo/{memberno}/{periodno}")
+async def get_member_photo(memberno: int, periodno: int):
+    # 1. 현재 기수부터 1기까지 역순으로 사진이 있는지 확인
+    for p in range(periodno, 0, -1):
+        path = f"static/img/members/mphoto_{memberno}_h{p}.png"
+        if os.path.exists(path):
+            return FileResponse(path)
+    # 2. 기수별 사진이 아예 없으면 기본 사진(mphoto_{memberno}.png) 확인
+    base_path = f"static/img/members/mphoto_{memberno}.png"
+    if os.path.exists(base_path):
+        return FileResponse(base_path)
+    # 3. 그것마저 없으면 디폴트 이미지 반환
+    return FileResponse("static/img/defaultphoto.png")
