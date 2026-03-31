@@ -75,11 +75,9 @@ async def upload_memberimage(
         request: Request,
         memberno: int,
         photoFile: UploadFile = File(...),
+        returnUrl: str = Form("/yk55cabhist"),  # 프런트에서 넘어온 현재 페이지 URL (기본값 설정)
         db: AsyncSession = Depends(get_db)
 ):
-    referer = request.headers.get("referer")
-    redirect_url = referer if referer else "/yk55cabhist"  # Referer가 없을 경우 기본값
-
     try:
         if not photoFile.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File type not supported.")
@@ -87,19 +85,18 @@ async def upload_memberimage(
         contents = await safe_file_read(photoFile)
         contents = await resize_image_if_needed(contents, max_bytes=102400)
 
-        # [중요] _01.png로 저장되도록 처리
-        # 방법 1: 기존 save_memberPhoto 함수 내부를 수정하여 _01.png로 저장하게 하거나 파라미터를 추가
-        # await save_memberPhoto(contents, memberno, suffix="_01")
-        # await save_thumbnail(contents, memberno, size=(100, 100), suffix="_01")
-        # 방법 2: 직접 파일 저장 로직 작성 (save_memberPhoto 함수를 대체할 경우)
+        # 파일 저장 로직 (_01.png 로 저장)
         file_path = f"static/img/members/mphoto_{memberno}_01.png"
         with open(file_path, "wb") as f:
             f.write(contents)
-        # 성공 시 원래 있던 리스트 페이지로 리다이렉트
-        return RedirectResponse(redirect_url, status_code=303)
+
+        # 성공 시 전달받은 returnUrl로 리다이렉트
+        return RedirectResponse(url=returnUrl, status_code=303)
+
     except Exception as e:
         print(f"Error: {e}")
-        return RedirectResponse(redirect_url, status_code=303)
+        # 에러 발생 시에도 원래 페이지로 리다이렉트
+        return RedirectResponse(url=returnUrl, status_code=303)
 
 @app.post("/uploaddocmphoto/{docno}", dependencies=[Depends(get_current_user)])
 async def upload_docimage(request: Request, docno: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
