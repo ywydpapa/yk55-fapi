@@ -29,14 +29,6 @@
                                 }
                             }
 
-                            @media (min-width: 1200px) {
-                                .col-xl-2-4 {
-                                    flex: 0 0 20%;
-                                    max-width: 20%;
-                                }
-                            }
-
-
                             /* 카드 폭을 줄여서 전체(사진 포함)가 작게 보이게 */
                             .member-card {
                                 width: 100%;
@@ -58,7 +50,6 @@
                                 object-fit: cover;
                                 display: block;
                             }
-
                         </style>
 
                         {% set ns = namespace(prev_rank=None, row_open=false) %}
@@ -80,16 +71,27 @@
                         {% endif %}
                         <div class="col-6 col-md-4 col-lg-3 col-xl-2-4 mb-3 d-flex justify-content-center">
                             <div class="card h-100 shadow-sm member-card">
-                                <!-- 카드 상단 사진 (3:4 비율 = 150x200 느낌) -->
+                                <!-- 카드 상단 사진 (백엔드 이미지 API 호출 및 캐시 방지 난수 추가) -->
                                 <div class="member-photo-wrap">
-                                    <img src="/static/img/members/mphoto_{{ mem.memberNo }}.png"
-                                         alt="{{ mem.memberName }} 사진" class="member-photo"
-                                         onerror="this.onerror=null; this.src='/static/img/defaultphoto.png';">
+                                    <img src="/api/member_photo/{{ mem.memberNo }}/{{ periodno }}?v={{ range(1, 99999) | random }}"
+                                         alt="{{ mem.memberName }} 사진" class="member-photo">
                                 </div>
 
                                 <div class="card-body p-3 text-center">
                                     <div class="mt-2 font-weight-bold" style="font-size: 1rem;">
+                                        {% if session.user_Role == 'ADMIN' %}
+                                        <!-- 관리자일 경우 모달 호출 링크 -->
+                                        <a href="#" class="text-primary photo-edit-btn"
+                                           data-toggle="modal"
+                                           data-target="#photoModal"
+                                           data-memberno="{{ mem.memberNo }}"
+                                           data-membername="{{ mem.memberName }}">
+                                            {{ mem.memberName }}
+                                        </a>
+                                        {% else %}
+                                        <!-- 일반 사용자일 경우 이름만 표시 -->
                                         {{ mem.memberName }}
+                                        {% endif %}
                                     </div>
                                     <div class="text-muted" style="font-size: 0.9rem;">
                                         ({{ mem.clubName }})
@@ -108,6 +110,7 @@
         <!-- /.container-fluid -->
     </div>
     <!-- End of Main Content -->
+
     <!-- Footer -->
     <footer class="sticky-footer bg-white">
         <div class="container my-auto">
@@ -121,12 +124,62 @@
 <!-- End of Content Wrapper -->
 </div>
 <!-- End of Page Wrapper -->
+
+<!-- 사진 변경 모달 (Photo Edit Modal) -->
+<div class="modal fade" id="photoModal" tabindex="-1" role="dialog" aria-labelledby="photoModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form id="photoUploadForm" action="" method="POST" enctype="multipart/form-data">
+                <!-- 돌아갈 URL (현재 페이지에 맞게 /yk55membhist 로 설정) -->
+                <input type="hidden" name="returnUrl" id="returnUrl" value="/yk55membhist_tview/{{periodno}}">
+                <!-- 현재 기수(periodno)를 백엔드로 전달 -->
+                <input type="hidden" name="periodno" value="{{ periodno }}">
+
+                <div class="modal-header">
+                    <h5 class="modal-title" id="photoModalLabel">회원 사진 변경</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p><strong id="modalMemberName" class="text-primary"></strong> 회원의 {{ periodno }}대 사진을 변경합니다.</p>
+                    <div class="form-group">
+                        <label for="photoFile">새 사진 업로드 (_h{{ periodno }}.png로 저장됩니다)</label>
+                        <input type="file" class="form-control-file" id="photoFile" name="photoFile" accept="image/png, image/jpeg, image/jpg" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary">사진 저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Scroll to Top Button-->
 <a class="scroll-to-top rounded" href="#page-top">
     <i class="fas fa-angle-up"></i>
 </a>
+
 <!-- Bootstrap core JavaScript-->
 {% include '/common/commonScript.html' %}
+
+<!-- 모달 데이터 바인딩 스크립트 -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        $('.photo-edit-btn').on('click', function() {
+            var memberNo = $(this).data('memberno');
+            var memberName = $(this).data('membername');
+
+            // 모달 안의 텍스트 세팅
+            $('#modalMemberName').text(memberName);
+
+            // 폼의 action URL 동적 변경
+            $('#photoUploadForm').attr('action', '/api/upload_photo/' + memberNo);
+        });
+    });
+</script>
 
 </body>
 </html>
