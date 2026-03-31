@@ -2,6 +2,17 @@
 <html lang="en">
 <head>
     {% include '/common/commHeader.html' %}
+    <!-- FullCalendar CDN 추가 -->
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <style>
+        /* 달력 이벤트(일정) 텍스트 색상 및 커서 설정 */
+        .fc-event {
+            cursor: pointer;
+        }
+        .fc-event-title {
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body id="page-top">
 <!-- Page Wrapper -->
@@ -16,16 +27,22 @@
             <div class="container-fluid">
                 <!-- Page Heading -->
                 <div class="card shadow mb-4">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary">클럽 행사 목록</h6>
+                    <!-- 헤더 영역: 제목과 토글 스위치를 양끝으로 배치 -->
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 font-weight-bold text-primary">지구 행사 목록</h6>
+                        <!-- 달력 보기 토글 스위치 -->
+                        <div class="custom-control custom-switch">
+                            <input type="checkbox" class="custom-control-input" id="viewToggle">
+                            <label class="custom-control-label" for="viewToggle">달력 보기</label>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="d-flex justify-content-end mb-2">
                             <div class="d-flex align-items-center" style="width: auto;">
                                 <span class="mr-3" style="white-space: nowrap;">회기 선택</span>
-                                <select style="text-align: center" class="form-control" id="eventperiod" name="eventperiod" onchange="filterTable()">
+                                <!-- onchange 함수명을 filterData로 변경 -->
+                                <select style="text-align: center" class="form-control" id="eventperiod" name="eventperiod" onchange="filterData()">
                                     {% for per in periodlist %}
-                                        <!-- 백엔드에서 넘어온 periodno와 일치하면 selected 됨 -->
                                         <option value="{{ per.periodNo }}" {% if per.periodNo|int == periodno|int %}selected{% endif %} >{{ per.periodTitle2 }}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
                                     {% endfor %}
                                     <option value="all">전체 보기</option>
@@ -33,36 +50,45 @@
                             </div>
                         </div>
                         <hr>
-                        <div class="table-responsive">
-                            <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
-                                <thead>
-                                <tr style="text-align: center">
-                                    <th>행사명</th>
-                                    <th>소요비용</th>
-                                    <th>행사기간(시작)</th>
-                                    <th>행사기간(종료)</th>
-                                    <th>배치순서</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                    {% for event in deventlist %}
-                                    <!-- data-period 속성 필수 -->
-                                    <tr class="event-row" data-period="{{ event.periodNo }}">
-                                        <td style="text-align: center"><a href="/dist_eventedit/{{event.eventNo}}">{{ event.eventTitle }}</a></td>
-                                        <td style="text-align: right">{{ event.eventCost|currency }}</td>
-                                        <td style="text-align: center">{{ event.eventFrom }}</td>
-                                        <td style="text-align: center">{{ event.eventTo }}</td>
-                                        <td style="text-align: center">{{ event.sortNo }}</td>
+
+                        <!-- 1. 리스트 뷰 영역 -->
+                        <div id="listView">
+                            <div class="table-responsive">
+                                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                                    <thead>
+                                    <tr style="text-align: center">
+                                        <th>행사명</th>
+                                        <th>소요비용</th>
+                                        <th>행사기간(시작)</th>
+                                        <th>행사기간(종료)</th>
+                                        <th>배치순서</th>
                                     </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="row justify-content-end">
+                                    </thead>
+                                    <tbody>
+                                        {% for event in deventlist %}
+                                        <tr class="event-row" data-period="{{ event.periodNo }}">
+                                            <td style="text-align: center"><a href="/dist_eventedit/{{event.eventNo}}">{{ event.eventTitle }}</a></td>
+                                            <td style="text-align: right">{{ event.eventCost|currency }}</td>
+                                            <td style="text-align: center">{{ event.eventFrom }}</td>
+                                            <td style="text-align: center">{{ event.eventTo }}</td>
+                                            <td style="text-align: center">{{ event.sortNo }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="row justify-content-end">
                                 <div class="col" style="max-width: 30%">
                                   <button type="button" class="form-control btn btn-danger" onclick="regnew()">새행사 등록 </button>
                                 </div>
+                            </div>
                         </div>
+
+                        <!-- 2. 달력 뷰 영역 (초기에는 숨김 처리) -->
+                        <div id="calendarView" style="display: none;">
+                            <div id="calendar"></div>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -88,10 +114,84 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/common/commonScript.html' %}
+
 <script>
-    // [추가된 부분] 페이지 로드 시 필터링 함수 자동 실행
+    var calendar;
+
+    // 1. Jinja2 데이터를 자바스크립트 원시 배열로 가져옵니다.
+    var rawEvents = [
+        {% for event in deventlist %}
+        {
+            id: '{{ event.eventNo }}',
+            title: '{{ event.eventTitle }}',
+            start: '{{ event.eventFrom }}',
+            end: '{{ event.eventTo }}',
+            url: '/dist_eventedit/{{ event.eventNo }}', // 클릭 시 이동할 링크
+            period: '{{ event.periodNo }}'
+        },
+        {% endfor %}
+    ];
+
+    // 2. FullCalendar 규격에 맞게 데이터를 가공합니다. (여러 날짜 이어지도록 처리)
+    var allEvents = rawEvents.map(function(evt) {
+        var eventObj = {
+            id: evt.id,
+            title: evt.title,
+            start: evt.start,
+            allDay: true, // 띠(Ribbon) 형태로 길게 표시하기 위해 종일 행사로 설정
+            url: evt.url,
+            extendedProps: {
+                period: evt.period
+            }
+        };
+
+        // 종료일이 존재할 경우
+        if (evt.end && evt.end.trim() !== '') {
+            // FullCalendar에서 allDay 이벤트의 end 날짜는 '포함하지 않음(Exclusive)'이므로
+            // 종료일까지 꽉 채워서 색칠하려면 종료일에 1일을 더해줘야 합니다.
+            var endDate = new Date(evt.end);
+            endDate.setDate(endDate.getDate() + 1);
+
+            var y = endDate.getFullYear();
+            var m = String(endDate.getMonth() + 1).padStart(2, '0');
+            var d = String(endDate.getDate()).padStart(2, '0');
+
+            eventObj.end = y + '-' + m + '-' + d;
+        }
+
+        return eventObj;
+    });
+
     document.addEventListener("DOMContentLoaded", function() {
-        filterTable();
+        // 3. 달력 초기화
+        var calendarEl = document.getElementById('calendar');
+        calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'ko', // 한국어 설정
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,dayGridWeek'
+            },
+            events: allEvents // 가공된 전체 데이터 삽입
+        });
+
+        // 4. 초기 로드 시 필터링 실행
+        filterData();
+
+        // 5. 토글 스위치 이벤트 리스너
+        document.getElementById('viewToggle').addEventListener('change', function() {
+            if (this.checked) {
+                // 달력 보기 켜짐
+                document.getElementById('listView').style.display = 'none';
+                document.getElementById('calendarView').style.display = 'block';
+                calendar.render(); // 화면에 보일 때 렌더링을 다시 해줘야 크기가 안 깨집니다.
+            } else {
+                // 리스트 보기 켜짐
+                document.getElementById('listView').style.display = 'block';
+                document.getElementById('calendarView').style.display = 'none';
+            }
+        });
     });
 
     function regnew() {
@@ -103,20 +203,30 @@
         document.body.removeChild(form);
     }
 
-    function filterTable() {
+    // 리스트와 달력을 동시에 필터링하는 함수
+    function filterData() {
         var selectBox = document.getElementById("eventperiod");
         var selectedValue = selectBox.value;
-        var rows = document.querySelectorAll(".event-row");
 
+        // [1] 리스트 뷰 필터링
+        var rows = document.querySelectorAll(".event-row");
         rows.forEach(function(row) {
             var rowPeriod = row.getAttribute("data-period");
-            // 전체보기(all) 이거나 선택된 회기와 일치하면 표시
             if (selectedValue === "all" || rowPeriod === selectedValue) {
                 row.style.display = "";
             } else {
                 row.style.display = "none";
             }
         });
+
+        // [2] 달력 뷰 필터링
+        if (calendar) {
+            var filteredEvents = allEvents.filter(function(evt) {
+                return selectedValue === "all" || evt.extendedProps.period === selectedValue;
+            });
+            calendar.removeAllEvents(); // 기존 일정 지우기
+            calendar.addEventSource(filteredEvents); // 필터링된 일정만 다시 추가
+        }
     }
 </script>
 </body>
