@@ -131,7 +131,7 @@
         <div class="modal-content">
             <!-- 백엔드에서 사진 업로드를 처리할 API URL을 action에 입력하세요 (예: /api/upload_photo) -->
             <form id="photoUploadForm" action="/api/upload_photo" method="POST" enctype="multipart/form-data">
-                <input type="hidden" name="returnUrl" id="returnUrl">
+                <input type="hidden" name="returnUrl" id="returnUrl" value="/yk55cabhist_tview/{{periodno}}">
                 <div class="modal-header">
                     <h5 class="modal-title" id="photoModalLabel">회원 사진 변경</h5>
                     <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -170,9 +170,6 @@
             var memberName = $(this).data('membername');
             $('#modalMemberName').text(memberName);
             $('#photoUploadForm').attr('action', '/api/upload_photo/' + memberNo);
-            // ★ 현재 페이지의 URL(경로+쿼리스트링)을 가져와서 hidden input에 세팅
-            var currentUrl = window.location.pathname + window.location.search;
-            $('#returnUrl').val(currentUrl);
         });
     });
 </script>
