@@ -9,15 +9,18 @@
         .fc-event {
             cursor: pointer;
         }
+
         .fc-event-title {
             font-weight: bold;
         }
+
         /* 커스텀 버튼 색상 변경 (부트스트랩 danger 색상과 유사하게) */
         .fc-addEventButton-button {
             background-color: #e74a3b !important;
             border-color: #e74a3b !important;
             font-weight: bold !important;
         }
+
         .fc-addEventButton-button:hover {
             background-color: #be2617 !important;
             border-color: #be2617 !important;
@@ -50,9 +53,13 @@
                         <div class="d-flex justify-content-end mb-2">
                             <div class="d-flex align-items-center" style="width: auto;">
                                 <span class="mr-3" style="white-space: nowrap;">회기 선택</span>
-                                <select style="text-align: center" class="form-control" id="eventperiod" name="eventperiod" onchange="filterData()">
+                                <select style="text-align: center" class="form-control" id="eventperiod"
+                                        name="eventperiod" onchange="filterData()">
                                     {% for per in periodlist %}
-                                        <option value="{{ per.periodNo }}" {% if per.periodNo|int == periodno|int %}selected{% endif %} >{{ per.periodTitle2 }}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
+                                    <option value="{{ per.periodNo }}" {% if per.periodNo|int== periodno|int
+                                            %}selected{% endif %}>{{ per.periodTitle2 }}회기 ({{ per.yearFr }}~{{
+                                        per.yearTo }})
+                                    </option>
                                     {% endfor %}
                                     <option value="all">전체 보기</option>
                                 </select>
@@ -74,22 +81,29 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                        {% for event in deventlist %}
-                                        <tr class="event-row" data-period="{{ event.periodNo }}">
-                                            <td style="text-align: center"><a href="/dist_eventedit/{{event.eventNo}}">{{ event.eventTitle }}</a></td>
-                                            <td style="text-align: right">{{ event.eventCost|currency }}</td>
-                                            <td style="text-align: center">{{ event.eventFrom }}</td>
-                                            <td style="text-align: center">{{ event.eventTo }}</td>
-                                            <td style="text-align: center">{{ event.sortNo }}</td>
-                                        </tr>
-                                        {% endfor %}
+                                    {% for event in deventlist %}
+                                    <tr class="event-row" data-period="{{ event.periodNo }}">
+                                        <!-- 클릭 시 모달을 열도록 변경 -->
+                                        <td style="text-align: center">
+                                            <a href="javascript:void(0);" onclick="openEditEventModalById('{{ event.eventNo }}')">
+                                                {{ event.eventTitle }}
+                                            </a>
+                                        </td>
+                                        <td style="text-align: right">{{ event.eventCost|currency }}</td>
+                                        <td style="text-align: center">{{ event.eventFrom }}</td>
+                                        <td style="text-align: center">{{ event.eventTo }}</td>
+                                        <td style="text-align: center">{{ event.sortNo }}</td>
+                                    </tr>
+                                    {% endfor %}
                                     </tbody>
                                 </table>
                             </div>
                             <div class="row justify-content-end mt-3">
                                 <div class="col" style="max-width: 30%">
-                                  <!-- 리스트 뷰에서의 새행사 등록 버튼 (모달 호출) -->
-                                  <button type="button" class="form-control btn btn-danger" onclick="openNewEventModal()">새행사 등록</button>
+                                    <!-- 리스트 뷰에서의 새행사 등록 버튼 (모달 호출) -->
+                                    <button type="button" class="form-control btn btn-danger"
+                                            onclick="openNewEventModal()">새행사 등록
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -119,8 +133,9 @@
 </div>
 <!-- End of Page Wrapper -->
 
-<!-- 새 행사 등록 모달 (Modal) -->
-<div class="modal fade" id="newEventModal" tabindex="-1" role="dialog" aria-labelledby="newEventModalLabel" aria-hidden="true">
+<!-- 새 행사 등록 / 수정 모달 (Modal) -->
+<div class="modal fade" id="newEventModal" tabindex="-1" role="dialog" aria-labelledby="newEventModalLabel"
+     aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">
@@ -133,53 +148,80 @@
                 <div class="modal-body">
                     <table class="table table-bordered text-center mb-0">
                         <tbody>
-                            <tr>
-                                <td class="align-middle bg-light" style="width: 25%;">행사명</td>
-                                <td><input class="form-control" id="ceventtitle" name="ceventtitle" type="text" required></td>
-                            </tr>
-                            <tr>
-                                <td class="align-middle bg-light">행사종류</td>
-                                <td>
-                                    <select class="form-control" id="eventtype" name="eventtype">
-                                        <option value="CLUBE">클럽행사</option>
-                                        <option value="REGIE">지역행사</option>
-                                        <option value="DISTE" selected>지구행사</option>
-                                        <option value="EDIST">복합지구행사</option>
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="align-middle bg-light">행사시작</td>
-                                <td><input class="form-control" id="eventfrom" name="eventfrom" type="datetime-local" required></td>
-                            </tr>
-                            <tr>
-                                <td class="align-middle bg-light">행사종료</td>
-                                <td><input class="form-control" id="eventto" name="eventto" type="datetime-local" required></td>
-                            </tr>
-                            <tr>
-                                <td class="align-middle bg-light">적용회기</td>
-                                <td>
-                                    <select class="form-control" id="modal_eventperiod" name="eventperiod">
-                                        {% for per in periodlist %}
-                                        <option value="{{per.periodNo}}" {% if per.periodNo|int == periodno|int %}selected{% endif %}>{{per.periodTitle2}}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
-                                        {% endfor %}
-                                    </select>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="align-middle bg-light">소요비용</td>
-                                <td><input style="text-align: right" class="form-control" id="eventcost" name="eventcost" type="number" required value="10000"></td>
-                            </tr>
-                            <tr>
-                                <td class="align-middle bg-light">배치순서</td>
-                                <td><input style="text-align: right" class="form-control" id="sortno" name="sortno" type="number" required value="100"></td>
-                            </tr>
+                        <tr>
+                            <td class="align-middle bg-light" style="width: 25%;">행사명</td>
+                            <td><input class="form-control" id="ceventtitle" name="ceventtitle" type="text" required>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="align-middle bg-light">행사종류</td>
+                            <td>
+                                <select class="form-control" id="eventtype" name="eventtype">
+                                    <option value="CLUBE">클럽행사</option>
+                                    <option value="REGIE">지역행사</option>
+                                    <option value="DISTE" selected>지구행사</option>
+                                    <option value="EDIST">복합지구행사</option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="align-middle bg-light">행사시작</td>
+                            <td><input class="form-control" id="eventfrom" name="eventfrom" type="datetime-local"
+                                       required></td>
+                        </tr>
+                        <tr>
+                            <td class="align-middle bg-light">행사종료</td>
+                            <td><input class="form-control" id="eventto" name="eventto" type="datetime-local" required>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="align-middle bg-light">장소</td>
+                            <td>
+                                <!-- 장소 선택 드롭다운 -->
+                                <select class="form-control mb-2" id="locationNo" name="locationNo"
+                                        onchange="toggleCustomLocation()">
+                                    <!-- 서버에서 넘어온 위치 목록 출력 -->
+                                    {% for loc in locationlist %}
+                                    <option value="{{ loc.locationNo }}" {% if loc.locationNo|int== 1 %}selected{% endif %}>
+                                        {{ loc.locationTitle }}
+                                    </option>
+                                    {% endfor %}
+                                    <option value="custom">직접입력 (새로운 장소)</option>
+                                </select>
+
+                                <!-- 직접입력 선택 시 나타나는 추가 입력창 -->
+                                <input class="form-control" id="customLocation" name="customLocation" type="text"
+                                       placeholder="새로운 장소명을 입력하세요" style="display: none;">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="align-middle bg-light">적용회기</td>
+                            <td>
+                                <select class="form-control" id="modal_eventperiod" name="eventperiod">
+                                    {% for per in periodlist %}
+                                    <option value="{{per.periodNo}}" {% if per.periodNo|int== periodno|int %}selected{%
+                                            endif %}>{{per.periodTitle2}}회기 ({{ per.yearFr }}~{{ per.yearTo }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="align-middle bg-light">소요비용</td>
+                            <td><input style="text-align: right" class="form-control" id="eventcost" name="eventcost"
+                                       type="number" required value="10000"></td>
+                        </tr>
+                        <tr>
+                            <td class="align-middle bg-light">배치순서</td>
+                            <td><input style="text-align: right" class="form-control" id="sortno" name="sortno"
+                                       type="number" required value="100"></td>
+                        </tr>
                         </tbody>
                     </table>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">취소</button>
-                    <button type="submit" class="btn btn-primary">신규행사 저장</button>
+                    <button type="submit" id="submitBtn" class="btn btn-primary">신규행사 저장</button>
                 </div>
             </form>
         </div>
@@ -196,53 +238,75 @@
 <script>
     var calendar;
 
-    // Jinja2 데이터를 자바스크립트 원시 배열로 가져옵니다.
+    // 1. Jinja2 데이터에 모달 수정을 위한 모든 정보(extendedProps) 추가
     var rawEvents = [
         {% for event in deventlist %}
         {
             id: '{{ event.eventNo }}',
-            title: '{{ event.eventTitle }}',
-            start: '{{ event.eventFrom }}',
+            title: `{{ event.eventTitle | replace('`', '\\`') }}`,
+            start : '{{ event.eventFrom }}',
             end: '{{ event.eventTo }}',
-            url: '/dist_eventedit/{{ event.eventNo }}',
-            period: '{{ event.periodNo }}'
+            extendedProps: {
+                originalStart: '{{ event.eventFrom }}',
+                originalEnd: '{{ event.eventTo }}',
+                period: '{{ event.periodNo }}',
+                eventType: '{{ event.eventType }}',
+                locationNo: '{{ event.locationNo }}', // 백엔드 deventlist에 locationNo가 있어야 정상 동작합니다.
+                eventCost: '{{ event.eventCost }}',
+                sortNo: '{{ event.sortNo }}'
+            }
         },
         {% endfor %}
     ];
 
-    // FullCalendar 규격에 맞게 데이터 가공
-    var allEvents = rawEvents.map(function(evt) {
+    // 2. FullCalendar 규격에 맞게 데이터 가공
+    var allEvents = rawEvents.map(function (evt) {
+        var bgColor = '#4e73df'; // 기본값 (파란색)
+
+        if (evt.extendedProps.eventType === 'CLUBE') {
+            bgColor = '#1cc88a'; // 클럽행사
+        } else if (evt.extendedProps.eventType === 'REGIE') {
+            bgColor = '#36b9cc'; // 지역행사
+        } else if (evt.extendedProps.eventType === 'DISTE') {
+            bgColor = '#4e73df'; // 지구행사
+        } else if (evt.extendedProps.eventType === 'EDIST') {
+            bgColor = '#f6c23e'; // 복합지구행사
+        }
+
         var eventObj = {
             id: evt.id,
             title: evt.title,
             start: evt.start,
             allDay: true,
-            url: evt.url,
-            extendedProps: { period: evt.period }
+            backgroundColor: bgColor,
+            borderColor: bgColor,
+            textColor: '#ffffff',
+            extendedProps: evt.extendedProps
         };
 
-        if (evt.end && evt.end.trim() !== '') {
+        if (evt.end && evt.end.trim() !== '' && evt.end !== 'None') {
             var endDate = new Date(evt.end);
-            endDate.setDate(endDate.getDate() + 1);
-            var y = endDate.getFullYear();
-            var m = String(endDate.getMonth() + 1).padStart(2, '0');
-            var d = String(endDate.getDate()).padStart(2, '0');
-            eventObj.end = y + '-' + m + '-' + d;
+            if (!isNaN(endDate.getTime())) {
+                endDate.setDate(endDate.getDate() + 1);
+                var y = endDate.getFullYear();
+                var m = String(endDate.getMonth() + 1).padStart(2, '0');
+                var d = String(endDate.getDate()).padStart(2, '0');
+                eventObj.end = y + '-' + m + '-' + d;
+            }
         }
         return eventObj;
     });
 
-    document.addEventListener("DOMContentLoaded", function() {
+    document.addEventListener("DOMContentLoaded", function () {
         // 달력 초기화
         var calendarEl = document.getElementById('calendar');
         calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             locale: 'ko',
-            // 달력 헤더에 커스텀 '새행사 등록' 버튼 추가
             customButtons: {
                 addEventButton: {
                     text: '새행사 등록',
-                    click: function() {
+                    click: function () {
                         openNewEventModal();
                     }
                 }
@@ -253,16 +317,18 @@
                 right: 'addEventButton dayGridMonth,dayGridWeek'
             },
             events: allEvents,
-            selectable: true, // 날짜 드래그 선택 활성화
-            select: function(info) {
-                // 달력에서 날짜를 선택(드래그)하면 해당 날짜로 모달 열기
+            selectable: true,
+            select: function (info) {
                 openNewEventModal(info.start, info.end);
+            },
+            eventClick: function(info) {
+                info.jsEvent.preventDefault();
+                openEditEventModal(info.event);
             }
         });
 
         filterData();
 
-        // sessionStorage에서 이전 보기 상태 확인 및 적용
         var savedView = sessionStorage.getItem('eventViewMode');
         var viewToggle = document.getElementById('viewToggle');
 
@@ -273,7 +339,7 @@
             calendar.render();
         }
 
-        viewToggle.addEventListener('change', function() {
+        viewToggle.addEventListener('change', function () {
             if (this.checked) {
                 document.getElementById('listView').style.display = 'none';
                 document.getElementById('calendarView').style.display = 'block';
@@ -292,7 +358,7 @@
         var selectedValue = selectBox.value;
 
         var rows = document.querySelectorAll(".event-row");
-        rows.forEach(function(row) {
+        rows.forEach(function (row) {
             var rowPeriod = row.getAttribute("data-period");
             if (selectedValue === "all" || rowPeriod === selectedValue) {
                 row.style.display = "";
@@ -302,7 +368,7 @@
         });
 
         if (calendar) {
-            var filteredEvents = allEvents.filter(function(evt) {
+            var filteredEvents = allEvents.filter(function (evt) {
                 return selectedValue === "all" || evt.extendedProps.period === selectedValue;
             });
             calendar.removeAllEvents();
@@ -310,7 +376,6 @@
         }
     }
 
-    /* --- 모달 및 날짜 관련 스크립트 --- */
     function pad2(n) { return String(n).padStart(2, '0'); }
 
     function toLocalDatetimeValue(date) {
@@ -319,6 +384,15 @@
             pad2(date.getMonth() + 1),
             pad2(date.getDate())
         ].join('-') + 'T' + pad2(date.getHours()) + ':' + pad2(date.getMinutes());
+    }
+
+    function formatForDatetimeLocal(dbDateStr) {
+        if (!dbDateStr || dbDateStr === 'None' || dbDateStr === 'null') return '';
+        var str = String(dbDateStr).trim();
+        if (str.includes('T')) return str.substring(0, 16);
+        if (str.includes(' ')) return str.replace(' ', 'T').substring(0, 16);
+        if (str.length === 10) return str + 'T00:00';
+        return str;
     }
 
     function setTime(date, hh, mm) {
@@ -346,32 +420,131 @@
         }
     }
 
-    // 모달 열기 함수 (startDate, endDate는 달력에서 선택 시 전달됨)
+    function toggleCustomLocation() {
+        var locationSelect = document.getElementById("locationNo");
+        var customInput = document.getElementById("customLocation");
+
+        if (locationSelect.value === "custom") {
+            customInput.style.display = "block";
+            customInput.required = true;
+        } else {
+            customInput.style.display = "none";
+            customInput.required = false;
+            customInput.value = "";
+        }
+    }
+
+    /* --- 모달 제어: 새 행사 등록 --- */
     function openNewEventModal(startDate, endDate) {
+        document.getElementById('editor-form').action = '/devent_insert';
+        document.getElementById('newEventModalLabel').innerText = '새 지구 행사 등록';
+        document.getElementById('submitBtn').innerText = '신규행사 저장';
+
+        document.getElementById('editor-form').reset();
+
+        // ★ 장소 기본값 설정 (HTML에서 selected 속성이 있는 옵션을 찾음)
+        var locationSelect = document.getElementById("locationNo");
+        if(locationSelect) {
+            var defaultOpt = locationSelect.querySelector('option[selected]');
+            locationSelect.value = defaultOpt ? defaultOpt.value : locationSelect.options[0].value;
+            toggleCustomLocation();
+        }
+
         const startEl = document.getElementById('eventfrom');
         const endEl = document.getElementById('eventto');
 
-        // 폼 초기화
-        document.getElementById('editor-form').reset();
-
         if (startDate) {
-            // 달력에서 선택한 경우
             startEl.value = toLocalDatetimeValue(setTime(startDate, 9, 0));
-            // FullCalendar의 endDate는 자정 기준(Exclusive)이므로 하루를 빼서 실제 종료일로 맞춤
             let actualEnd = endDate ? new Date(endDate.getTime() - 1) : startDate;
             endEl.value = toLocalDatetimeValue(setTime(actualEnd, 18, 0));
         } else {
-            // 버튼으로 직접 연 경우 (오늘 날짜)
             const now = new Date();
             startEl.value = toLocalDatetimeValue(setTime(now, 9, 0));
             endEl.value = toLocalDatetimeValue(setTime(now, 18, 0));
         }
 
-        // 4시간 보정 로직 이벤트 리스너 등록
         startEl.removeEventListener('change', ensureEndAfterStartPlus4h);
         startEl.addEventListener('change', ensureEndAfterStartPlus4h);
 
         $('#newEventModal').modal('show');
+    }
+
+    /* --- 모달 제어: 기존 행사 수정 --- */
+    function openEditEventModalById(eventId) {
+        var evt = rawEvents.find(function(e) { return e.id == eventId; });
+        if (evt) {
+            openEditEventModal(evt);
+        }
+    }
+
+    function openEditEventModal(evt) {
+        try {
+            var id = evt.id;
+            var title = evt.title;
+            var props = evt.extendedProps || {};
+
+            var startStr = props.originalStart || evt.startStr || evt.start;
+            var endStr = props.originalEnd || evt.endStr || evt.end;
+
+            document.getElementById('editor-form').action = '/devent_update/' + id;
+            document.getElementById('newEventModalLabel').innerText = '지구 행사 수정';
+            document.getElementById('submitBtn').innerText = '변경내용 저장';
+
+            document.getElementById('ceventtitle').value = title || '';
+
+            var eventTypeEl = document.getElementById('eventtype');
+            if (eventTypeEl && props.eventType && props.eventType !== 'None') {
+                eventTypeEl.value = String(props.eventType).trim();
+            }
+
+            document.getElementById('eventfrom').value = formatForDatetimeLocal(startStr);
+            document.getElementById('eventto').value = formatForDatetimeLocal(endStr);
+
+            // ★ 장소 설정 로직 강화
+            var locationSelect = document.getElementById("locationNo");
+            if(locationSelect) {
+                var locVal = (props.locationNo && props.locationNo !== 'None' && props.locationNo !== '') ? String(props.locationNo).trim() : "";
+
+                // DB에서 가져온 값이 select option 목록에 존재하는지 확인
+                var optionExists = Array.from(locationSelect.options).some(function(opt) {
+                    return opt.value === locVal;
+                });
+
+                if (locVal && optionExists) {
+                    // DB에 저장된 장소가 존재하면 해당 장소 선택
+                    locationSelect.value = locVal;
+                } else {
+                    // DB에 저장된 값이 없거나 매칭되는 옵션이 없으면 HTML 기본값(selected)으로 설정
+                    var defaultOpt = locationSelect.querySelector('option[selected]');
+                    locationSelect.value = defaultOpt ? defaultOpt.value : locationSelect.options[0].value;
+                }
+                toggleCustomLocation();
+            }
+
+            var periodEl = document.getElementById('modal_eventperiod');
+            if (periodEl && props.period && props.period !== 'None') {
+                periodEl.value = String(props.period).trim();
+            }
+
+            var costEl = document.getElementById('eventcost');
+            if (costEl && props.eventCost !== undefined && props.eventCost !== 'None') {
+                costEl.value = String(props.eventCost).replace(/,/g, '').replace(/[^0-9-]/g, '');
+            }
+
+            var sortEl = document.getElementById('sortno');
+            if (sortEl && props.sortNo !== undefined && props.sortNo !== 'None') {
+                sortEl.value = String(props.sortNo).trim();
+            }
+
+            const startEl = document.getElementById('eventfrom');
+            startEl.removeEventListener('change', ensureEndAfterStartPlus4h);
+            startEl.addEventListener('change', ensureEndAfterStartPlus4h);
+
+            $('#newEventModal').modal('show');
+        } catch (error) {
+            console.error("데이터를 모달에 채우는 중 오류 발생:", error);
+            alert("데이터를 불러오는 중 오류가 발생했습니다.");
+        }
     }
 </script>
 </body>

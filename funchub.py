@@ -280,7 +280,8 @@ async def get_event_dist_club(clubno: int, db: AsyncSession):
                         a.eventTo,
                         a.clubNo,
                         count(b.eventNo) as cnt,
-                        a.eventCost
+                        a.eventCost,
+                        a.locationNo
                  FROM yk_event a
                           left join yk_eventMember b on a.eventNo = b.eventNo and b.attrib = :xapp
                  WHERE a.attrib = :xapp
@@ -294,7 +295,7 @@ async def get_event_dist_club(clubno: int, db: AsyncSession):
 async def get_clubevents(clubno: int, db: AsyncSession):
     query = text("""
                  SELECT eventNo, periodNo, eventTitle, eventTitleEng, eventType,
-                        eventFrom, eventTo, clubNo, eventCost, sortNo
+                        eventFrom, eventTo, clubNo, eventCost, sortNo, locationNo
                  FROM yk_event
                  WHERE attrib = :xapp and clubNo = :clubno
                  ORDER BY eventFrom """)
@@ -304,7 +305,7 @@ async def get_clubevents(clubno: int, db: AsyncSession):
 async def get_distevents(db: AsyncSession):
     query = text("""
                  SELECT eventNo, periodNo, eventTitle, eventTitleEng, eventType,
-                        eventFrom, eventTo, clubNo, eventCost, sortNo
+                        eventFrom, eventTo, clubNo, eventCost, sortNo, locationNo
                  FROM yk_event
                  WHERE attrib = :xapp and regionNo = :regionno and clubNo = :regionno 
                  ORDER BY eventFrom """)
@@ -314,7 +315,7 @@ async def get_distevents(db: AsyncSession):
 async def get_clubeventsperiod(clubno: int, periodno: int, db: AsyncSession):
     query = text("""
                  SELECT a.eventNo, a.periodNo, a.eventTitle, a.eventTitleEng, a.eventType,
-                        a.eventFrom, a.eventTo, a.clubNo, a.eventCost, a.sortNo, b.clubName
+                        a.eventFrom, a.eventTo, a.clubNo, a.eventCost, a.sortNo, b.clubName, a.locationNo
                  FROM yk_event a
                      left join yk_club b on a.clubNo = b.clubNo
                  WHERE a.attrib = :xapp and a.clubNo = :clubno and a.periodNo = :periodno
@@ -325,7 +326,7 @@ async def get_clubeventsperiod(clubno: int, periodno: int, db: AsyncSession):
 async def get_disteventsperiod(periodno: int, db: AsyncSession):
     query = text("""
                  SELECT a.eventNo, a.periodNo, a.eventTitle, a.eventTitleEng, a.eventType,
-                        a.eventFrom, a.eventTo, a.clubNo, a.eventCost, a.sortNo, b.clubName
+                        a.eventFrom, a.eventTo, a.clubNo, a.eventCost, a.sortNo, b.clubName, a.locationNo
                  FROM yk_event a
                      left join yk_club b on a.clubNo = b.clubNo
                  WHERE a.attrib = :xapp and a.periodNo = :periodno
@@ -576,6 +577,12 @@ async def get_rank_dtl(rankno: int, db: AsyncSession):
     query = text("""SELECT * FROM yk_rank where rankNo = :rankno""")
     result = await db.execute(query, {"rankno": rankno})
     return result.fetchone()
+
+
+async def get_locations(db: AsyncSession):
+    query = text("""SELECT * FROM yk_location where attrib = :attr""")
+    result = await db.execute(query, {"attr": "1000010000"})
+    return result.fetchall()
 
 async def getdocdetail(docno: int, db: AsyncSession):
     try:

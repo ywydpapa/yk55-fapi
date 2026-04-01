@@ -401,11 +401,13 @@ async def ceventlist(request: Request, clubno: int, db: AsyncSession = Depends(g
 
 @app.get("/dist_eventlist", response_class=HTMLResponse)
 async def deventlist(request: Request, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
-    return templates.TemplateResponse("dist/dist_eventlist.html", {"request": request, "session": dict(request.session), "periodlist": await getperiod(db), "deventlist": await get_distevents(db), "periodno": current_period})
+    locations = await get_locations(db)
+    return templates.TemplateResponse("dist/dist_eventlist.html", {"request": request, "session": dict(request.session), "periodlist": await getperiod(db), "deventlist": await get_distevents(db), "periodno": current_period, "locationlist": locations})
 
 @app.get("/dist_eventlist/{periodno}", response_class=HTMLResponse)
 async def deventlist_period(request: Request, periodno: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
-    return templates.TemplateResponse("dist/dist_eventlist.html", {"request": request, "session": dict(request.session), "periodlist": await getperiod(db), "deventlist": await get_distevents(db), "periodno": periodno})
+    locations = await get_locations(db)
+    return templates.TemplateResponse("dist/dist_eventlist.html", {"request": request, "session": dict(request.session), "periodlist": await getperiod(db), "deventlist": await get_distevents(db), "periodno": periodno, "locationlist": locations})
 
 @app.get("/club_eventlist/{clubno}/{periodno}", response_class=HTMLResponse)
 async def ceventlist_period(request: Request, clubno: int, periodno: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
@@ -436,14 +438,54 @@ async def insertcevent(request: Request, clubno: int, db: AsyncSession = Depends
     await db.commit()
     return RedirectResponse(f"/club_eventlist/{clubno}", status_code=303)
 
-@app.post("/devent_insert", response_class=HTMLResponse)
-async def insertdevent(request: Request, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
-    form_data = await request.form()
-    data = {"eventTitle": form_data.get("ceventtitle"), "eventType": form_data.get("eventtype"), "eventFrom": form_data.get("eventfrom"), "eventTo": form_data.get("eventto"), "periodNo": form_data.get("eventperiod"), "eventCost": form_data.get("eventcost"), "sortNo": form_data.get("sortno"), "regionNo": 0}
-    insert_fields = {k: v for k, v in data.items() if v is not None}
-    await db.execute(text(f"INSERT INTO yk_event ({', '.join(insert_fields.keys())}) VALUES ({', '.join([':'+k for k in insert_fields.keys()])})"), insert_fields)
+
+@app.post("/devent_insert")
+async def save_devent(request: Request, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
+    form = await request.form()
+    event_title = form.get("ceventtitle")
+    event_type = form.get("eventtype")
+    event_from = form.get("eventfrom")
+    event_to = form.get("eventto")
+    period_no = to_int(form.get("eventperiod"))
+    event_cost = to_int(form.get("eventcost"))
+    sort_no = to_int(form.get("sortno"))
+    location_no_input = form.get("locationNo")
+    custom_location = form.get("customLocation")
+    if event_from:
+        event_from = event_from.replace("T", " ")
+    if event_to:
+        event_to = event_to.replace("T", " ")
+    final_location_no = 1  # 기본값 (장소미정)
+    if location_no_input == "custom" and custom_location:
+        result = await db.execute(
+            text("INSERT INTO yk_location (locationTitle) VALUES (:title)"),
+            {"title": custom_location}
+        )
+        await db.commit()
+        final_location_no = result.lastrowid
+    else:
+        final_location_no = to_int(location_no_input)
+    insert_query = """
+                   INSERT INTO yk_event
+                   (eventTitle, eventType, eventFrom, eventTo, periodNo, eventCost, sortNo, locationNo)
+                   VALUES (:eventTitle, :eventType, :eventFrom, :eventTo, :periodNo, :eventCost, :sortNo, :locationNo) \
+                   """
+
+    await db.execute(
+        text(insert_query),
+        {
+            "eventTitle": event_title,
+            "eventType": event_type,
+            "eventFrom": event_from,
+            "eventTo": event_to,
+            "periodNo": period_no,
+            "eventCost": event_cost,
+            "sortNo": sort_no,
+            "locationNo": final_location_no
+        }
+    )
     await db.commit()
-    return RedirectResponse(f"/dist_eventlist", status_code=303)
+    return RedirectResponse(url="/dist_eventlist", status_code=303)
 
 @app.post("/cevent_update/{eventno}/{clubno}", response_class=HTMLResponse)
 async def updatecevent(request: Request, eventno: int, clubno: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):

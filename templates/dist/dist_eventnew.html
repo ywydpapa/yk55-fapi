@@ -30,11 +30,11 @@
                             <tbody>
                             <form method="POST" id="editor-form" action="/devent_insert">
                                 <tr>
-                                    <td> 행사명 </td>
+                                    <td class="align-middle"> 행사명 </td>
                                     <td> <input class="form-control" id="ceventtitle" name="ceventtitle" type="text" required ></td>
                                 </tr>
                                 <tr>
-                                    <td> 행사종류 </td>
+                                    <td class="align-middle"> 행사종류 </td>
                                     <td> <select class="form-control" id="eventtype" name="eventtype" >
                                         <option value="CLUBE">클럽행사</option>
                                         <option value="REGIE">지역행사</option>
@@ -44,15 +44,30 @@
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td> 행사시작 </td>
+                                    <td class="align-middle"> 행사시작 </td>
                                     <td> <input class="form-control" id="eventfrom" name="eventfrom" type="datetime-local" required ></td>
                                 </tr>
                                 <tr>
-                                    <td> 행사종료 </td>
+                                    <td class="align-middle"> 행사종료 </td>
                                     <td><input class="form-control" id="eventto" name="eventto" type="datetime-local" required ></td>
                                 </tr>
+                                <!-- 장소 선택 영역 추가 -->
                                 <tr>
-                                    <td> 적용회기 </td>
+                                    <td class="align-middle"> 장소 </td>
+                                    <td>
+                                        <select class="form-control mb-2" id="locationNo" name="locationNo" onchange="toggleCustomLocation()">
+                                            {% for loc in locationlist %}
+                                            <option value="{{ loc.locationNo }}" {% if loc.locationNo|int == 1 %}selected{% endif %}>
+                                                {{ loc.locationTitle }}
+                                            </option>
+                                            {% endfor %}
+                                            <option value="custom">직접입력 (새로운 장소)</option>
+                                        </select>
+                                        <input class="form-control" id="customLocation" name="customLocation" type="text" placeholder="새로운 장소명을 입력하세요" style="display: none;">
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="align-middle"> 적용회기 </td>
                                     <td> <select class="form-control" id="eventperiod" name="eventperiod">
                                         {% for per in periodlist %}
                                         <option value="{{per.periodNo}}" {% if per.periodNo|int == periodno|int %}selected{% endif %}>{{per.periodTitle2}}회기 ({{ per.yearFr }}~{{ per.yearTo }})</option>
@@ -60,11 +75,11 @@
                                         </select></td>
                                 </tr>
                                 <tr>
-                                    <td> 소요비용 </td>
+                                    <td class="align-middle"> 소요비용 </td>
                                     <td><input style="text-align: right" class="form-control" id="eventcost" name="eventcost" type="number" required value="10000"></td>
                                 </tr>
                                 <tr>
-                                    <td> 배치순서 </td>
+                                    <td class="align-middle"> 배치순서 </td>
                                     <td><input style="text-align: right" class="form-control" id="sortno" name="sortno" type="number" required value="100"></td>
                                 </tr>
                                 <tr>
@@ -132,9 +147,28 @@
     return isNaN(d.getTime()) ? null : d;
   }
 
+  // 장소 직접입력 토글 함수
+  function toggleCustomLocation() {
+      var locationSelect = document.getElementById("locationNo");
+      var customInput = document.getElementById("customLocation");
+
+      if (locationSelect.value === "custom") {
+          customInput.style.display = "block";
+          customInput.required = true; // 직접입력 시 필수값으로 설정
+      } else {
+          customInput.style.display = "none";
+          customInput.required = false;
+          customInput.value = ""; // 숨길 때 입력값 초기화
+      }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     const startEl = document.getElementById('eventfrom');
     const endEl = document.getElementById('eventto');
+
+    // 페이지 로드 시 장소 선택 초기화 확인
+    toggleCustomLocation();
+
     if (!startEl || !endEl) return;
 
     // 기본값 설정 (값이 비어있을 때만)
