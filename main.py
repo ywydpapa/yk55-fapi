@@ -432,7 +432,7 @@ async def deventedit(request: Request, eventno: int, db: AsyncSession = Depends(
 @app.post("/cevent_insert/{clubno}", response_class=HTMLResponse)
 async def insertcevent(request: Request, clubno: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
     form_data = await request.form()
-    data = {"eventTitle": form_data.get("ceventtitle"), "eventType": form_data.get("eventtype"), "eventFrom": form_data.get("eventfrom"), "eventTo": form_data.get("eventto"), "periodNo": form_data.get("eventperiod"), "eventCost": form_data.get("eventcost"), "sortNo": form_data.get("sortno"), "clubNo": clubno}
+    data = {"eventTitle": form_data.get("ceventtitle"), "eventType": form_data.get("eventtype"), "eventFrom": form_data.get("eventfrom"), "eventTo": form_data.get("eventto"), "periodNo": form_data.get("eventperiod"), "eventCost": form_data.get("eventcost"), "sortNo": form_data.get("sortno"), "locationNo": form_data.get("locationNo"), "clubNo": clubno}
     insert_fields = {k: v for k, v in data.items() if v is not None}
     await db.execute(text(f"INSERT INTO yk_event ({', '.join(insert_fields.keys())}) VALUES ({', '.join([':'+k for k in insert_fields.keys()])})"), insert_fields)
     await db.commit()
@@ -490,7 +490,7 @@ async def save_devent(request: Request, db: AsyncSession = Depends(get_db), user
 @app.post("/cevent_update/{eventno}/{clubno}", response_class=HTMLResponse)
 async def updatecevent(request: Request, eventno: int, clubno: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
     form_data = await request.form()
-    data = {"eventTitle": form_data.get("ceventtitle"), "eventType": form_data.get("eventtype"), "eventFrom": form_data.get("eventfrom"), "eventTo": form_data.get("eventto"), "periodNo": form_data.get("eventperiod"), "eventCost": form_data.get("eventcost"), "sortNo": form_data.get("sortno"), "clubNo": clubno}
+    data = {"eventTitle": form_data.get("ceventtitle"), "eventType": form_data.get("eventtype"), "eventFrom": form_data.get("eventfrom"), "eventTo": form_data.get("eventto"), "periodNo": form_data.get("eventperiod"), "eventCost": form_data.get("eventcost"), "sortNo": form_data.get("sortno"), "locationNo": form_data.get("locationNo"), "clubNo": clubno}
     update_fields = {k: v for k, v in data.items() if v is not None}
     if update_fields:
         params = dict(update_fields)
@@ -502,7 +502,7 @@ async def updatecevent(request: Request, eventno: int, clubno: int, db: AsyncSes
 @app.post("/devent_update/{eventno}", response_class=HTMLResponse)
 async def updatedevent(request: Request, eventno: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
     form_data = await request.form()
-    data = {"eventTitle": form_data.get("ceventtitle"), "eventType": form_data.get("eventtype"), "eventFrom": form_data.get("eventfrom"), "eventTo": form_data.get("eventto"), "periodNo": form_data.get("eventperiod"), "eventCost": form_data.get("eventcost"), "sortNo": form_data.get("sortno"), "regionNo": 0}
+    data = {"eventTitle": form_data.get("ceventtitle"), "eventType": form_data.get("eventtype"), "eventFrom": form_data.get("eventfrom"), "eventTo": form_data.get("eventto"), "periodNo": form_data.get("eventperiod"), "eventCost": form_data.get("eventcost"), "sortNo": form_data.get("sortno"), "locationNo": form_data.get("locationNo"), "regionNo": 0}
     update_fields = {k: v for k, v in data.items() if v is not None}
     if update_fields:
         params = dict(update_fields)
