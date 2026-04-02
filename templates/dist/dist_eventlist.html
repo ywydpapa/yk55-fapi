@@ -481,31 +481,24 @@
             var id = evt.id;
             var title = evt.title;
             var props = evt.extendedProps || {};
-
             var startStr = props.originalStart || evt.startStr || evt.start;
             var endStr = props.originalEnd || evt.endStr || evt.end;
-
             document.getElementById('editor-form').action = '/devent_update/' + id;
             document.getElementById('newEventModalLabel').innerText = '지구 행사 수정';
             document.getElementById('submitBtn').innerText = '변경내용 저장';
-
             document.getElementById('ceventtitle').value = title || '';
 
             var eventTypeEl = document.getElementById('eventtype');
             if (eventTypeEl && props.eventType && props.eventType !== 'None') {
                 eventTypeEl.value = String(props.eventType).trim();
             }
-
             document.getElementById('eventfrom').value = formatForDatetimeLocal(startStr);
             document.getElementById('eventto').value = formatForDatetimeLocal(endStr);
-
             // ★ 장소 설정 로직 (직접입력 텍스트 완벽 대응)
             var locationSelect = document.getElementById("locationNo");
             var customInput = document.getElementById("customLocation");
-
             if(locationSelect) {
                 var locVal = (props.locationNo && props.locationNo !== 'None' && props.locationNo !== '') ? String(props.locationNo).trim() : "";
-
                 // DB에서 가져온 값이 select 옵션 중에 있는지 확인
                 var optionExists = Array.from(locationSelect.options).some(function(opt) {
                     return opt.value === locVal;
@@ -529,26 +522,21 @@
                 // toggleCustomLocation() 호출 시 customInput.value가 날아가지 않도록 안전하게 처리됨
                 toggleCustomLocation();
             }
-
             var periodEl = document.getElementById('modal_eventperiod');
             if (periodEl && props.period && props.period !== 'None') {
                 periodEl.value = String(props.period).trim();
             }
-
             var costEl = document.getElementById('eventcost');
             if (costEl && props.eventCost !== undefined && props.eventCost !== 'None') {
                 costEl.value = String(props.eventCost).replace(/,/g, '').replace(/[^0-9-]/g, '');
             }
-
             var sortEl = document.getElementById('sortno');
             if (sortEl && props.sortNo !== undefined && props.sortNo !== 'None') {
                 sortEl.value = String(props.sortNo).trim();
             }
-
             const startEl = document.getElementById('eventfrom');
             startEl.removeEventListener('change', ensureEndAfterStartPlus4h);
             startEl.addEventListener('change', ensureEndAfterStartPlus4h);
-
             $('#newEventModal').modal('show');
         } catch (error) {
             console.error("데이터를 모달에 채우는 중 오류 발생:", error);
