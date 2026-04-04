@@ -154,7 +154,9 @@
                             </tr>
                             {% for staff in stafflist %}
                             <tr style="text-align: center">
-                                <td>{{staff.per1}}</td>
+                                <td>
+                                    <a href="javascript:void(0);" onclick="loadStaffData(this)" class="text-primary font-weight-bold" style="text-decoration: underline;">{{staff.per1}}</a>
+                                </td>
                                 <td>{{staff.n1 or '-'}}</td>
                                 <td>{{staff.n2 or '-'}}</td>
                                 <td>{{staff.n3 or '-'}}</td>
@@ -195,7 +197,91 @@
 {% include '/common/commonScript.html' %}
 {% include '/common/adscripttable.html' %}
 <script>
+document.addEventListener("DOMContentLoaded", function() {
+    // 정렬을 적용할 select 박스들의 ID 목록
+    const selectIds = ['staff1', 'staff2', 'staff3', 'staff4', 'staff5', 'staff6', 'staff7', 'staff8'];
 
+    selectIds.forEach(function(id) {
+        const selectElement = document.getElementById(id);
+        if (!selectElement) return;
+
+        // select 안의 모든 option 태그를 배열로 변환
+        const options = Array.from(selectElement.options);
+
+        // 첫 번째 옵션('미지정')은 정렬에서 제외하기 위해 빼둠
+        const firstOption = options.shift();
+
+        // 나머지 옵션들을 텍스트(회원 이름) 기준으로 가나다순 정렬
+        options.sort(function(a, b) {
+            return a.text.localeCompare(b.text, 'ko-KR');
+        });
+
+        // 기존 select 안의 내용을 모두 지움
+        selectElement.innerHTML = '';
+
+        // 빼두었던 '미지정' 옵션을 맨 처음에 다시 추가
+        selectElement.appendChild(firstOption);
+
+        // 가나다순으로 정렬된 나머지 옵션들을 순서대로 추가
+        options.forEach(function(option) {
+            selectElement.appendChild(option);
+        });
+    });
+});
+
+function loadStaffData(element) {
+    // 1. 클릭한 링크가 있는 줄(tr)을 찾습니다.
+    const row = element.closest('tr');
+
+    // 2. 해당 줄의 각 칸(td)에서 텍스트 데이터를 가져옵니다.
+    const periodText = row.cells[0].innerText.trim(); // 회기
+    const names = [];
+    for(let i = 1; i <= 8; i++) {
+        names.push(row.cells[i].innerText.trim()); // 회장 ~ T.T. 이름
+    }
+    const slogan = row.cells[9].innerText.trim(); // 슬로건
+
+    // 3. 상단 폼의 '회기' Select 박스 자동 선택
+    const speriod = document.getElementById('speriod');
+    for (let option of speriod.options) {
+        // option의 텍스트(예: "50 회기")에 표의 회기 텍스트가 포함되어 있으면 선택
+        if (option.text.includes(periodText)) {
+            speriod.value = option.value;
+            break;
+        }
+    }
+
+    // 4. 상단 폼의 '임원' Select 박스 자동 선택 (staff1 ~ staff8)
+    for(let i = 1; i <= 8; i++) {
+        const selectElement = document.getElementById('staff' + i);
+        const targetName = names[i-1];
+
+        let found = false;
+        // 이름이 '-' 이거나 비어있지 않은 경우에만 매칭 시도
+        if (targetName !== '-' && targetName !== '') {
+            for (let option of selectElement.options) {
+                if (option.text === targetName) {
+                    selectElement.value = option.value;
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        // 목록에 이름이 없거나 '-' 인 경우 '미지정'으로 초기화
+        if (!found) {
+            // staff1(회장)은 value가 "", 나머지는 "0"으로 설정되어 있으므로 분기 처리
+            selectElement.value = (i === 1) ? "" : "0";
+        }
+    }
+
+    // 5. 상단 폼의 '슬로건' Input 자동 입력
+    document.getElementById('slogan').value = (slogan !== '-') ? slogan : '';
+
+    // 6. 사용자가 수정하기 편하도록 상단 폼으로 화면 스크롤 부드럽게 이동
+    document.getElementById('editor-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 </script>
+
 </body>
 </html>

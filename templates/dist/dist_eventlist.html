@@ -42,7 +42,7 @@
                 <div class="card shadow mb-4">
                     <!-- 헤더 영역: 제목과 토글 스위치를 양끝으로 배치 -->
                     <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                        <h6 class="m-0 font-weight-bold text-primary">지구 행사 목록</h6>
+                        <h6 class="m-0 font-weight-bold text-primary">지구/클럽 행사 목록</h6>
                         <!-- 달력 보기 토글 스위치 -->
                         <div class="custom-control custom-switch">
                             <input type="checkbox" class="custom-control-input" id="viewToggle">
@@ -51,14 +51,23 @@
                     </div>
                     <div class="card-body">
                         <div class="d-flex justify-content-end mb-2">
+                            <!-- 행사 구분 선택 추가 (지구 행사 기본 선택) -->
+                            <div class="d-flex align-items-center mr-4" style="width: auto;">
+                                <span class="mr-3" style="white-space: nowrap;">행사 구분</span>
+                                <select style="text-align: center" class="form-control" id="eventsource" onchange="filterData()">
+                                    <option value="all">전체 보기</option>
+                                    <option value="club">클럽 행사</option>
+                                    <option value="district" selected>지구 행사</option>
+                                </select>
+                            </div>
+                            <!-- 회기 선택 -->
                             <div class="d-flex align-items-center" style="width: auto;">
                                 <span class="mr-3" style="white-space: nowrap;">회기 선택</span>
                                 <select style="text-align: center" class="form-control" id="eventperiod"
                                         name="eventperiod" onchange="filterData()">
                                     {% for per in periodlist %}
-                                    <option value="{{ per.periodNo }}" {% if per.periodNo|int== periodno|int
-                                            %}selected{% endif %}>{{ per.periodTitle2 }}회기 ({{ per.yearFr }}~{{
-                                        per.yearTo }})
+                                    <option value="{{ per.periodNo }}" {% if per.periodNo|int== periodno|int %}selected{% endif %}>
+                                        {{ per.periodTitle2 }}회기 ({{ per.yearFr }}~{{ per.yearTo }})
                                     </option>
                                     {% endfor %}
                                     <option value="all">전체 보기</option>
@@ -73,6 +82,7 @@
                                 <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
                                     <thead>
                                     <tr style="text-align: center">
+                                        <th>구분</th>
                                         <th>행사명</th>
                                         <th>소요비용</th>
                                         <th>행사기간(시작)</th>
@@ -81,11 +91,28 @@
                                     </tr>
                                     </thead>
                                     <tbody>
+                                    <!-- 지구 행사 목록 -->
                                     {% for event in deventlist %}
-                                    <tr class="event-row" data-period="{{ event.periodNo }}">
-                                        <!-- 클릭 시 모달을 열도록 변경 -->
+                                    <tr class="event-row" data-period="{{ event.periodNo }}" data-source="district">
+                                        <td style="text-align: center"><span class="badge badge-primary">지구</span></td>
                                         <td style="text-align: center">
-                                            <a href="javascript:void(0);" onclick="openEditEventModalById('{{ event.eventNo }}')">
+                                            <a href="javascript:void(0);" onclick="openEditEventModalById('d_{{ event.eventNo }}')">
+                                                {{ event.eventTitle }}
+                                            </a>
+                                        </td>
+                                        <td style="text-align: right">{{ event.eventCost|currency }}</td>
+                                        <td style="text-align: center">{{ event.eventFrom }}</td>
+                                        <td style="text-align: center">{{ event.eventTo }}</td>
+                                        <td style="text-align: center">{{ event.sortNo }}</td>
+                                    </tr>
+                                    {% endfor %}
+
+                                    <!-- 클럽 행사 목록 (초기 숨김) -->
+                                    {% for event in ceventlist %}
+                                    <tr class="event-row" data-period="{{ event.periodNo }}" data-source="club" style="display: none;">
+                                        <td style="text-align: center"><span class="badge badge-success">클럽</span></td>
+                                        <td style="text-align: center">
+                                            <a href="javascript:void(0);" onclick="openEditEventModalById('c_{{ event.eventNo }}')">
                                                 {{ event.eventTitle }}
                                             </a>
                                         </td>
@@ -144,6 +171,7 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
+            <!-- 기본 action은 지구 행사 등록 -->
             <form method="POST" id="editor-form" action="/devent_insert">
                 <div class="modal-body">
                     <table class="table table-bordered text-center mb-0">
@@ -199,8 +227,8 @@
                             <td>
                                 <select class="form-control" id="modal_eventperiod" name="eventperiod">
                                     {% for per in periodlist %}
-                                    <option value="{{per.periodNo}}" {% if per.periodNo|int== periodno|int %}selected{%
-                                            endif %}>{{per.periodTitle2}}회기 ({{ per.yearFr }}~{{ per.yearTo }})
+                                    <option value="{{per.periodNo}}" {% if per.periodNo|int== periodno|int %}selected{% endif %}>
+                                        {{per.periodTitle2}}회기 ({{ per.yearFr }}~{{ per.yearTo }})
                                     </option>
                                     {% endfor %}
                                 </select>
@@ -220,7 +248,7 @@
                     </table>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">닫기</button>
                     <button type="submit" id="submitBtn" class="btn btn-primary">신규행사 저장</button>
                 </div>
             </form>
@@ -238,15 +266,43 @@
 <script>
     var calendar;
 
-    // 1. Jinja2 데이터에 모달 수정을 위한 모든 정보(extendedProps) 추가
+    // ★ 세션에 클럽 번호가 있는지 확인 (없거나 0, None이면 지구 소속으로 간주)
+    var sessionClubNo = "{{ session.user_Clubno | default('', true) }}";
+    var hasClubNo = (sessionClubNo !== "" && sessionClubNo !== "None" && sessionClubNo !== "0");
+
+    // 1. Jinja2 데이터에 모달 수정을 위한 모든 정보 추가 (지구 행사 + 클럽 행사 통합)
     var rawEvents = [
+        // 지구 행사
         {% for event in deventlist %}
         {
-            id: '{{ event.eventNo }}',
-            title: `{{ event.eventTitle | replace('`', '\\`') }}`,
+            id: 'd_{{ event.eventNo }}',
+            title: `[지구] {{ event.eventTitle | replace('`', '\\`') }}`,
             start : '{{ event.eventFrom }}',
             end: '{{ event.eventTo }}',
             extendedProps: {
+                realId: '{{ event.eventNo }}',
+                source: 'district',
+                originalStart: '{{ event.eventFrom }}',
+                originalEnd: '{{ event.eventTo }}',
+                period: '{{ event.periodNo }}',
+                eventType: '{{ event.eventType }}',
+                locationNo: '{{ event.locationNo }}',
+                eventCost: '{{ event.eventCost }}',
+                sortNo: '{{ event.sortNo }}'
+            }
+        },
+        {% endfor %}
+
+        // 클럽 행사
+        {% for event in ceventlist %}
+        {
+            id: 'c_{{ event.eventNo }}',
+            title: `[클럽] {{ event.eventTitle | replace('`', '\\`') }}`,
+            start : '{{ event.eventFrom }}',
+            end: '{{ event.eventTo }}',
+            extendedProps: {
+                realId: '{{ event.eventNo }}',
+                source: 'club',
                 originalStart: '{{ event.eventFrom }}',
                 originalEnd: '{{ event.eventTo }}',
                 period: '{{ event.periodNo }}',
@@ -261,7 +317,7 @@
 
     // 2. FullCalendar 규격에 맞게 데이터 가공
     var allEvents = rawEvents.map(function (evt) {
-        var bgColor = '#4e73df'; // 기본값 (파란색)
+        var bgColor = evt.extendedProps.source === 'district' ? '#4e73df' : '#1cc88a'; // 지구는 파랑, 클럽은 초록 기본
 
         if (evt.extendedProps.eventType === 'CLUBE') {
             bgColor = '#1cc88a'; // 클럽행사
@@ -353,23 +409,33 @@
         });
     });
 
+    // 필터링 함수 (회기 + 행사구분 동시 적용)
     function filterData() {
-        var selectBox = document.getElementById("eventperiod");
-        var selectedValue = selectBox.value;
+        var periodValue = document.getElementById("eventperiod").value;
+        var sourceValue = document.getElementById("eventsource").value;
 
+        // 리스트 뷰 필터링
         var rows = document.querySelectorAll(".event-row");
         rows.forEach(function (row) {
             var rowPeriod = row.getAttribute("data-period");
-            if (selectedValue === "all" || rowPeriod === selectedValue) {
+            var rowSource = row.getAttribute("data-source");
+
+            var matchPeriod = (periodValue === "all" || rowPeriod === periodValue);
+            var matchSource = (sourceValue === "all" || rowSource === sourceValue);
+
+            if (matchPeriod && matchSource) {
                 row.style.display = "";
             } else {
                 row.style.display = "none";
             }
         });
 
+        // 달력 뷰 필터링
         if (calendar) {
             var filteredEvents = allEvents.filter(function (evt) {
-                return selectedValue === "all" || evt.extendedProps.period === selectedValue;
+                var matchPeriod = (periodValue === "all" || evt.extendedProps.period === periodValue);
+                var matchSource = (sourceValue === "all" || evt.extendedProps.source === sourceValue);
+                return matchPeriod && matchSource;
             });
             calendar.removeAllEvents();
             calendar.addEventSource(filteredEvents);
@@ -436,6 +502,10 @@
 
     /* --- 모달 제어: 새 행사 등록 --- */
     function openNewEventModal(startDate, endDate) {
+        // ★ 새 행사 등록 시 폼 입력 활성화 및 저장 버튼 표시
+        $('#editor-form input, #editor-form select').prop('disabled', false);
+        document.getElementById('submitBtn').style.display = 'inline-block';
+
         document.getElementById('editor-form').action = '/devent_insert';
         document.getElementById('newEventModalLabel').innerText = '새 지구 행사 등록';
         document.getElementById('submitBtn').innerText = '신규행사 저장';
@@ -478,14 +548,34 @@
 
     function openEditEventModal(evt) {
         try {
-            var id = evt.id;
-            var title = evt.title;
             var props = evt.extendedProps || {};
+            var realId = props.realId;
+            var source = props.source;
+            var title = evt.title.replace(/^\[(클럽|지구)\]\s*/, ''); // 앞에 붙은 [클럽], [지구] 태그 제거
+
             var startStr = props.originalStart || evt.startStr || evt.start;
             var endStr = props.originalEnd || evt.endStr || evt.end;
-            document.getElementById('editor-form').action = '/devent_update/' + id;
-            document.getElementById('newEventModalLabel').innerText = '지구 행사 수정';
-            document.getElementById('submitBtn').innerText = '변경내용 저장';
+
+            // ★ 권한 체크: 클럽 행사인데 클럽 번호가 없는 경우 (지구 관리자) -> 읽기 전용
+            var isReadOnly = (source === 'club' && !hasClubNo);
+
+            if (isReadOnly) {
+                document.getElementById('newEventModalLabel').innerText = '클럽 행사 상세 (조회 전용)';
+                document.getElementById('submitBtn').style.display = 'none'; // 저장 버튼 숨김
+                $('#editor-form input, #editor-form select').prop('disabled', true); // 폼 비활성화
+            } else {
+                if (source === 'district') {
+                    document.getElementById('editor-form').action = '/devent_update/' + realId;
+                    document.getElementById('newEventModalLabel').innerText = '지구 행사 수정';
+                } else {
+                    document.getElementById('editor-form').action = '/cevent_update/' + realId + '/{{session.user_Clubno}}';
+                    document.getElementById('newEventModalLabel').innerText = '클럽 행사 수정';
+                }
+                document.getElementById('submitBtn').innerText = '변경내용 저장';
+                document.getElementById('submitBtn').style.display = 'inline-block'; // 저장 버튼 표시
+                $('#editor-form input, #editor-form select').prop('disabled', false); // 폼 활성화
+            }
+
             document.getElementById('ceventtitle').value = title || '';
 
             var eventTypeEl = document.getElementById('eventtype');
@@ -494,32 +584,26 @@
             }
             document.getElementById('eventfrom').value = formatForDatetimeLocal(startStr);
             document.getElementById('eventto').value = formatForDatetimeLocal(endStr);
-            // ★ 장소 설정 로직 (직접입력 텍스트 완벽 대응)
+
             var locationSelect = document.getElementById("locationNo");
             var customInput = document.getElementById("customLocation");
             if(locationSelect) {
                 var locVal = (props.locationNo && props.locationNo !== 'None' && props.locationNo !== '') ? String(props.locationNo).trim() : "";
-                // DB에서 가져온 값이 select 옵션 중에 있는지 확인
                 var optionExists = Array.from(locationSelect.options).some(function(opt) {
                     return opt.value === locVal;
                 });
 
                 if (locVal && optionExists) {
-                    // 1. 기존 옵션에 있는 장소인 경우
                     locationSelect.value = locVal;
                     customInput.value = "";
                 } else if (locVal && !optionExists) {
-                    // 2. 기존 옵션에 없는 장소인 경우 (직접 입력한 텍스트)
                     locationSelect.value = "custom";
-                    customInput.value = locVal; // 입력창에 텍스트 채우기
+                    customInput.value = locVal;
                 } else {
-                    // 3. 값이 비어있는 경우 기본값 설정
                     var defaultOpt = locationSelect.querySelector('option[selected]');
                     locationSelect.value = defaultOpt ? defaultOpt.value : locationSelect.options[0].value;
                     customInput.value = "";
                 }
-
-                // toggleCustomLocation() 호출 시 customInput.value가 날아가지 않도록 안전하게 처리됨
                 toggleCustomLocation();
             }
             var periodEl = document.getElementById('modal_eventperiod');
@@ -544,5 +628,6 @@
         }
     }
 </script>
+
 </body>
 </html>

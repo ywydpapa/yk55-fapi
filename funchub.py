@@ -307,9 +307,9 @@ async def get_distevents(db: AsyncSession):
                  SELECT eventNo, periodNo, eventTitle, eventTitleEng, eventType,
                         eventFrom, eventTo, clubNo, eventCost, sortNo, locationNo
                  FROM yk_event
-                 WHERE attrib = :xapp and regionNo = :regionno and clubNo = :regionno 
+                 WHERE attrib = :xapp and eventType = :eventType 
                  ORDER BY eventFrom """)
-    result = await db.execute(query, {"xapp": "1000010000", "regionno": 0})
+    result = await db.execute(query, {"xapp": "1000010000", "eventType": "DISTE"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 async def get_clubeventsperiod(clubno: int, periodno: int, db: AsyncSession):
@@ -323,15 +323,28 @@ async def get_clubeventsperiod(clubno: int, periodno: int, db: AsyncSession):
     result = await db.execute(query, {"xapp": "1000010000", "clubno": clubno, "periodno": periodno})
     return [dict(row._mapping) for row in result.fetchall()]
 
+
+async def get_allclubeventsperiod(periodno: int, db: AsyncSession):
+    query = text("""
+                 SELECT a.eventNo, a.periodNo, a.eventTitle, a.eventTitleEng, a.eventType,
+                        a.eventFrom, a.eventTo, a.clubNo, a.eventCost, a.sortNo, b.clubName, a.locationNo
+                 FROM yk_event a
+                     left join yk_club b on a.clubNo = b.clubNo
+                 WHERE a.attrib = :xapp and a.periodNo = :periodno and a.clubNo != 0 
+                 ORDER BY a.eventFrom """)
+    result = await db.execute(query, {"xapp": "1000010000", "periodno": periodno})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
 async def get_disteventsperiod(periodno: int, db: AsyncSession):
     query = text("""
                  SELECT a.eventNo, a.periodNo, a.eventTitle, a.eventTitleEng, a.eventType,
                         a.eventFrom, a.eventTo, a.clubNo, a.eventCost, a.sortNo, b.clubName, a.locationNo
                  FROM yk_event a
                      left join yk_club b on a.clubNo = b.clubNo
-                 WHERE a.attrib = :xapp and a.periodNo = :periodno
+                 WHERE a.attrib = :xapp and a.periodNo = :periodno and a.eventType = :eventType
                  ORDER BY a.clubNo, a.eventFrom """)
-    result = await db.execute(query, {"xapp": "1000010000", "periodno": periodno})
+    result = await db.execute(query, {"xapp": "1000010000", "periodno": periodno, "eventType": "DISTE"})
     return [dict(row._mapping) for row in result.fetchall()]
 
 async def get_eventdtl(eventno: int, db: AsyncSession):
@@ -421,9 +434,11 @@ async def get_member(db: AsyncSession):
 async def get_clubmember(clubno: int, db: AsyncSession):
     query = text("""SELECT * FROM yk_members
                     where clubNo = :cno and attrib = :xapp
-                    order by memberEntdate""")
+                    order by memberName asc""")
     result = await db.execute(query, {"cno": clubno, "xapp": "1000010000"})
-    return [dict(row._mapping) for row in result.fetchall()]
+    members =  [dict(row._mapping) for row in result.fetchall()]
+    members.sort(key=lambda x: x['memberName'])
+    return members
 
 async def get_distmember(db: AsyncSession):
     query = text("""SELECT count(*) FROM yk_members
