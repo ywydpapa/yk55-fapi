@@ -608,3 +608,8 @@ async def getdocdetail(docno: int, db: AsyncSession):
         return row
     except Exception as e:
         return None
+
+async def get_board001(db: AsyncSession):
+    query = text("""SELECT  a.clubNo, a.clubName, COUNT(b.memberNo) AS memberCount FROM yk_club a LEFT JOIN yk_members b ON a.clubNo = b.clubNo AND b.memberStatus = 'ACTIV' WHERE a.attrib = :attr GROUP BY a.clubNo, a.clubName """)
+    result = await db.execute(query, {"attr": "1000010000"})
+    return [dict(row._mapping) for row in result.fetchall()]

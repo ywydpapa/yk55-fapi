@@ -13,6 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
+import funchub
 # ✅ funchub.py에서 분리한 모든 함수와 상수를 가져옵니다.
 from funchub import *
 from funchub import _clean_int, _clean_str
@@ -928,3 +929,10 @@ async def get_member_photo(memberno: int, periodno: int):
         return FileResponse(base_path)
     # 3. 그것마저 없으면 디폴트 이미지 반환
     return FileResponse("static/img/defaultphoto.png")
+
+
+@app.get("/main_dash", response_class=HTMLResponse)
+async def maindash(request: Request,db: AsyncSession = Depends(get_db) ,user_no: int = Depends(get_current_user)):
+    clublist = await funchub.get_board001(db)
+    return templates.TemplateResponse("board/main_dash.html",
+                                          {"request": request, "session": dict(request.session), "clublist": clublist})
