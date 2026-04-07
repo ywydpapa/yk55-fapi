@@ -936,3 +936,9 @@ async def maindash(request: Request,db: AsyncSession = Depends(get_db) ,user_no:
     clublist = await funchub.get_board001(db)
     return templates.TemplateResponse("board/main_dash.html",
                                           {"request": request, "session": dict(request.session), "clublist": clublist})
+
+@app.get("/dash_lcif", response_class=HTMLResponse)
+async def dashlcif(request: Request,db: AsyncSession = Depends(get_db) ,user_no: int = Depends(get_current_user)):
+    clublist = await funchub.get_board001(db)
+    return templates.TemplateResponse("board/dash_lcif.html",
+                                          {"request": request, "session": dict(request.session), "clublist": clublist})

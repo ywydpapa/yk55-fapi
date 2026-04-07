@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>국제라이온스협회 355-A(부산)지구 현황 - 4K</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 세로 비율(vh)의 가중치를 높여 세로가 좁은 모니터에서도 절대 넘치지 않도록 스케일링 */
+        html { font-size: min(0.75vw, 1.25vh); }
+        body {
+            font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden; /* 스크롤바 원천 차단 */
+            box-sizing: border-box;
+        }
+        table { border-collapse: collapse; width: 100%; text-align: center; }
+        th, td { border: 1px solid #9ca3af; }
+        /* 중간 통계 테이블 */
+        .middle-table { height: 100%; table-layout: fixed; }
+        .middle-table th, .middle-table td { padding: 0.15rem; font-size: 1.05rem; white-space: nowrap; }
+        /* 하단 리스트 테이블 (높이 100%, 너비 고정) */
+        .bottom-table { height: 100%; width: 100%; table-layout: fixed; }
+        .bottom-table th {
+            padding: 0.1rem;
+            font-size: 0.75rem;
+            line-height: 1.1;
+            border-color: #9ca3af;
+            white-space: nowrap;
+        }
+        /* 텍스트가 길어도 셀 너비를 늘리지 않고, 세로 여백을 최소화하여 45줄이 들어가도록 공간 확보 */
+        .bottom-table td {
+            padding: 0.05rem; /* 세로 여백을 극단적으로 줄임 */
+            font-size: 0.8rem;
+            border-color: #d1d5db;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            height: 1%; /* 브라우저가 남은 공간에 맞춰 행 높이를 최대한 압축하도록 유도 */
+        }
+        /* 색상 및 포인트 클래스 */
+        .bg-main-red { background-color: #c8102e; }
+        .bg-sub-red { background-color: #b91c1c; }
+        .bg-sub-yellow { background-color: #f6d600; }
+        .header-cell { background-color: #f3f4f6; font-weight: bold; }
+        .sub-header { background-color: #e5e7eb; }
+        .col-bg { background-color: #f9fafb; }
+        .text-pen-red { color: #ef4444; font-weight: bold; font-size: 1.1em; }
+        .text-pen-blue { color: #3b82f6; font-weight: bold; font-size: 1.1em; }
+    </style>
+</head>
+<body class="bg-gray-300 p-1.5 flex justify-center items-center">
+    <!-- 메인 컨테이너 -->
+    <div class="w-full h-full max-w-full max-h-full bg-white border-[0.3rem] border-red-700 shadow-2xl p-1.5 flex flex-col gap-1.5 box-border">
+        <!-- [1] 상단 타이틀 배너 (로고 이미지 적용 및 전체 중앙 정렬) -->
+        <div class="bg-main-red text-white flex items-center justify-center p-2.5 rounded-t-sm shadow-inner relative overflow-hidden shrink-0 gap-6 md:gap-8">
+            <div class="absolute inset-0 opacity-10" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, #000 10px, #000 20px);"></div>
+            <!-- 좌측 라이온스 로고 -->
+            <img src="/static/img/boardlogo/lionslogo.png" alt="Lions Logo" class="h-12 w-auto object-contain z-10 shrink-0 drop-shadow-md">
+            <!-- 메인 타이틀 -->
+            <h1 class="text-4xl md:text-5xl font-extrabold tracking-widest drop-shadow-md whitespace-nowrap z-10">국제라이온스협회 355-A(부산)지구 현황</h1>
+            <!-- 우측 날짜 및 로고 -->
+            <div class="flex items-center gap-4 z-10 shrink-0">
+                <div class="bg-white text-gray-800 px-5 py-1 rounded-xl shadow-md flex items-baseline space-x-2">
+                    <span class="text-3xl font-bold">3</span>
+                    <span class="text-2xl font-bold">월말</span>
+                </div>
+                <img src="/static/img/boardlogo/govlogo.png" alt="Gov Logo" class="h-12 w-auto object-contain shrink-0 drop-shadow-md">
+            </div>
+        </div>
+        <!-- [2] 중간 요약 섹션 -->
+        <div class="grid grid-cols-12 gap-1.5 shrink-0 h-[9.5rem]">
+            <!-- 좌측: 한국 라이온스 현황 -->
+            <div class="col-span-12 md:col-span-4 flex flex-col">
+                <div class="bg-sub-red text-white text-center py-0.5 font-bold rounded-t-sm text-base">한국 라이온스 현황</div>
+                <div class="flex-1 border-x border-b border-gray-400">
+                    <table class="middle-table">
+                        <tr class="header-cell">
+                            <th>구 분</th>
+                            <th>MD355</th>
+                            <th>MD354</th>
+                            <th>MD356</th>
+                            <th>계</th>
+                            <th>국제협회</th>
+                        </tr>
+                        <tr>
+                            <td class="header-cell">지구수</td>
+                            <td class="text-pen-blue">7</td>
+                            <td class="text-pen-blue">8</td>
+                            <td class="text-pen-blue">6</td>
+                            <td class="text-pen-blue">21</td>
+                            <td class="text-pen-blue">215 개국</td>
+                        </tr>
+                        <tr>
+                            <td class="header-cell">클럽수</td>
+                            <td class="text-pen-blue">618</td>
+                            <td class="text-pen-blue">796</td>
+                            <td class="text-pen-blue">585</td>
+                            <td class="text-pen-blue">1,999</td>
+                            <td class="text-pen-blue">49,968</td>
+                        </tr>
+                        <tr>
+                            <td class="header-cell">회원수</td>
+                            <td class="text-pen-blue">22,719</td>
+                            <td class="text-pen-blue">24,729</td>
+                            <td class="text-pen-blue">19,709</td>
+                            <td class="text-pen-blue">67,323</td>
+                            <td class="text-pen-blue">1,360,005</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            <!-- 중앙: 총재 및 임원진 -->
+            <div class="col-span-12 md:col-span-4 flex flex-col justify-center items-center border-[3px] border-gray-300 rounded-sm p-1 bg-gray-50 h-full overflow-hidden">
+                <h2 class="text-2xl font-black mb-2 tracking-widest text-gray-800">총재 김 용 권 L</h2>
+                <div class="text-[0.8rem] text-center space-y-1 w-full text-gray-700 whitespace-nowrap">
+                    <p><span class="font-bold text-black">지구제1부총재 :</span> 이숙희L &nbsp;&nbsp;|&nbsp;&nbsp; <span class="font-bold text-black">지구제2부총재 :</span> 이현욱L</p>
+                    <p><span class="font-bold text-black">사무총장 :</span> 우상욱L &nbsp;&nbsp;|&nbsp;&nbsp; <span class="font-bold text-black">재무총장 :</span> 김미애L &nbsp;&nbsp;|&nbsp;&nbsp; <span class="font-bold text-black">수석부총장 :</span> 이시명L</p>
+                    <p><span class="font-bold text-black">사무부총장 :</span> 성태성L, 이영균L, 강윤식L &nbsp;&nbsp;|&nbsp;&nbsp; <span class="font-bold text-black">재무부총장 :</span> 강윤순L</p>
+                </div>
+            </div>
+            <!-- 우측: 355-A(부산)지구 현황 -->
+            <div class="col-span-12 md:col-span-4 flex flex-col">
+                <div class="bg-sub-red text-white text-center py-0.5 font-bold rounded-t-sm text-base">355-A(부산)지구 현황</div>
+                <div class="flex-1 border-x border-b border-gray-400">
+                    <!-- 클럽 리스트 및 총합 계산을 위한 변수 선언 -->
+                    {% set active_clubs = clublist[1:] %}
+                    {% set total_current_members = active_clubs | sum(attribute='memberCount') %}
+                    <table class="middle-table">
+                        <tr class="header-cell">
+                            <th colspan="3">클럽수</th>
+                            <th colspan="3">회원수</th>
+                            <th rowspan="2" class="w-[15%]">증감수</th>
+                        </tr>
+                        <tr class="sub-header">
+                            <th>전회기말</th>
+                            <th>전월말</th>
+                            <th>현재</th>
+                            <th>전회기말</th>
+                            <th>전월말</th>
+                            <th>현재</th>
+                        </tr>
+                        <tr class="text-xl font-bold">
+                            <td class="text-pen-blue">162</td>
+                            <td class="text-pen-blue">166</td>
+                            <td class="text-pen-blue">167</td>
+                            <td class="text-pen-blue">5,873</td>
+                            <td class="text-pen-blue">6,036</td>
+                            <!-- 기존 6,097 대신 계산된 총합 변수 출력 -->
+                            <td class="text-pen-blue">{{ "{:,}".format(total_current_members) }}</td>
+                            <td class="text-pen-red text-2xl">61</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div> <!-- ★ 추가된 닫는 태그 ★ (이 div가 없어서 하단 리스트가 깨졌습니다) -->
+        <!-- [3] 하단 클럽 리스트 (4단 그리드, 균등 분할) -->
+        <div class="flex-1 grid grid-cols-4 gap-1.5 min-h-0">
+            {% set batch_size = ((active_clubs | length) + 3) // 4 %}
+            {% for column_group in active_clubs | batch(batch_size, {'empty': true}) %}
+            <div class="h-full border border-gray-400 overflow-hidden">
+                <table class="bottom-table">
+                    <thead>
+                        <tr class="bg-sub-yellow text-red-700">
+                            <th rowspan="2" class="w-[8%]">NO</th>
+                            <th rowspan="2" class="w-[24%]">클럽명</th>
+                            <th colspan="3" class="py-0.5">LCIF 기금현황</th>
+                            <th rowspan="2" class="w-[14%]">배지</th>
+                        </tr>
+                        <tr class="bg-sub-yellow text-red-700">
+                            <th class="w-[18%] py-0.5">약정금액</th>
+                            <th class="w-[18%]">현재</th>
+                            <th class="w-[18%]">달성율</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for club in column_group %}
+                            {% if club.empty %}
+                            <tr>
+                                <td class="col-bg"></td>
+                                <td class="col-bg"></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td class="col-bg font-bold text-gray-600">{{ club.clubNo }}</td>
+                                <td class="col-bg font-bold">{{ club.clubName }}</td>
+                                <td>{{ club.prev_count }}</td>
+                                <td>{{ club.memberCount }}</td>
+                                <td class="{% if club.diff and club.diff != 0 %}text-pen-red{% endif %}">
+                                    {% if club.diff and club.diff != 0 %}{{ club.diff }}{% endif %}
+                                </td>
+                                <td>{{ club.family_count if club.family_count else '' }}</td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
