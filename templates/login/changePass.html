@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include '/common/commHeader.html' %}
+</head>
+<body id="page-top">
+<!-- Page Wrapper -->
+<div id="wrapper">
+    {% include '/common/sidebar.html' %}
+    <!-- Content Wrapper -->
+    <div id="content-wrapper" class="d-flex flex-column">
+        <!-- Main Content -->
+        <div id="content">
+            {% include '/common/topbar.html' %}
+            <!-- Begin Page Content -->
+            <div class="container-fluid">
+                <!-- Page Heading -->
+                <h1 class="h3 mb-4 text-gray-800">정보 변경</h1>
+
+                <!-- 💡 비밀번호 변경 카드 영역 시작 -->
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="card shadow mb-4">
+                            <div class="card-header py-3">
+                                <h6 class="m-0 font-weight-bold text-primary">비밀번호 변경</h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="passwordForm">
+                                    <input type="hidden" id="uno" value="{{ request.session.get('user_No') }}">
+
+                                    <div class="form-group">
+                                        <label for="newPassword">새 비밀번호</label>
+                                        <input type="password" class="form-control" id="newPassword" placeholder="새로운 비밀번호를 입력하세요" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="confirmPassword">새 비밀번호 확인</label>
+                                        <input type="password" class="form-control" id="confirmPassword" placeholder="비밀번호를 다시 입력하세요" required>
+                                    </div>
+                                    <button type="button" class="btn btn-primary btn-block" onclick="changePassword()">비밀번호 변경 적용</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 💡 비밀번호 변경 카드 영역 끝 -->
+
+            </div>
+            <!-- /.container-fluid -->
+        </div>
+        <!-- End of Main Content -->
+        <!-- Footer -->
+        <footer class="sticky-footer bg-white">
+            <div class="container my-auto">
+                <div class="copyright text-center my-auto">
+                    <span>Copyright &copy; SOFTCORE 2026</span>
+                </div>
+            </div>
+        </footer>
+        <!-- End of Footer -->
+    </div>
+    <!-- End of Content Wrapper -->
+</div>
+<!-- End of Page Wrapper -->
+<!-- Scroll to Top Button-->
+<a class="scroll-to-top rounded" href="#page-top">
+    <i class="fas fa-angle-up"></i>
+</a>
+<!-- Bootstrap core JavaScript-->
+{% include '/common/commonScript.html' %}
+
+<!-- 💡 비밀번호 변경 처리를 위한 JavaScript 추가 -->
+<script>
+async function changePassword() {
+    const uno = document.getElementById('uno').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    // 1. 입력값 검증
+    if (!newPassword || !confirmPassword) {
+        alert("비밀번호를 모두 입력해주세요.");
+        return;
+    }
+
+    if (newPassword !== confirmPassword) {
+        alert("새 비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+        document.getElementById('confirmPassword').focus();
+        return;
+    }
+
+    // 2. 백엔드로 데이터 전송 (Fetch API 사용)
+    try {
+        const response = await fetch('/changeuserpass', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                passwd: newPassword,
+                uno: parseInt(uno) // 백엔드에서 숫자를 요구할 수 있으므로 형변환
+            })
+        });
+
+        // 3. 결과 처리
+        if (response.ok) {
+            const result = await response.json();
+            if (result.result === "success") {
+                alert("비밀번호가 성공적으로 변경되었습니다.");
+                // 폼 초기화
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmPassword').value = '';
+            } else {
+                alert("비밀번호 변경에 실패했습니다.");
+            }
+        } else if (response.status === 401) {
+            alert("로그인이 만료되었습니다. 다시 로그인해주세요.");
+            window.location.href = "/";
+        } else {
+            alert("서버 오류가 발생했습니다. 관리자에게 문의하세요.");
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert("통신 중 오류가 발생했습니다.");
+    }
+}
+</script>
+</body>
+</html>

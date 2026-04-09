@@ -12,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
+import webhard
 
 import funchub
 # ✅ funchub.py에서 분리한 모든 함수와 상수를 가져옵니다.
@@ -190,13 +191,19 @@ async def main_page(request: Request, db: AsyncSession = Depends(get_db)):
     template_name = "main/indexc.html" if user_Role == "CUSER" else "main/index.html"
     return templates.TemplateResponse(template_name, {"request": request, "session": dict(request.session), "message": "", "membercnt": member_count})
 
-@app.post("/changeuserpass", dependencies=[Depends(get_current_user)])
-async def change_password(data: dict = Body(...), db: AsyncSession = Depends(get_db)):
+
+@app.post("/changeuserpass")
+async def change_password(
+        data: dict = Body(...),
+        db: AsyncSession = Depends(get_db),
+        current_user_no: int = Depends(get_current_user)
+):
     hashed_password = get_password_hash(data["passwd"])
     sql = text("UPDATE yk_user SET userPassword = :passwd WHERE userNo = :userno")
-    await db.execute(sql, {"passwd": hashed_password, "userno": data["uno"]})
+    await db.execute(sql, {"passwd": hashed_password, "userno": current_user_no})
     await db.commit()
     return {"result": "success"}
+
 
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
@@ -937,8 +944,20 @@ async def maindash(request: Request,db: AsyncSession = Depends(get_db) ,user_no:
     return templates.TemplateResponse("board/main_dash.html",
                                           {"request": request, "session": dict(request.session), "clublist": clublist})
 
+
 @app.get("/dash_lcif", response_class=HTMLResponse)
 async def dashlcif(request: Request,db: AsyncSession = Depends(get_db) ,user_no: int = Depends(get_current_user)):
     clublist = await funchub.get_board001(db)
     return templates.TemplateResponse("board/dash_lcif.html",
                                           {"request": request, "session": dict(request.session), "clublist": clublist})
+
+
+@app.get("/userEdit", response_class=HTMLResponse)
+async def useredit(request: Request,db: AsyncSession = Depends(get_db) ,user_no: int = Depends(get_current_user)):
+    return templates.TemplateResponse("login/changePass.html",
+                                          {"request": request, "session": dict(request.session)})
+
+# ==========================================
+# 🚀 웹하드 라우터 연결
+app.include_router(webhard.router)       # 일반 유저용: /webhard/...
+app.include_router(webhard.admin_router) # 관리자용: /admin/webhard/...
