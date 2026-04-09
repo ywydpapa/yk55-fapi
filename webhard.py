@@ -118,7 +118,7 @@ async def my_webhard_page(user_id: str = Depends(get_current_user_id)):
         <head><title>{user_id}님의 파일 제출함</title></head>
         <body style="font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 20px;">
             <h2>☁️ {user_id}님의 파일 제출함</h2>
-            <a href="/seccess">홈으로 이동</a>
+            <a href="/success">홈으로 이동</a>
             <!-- 💡 총 사용 용량 표시 영역 -->
             <div style="background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: right;">
                 <strong>총 사용 용량:</strong> <span style="color: #0056b3; font-size: 18px;">{total_size_str}</span>
