@@ -170,8 +170,14 @@ async def success_page(request: Request, db: AsyncSession = Depends(get_db)):
     otp = request.session.get("otp")
     otpstat = await reg_otp(otp, user_No, db)
     msg = "" if otpstat else "OTP 등록 실패"
+
     if not user_No:
         return RedirectResponse(url="/")
+
+    club_count = 0
+    devent = []
+    cevent = []
+
     if user_Role == 'CUSER':
         clubmember = await get_clubmember(user_clubno, db)
         member_count = sum(1 for m in clubmember if m.get("memberStatus") == "ACTIV")
@@ -180,8 +186,21 @@ async def success_page(request: Request, db: AsyncSession = Depends(get_db)):
         club_count = await get_clubcount(db)
         devent = await get_disteventsthismonth(db)
         cevent = await get_allclubeventsthismonth(current_period, db)
+
     template_name = "main/indexc.html" if user_Role == "CUSER" else "main/index.html"
-    return templates.TemplateResponse(template_name, {"request": request, "session": dict(request.session), "message": msg, "membercnt": member_count, "clubcnt": club_count, "devents": devent, "cperiod": current_period, "cevents": cevent})
+    return templates.TemplateResponse(
+        template_name,
+        {
+            "request": request,
+            "session": dict(request.session),
+            "message": msg,
+            "membercnt": member_count,
+            "clubcnt": club_count,
+            "devents": devent,
+            "cperiod": current_period,
+            "cevents": cevent,
+        },
+    )
 
 @app.get("/mainpage", response_class=HTMLResponse)
 async def main_page(request: Request, db: AsyncSession = Depends(get_db)):
