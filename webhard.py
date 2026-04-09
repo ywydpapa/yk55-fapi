@@ -64,21 +64,53 @@ def get_safe_file_path(user_dir: Path, filename: str) -> Path:
     return file_path
 
 
+def get_directory_size(directory: Path) -> int:
+    """특정 폴더 내의 모든 파일 용량(Byte)을 합산합니다."""
+    total_size = 0
+    if directory.exists():
+        for f in directory.iterdir():
+            if f.is_file():
+                total_size += f.stat().st_size
+    return total_size
+
+def format_size(size_in_bytes: int) -> str:
+    """Byte 단위의 용량을 KB, MB, GB 등 보기 좋은 문자열로 변환합니다."""
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size_in_bytes < 1024.0:
+            return f"{size_in_bytes:.2f} {unit}"
+        size_in_bytes /= 1024.0
+    return f"{size_in_bytes:.2f} PB"
+
+
+
 # ==========================================
 # 👤 일반 유저용 API (/webhard/...)
 # ==========================================
 @router.get("/", response_class=HTMLResponse)
 async def my_webhard_page(user_id: str = Depends(get_current_user_id)):
     user_dir = get_user_storage_path(user_id)
-    files = [f.name for f in user_dir.iterdir() if f.is_file()]
+
+    # 💡 파일 목록과 함께 각 파일의 개별 용량도 가져옵니다.
+    files_info = []
+    for f in user_dir.iterdir():
+        if f.is_file():
+            file_size = f.stat().st_size
+            files_info.append({
+                "name": f.name,
+                "size_str": format_size(file_size)
+            })
+
+    # 💡 전체 사용 용량 계산
+    total_bytes = get_directory_size(user_dir)
+    total_size_str = format_size(total_bytes)
 
     file_list_html = "".join([
         f"""<li style="margin-bottom: 10px; padding: 10px; border: 1px solid #eee; border-radius: 5px;">
-            📄 {f} 
-            <a href='/webhard/download/{f}' style="float: right; margin-left: 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; font-size: 12px;">다운로드</a>
-            <a href='/webhard/delete/{f}' style="float: right; padding: 5px 10px; background: #dc3545; color: white; text-decoration: none; border-radius: 4px; font-size: 12px;">삭제</a>
+            📄 {info['name']} <span style="color: #666; font-size: 12px;">({info['size_str']})</span>
+            <a href='/webhard/download/{info['name']}' style="float: right; margin-left: 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; font-size: 12px;">다운로드</a>
+            <a href='/webhard/delete/{info['name']}' style="float: right; padding: 5px 10px; background: #dc3545; color: white; text-decoration: none; border-radius: 4px; font-size: 12px;">삭제</a>
             <div style="clear: both;"></div>
-        </li>""" for f in files
+        </li>""" for info in files_info
     ]) or "<li>제출된 파일이 없습니다.</li>"
 
     html_content = f"""
@@ -87,6 +119,11 @@ async def my_webhard_page(user_id: str = Depends(get_current_user_id)):
         <body style="font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 20px;">
             <h2>☁️ {user_id}님의 파일 제출함</h2>
             <a href="/">홈으로 이동</a>
+            <!-- 💡 총 사용 용량 표시 영역 -->
+            <div style="background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: right;">
+                <strong>총 사용 용량:</strong> <span style="color: #0056b3; font-size: 18px;">{total_size_str}</span>
+            </div>
+
             <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
                 <form action="/webhard/upload/" enctype="multipart/form-data" method="post" style="margin: 0;">
                     <input name="files" type="file" multiple required>
@@ -146,13 +183,23 @@ async def admin_dashboard(admin_no: int = Depends(get_current_admin)):
     folders = [d.name for d in BASE_STORAGE_DIR.iterdir() if d.is_dir()]
     folders.sort()
 
+    total_system_bytes = 0  # 전체 시스템 사용량
     user_list_html = ""
+
     for folder_name in folders:
         user_dir = BASE_STORAGE_DIR / folder_name
+
+        # 💡 해당 유저의 파일 개수와 총 용량 계산
         file_count = len([f for f in user_dir.iterdir() if f.is_file()])
+        user_bytes = get_directory_size(user_dir)
+        total_system_bytes += user_bytes
+
+        user_size_str = format_size(user_bytes)
+
         user_list_html += f"""
         <li style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
-            👤 <strong>{folder_name}</strong> (제출된 파일: {file_count}개)
+            👤 <strong>{folder_name}</strong> 
+            <span style="color: #555; font-size: 14px;">(파일: {file_count}개 / <strong>용량: {user_size_str}</strong>)</span>
             <a href='/admin/webhard/user/{folder_name}' style="float: right; padding: 5px 10px; background: #17a2b8; color: white; text-decoration: none; border-radius: 4px; font-size: 12px;">파일 보기</a>
             <div style="clear: both;"></div>
         </li>
@@ -161,12 +208,20 @@ async def admin_dashboard(admin_no: int = Depends(get_current_admin)):
     if not folders:
         user_list_html = "<li>파일을 제출한 유저가 없습니다.</li>"
 
+    system_size_str = format_size(total_system_bytes)
+
     html_content = f"""
     <html>
         <head><title>관리자 대시보드</title></head>
         <body style="font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 20px;">
             <h2>👑 관리자 대시보드 (유저별 제출 현황)</h2>
             <a href="/">홈으로 이동</a>
+
+            <!-- 💡 전체 시스템 사용 용량 표시 -->
+            <div style="background: #ffeeba; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <strong>전체 웹하드 사용량:</strong> <span style="color: #856404; font-size: 18px;">{system_size_str}</span>
+            </div>
+
             <ul style="list-style-type: none; padding: 0;">{user_list_html}</ul>
         </body>
     </html>
