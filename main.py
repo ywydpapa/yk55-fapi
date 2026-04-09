@@ -176,8 +176,11 @@ async def success_page(request: Request, db: AsyncSession = Depends(get_db)):
         member_count = sum(1 for m in clubmember if m.get("memberStatus") == "ACTIV")
     else:
         member_count = await get_distmember(db)
+        club_count = await get_clubcount(db)
+        devent = await get_disteventsthismonth(db)
+        cevent = await get_allclubeventsthismonth(current_period, db)
     template_name = "main/indexc.html" if user_Role == "CUSER" else "main/index.html"
-    return templates.TemplateResponse(template_name, {"request": request, "session": dict(request.session), "message": msg, "membercnt": member_count})
+    return templates.TemplateResponse(template_name, {"request": request, "session": dict(request.session), "message": msg, "membercnt": member_count, "clubcnt": club_count, "devents": devent, "cperiod": current_period, "cevents": cevent})
 
 @app.get("/mainpage", response_class=HTMLResponse)
 async def main_page(request: Request, db: AsyncSession = Depends(get_db)):

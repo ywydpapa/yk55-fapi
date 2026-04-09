@@ -3,7 +3,7 @@ import io
 import secrets
 import datetime
 import calendar
-from datetime import date
+from datetime import datetime, timedelta
 import bcrypt
 from PIL import Image
 from fastapi import HTTPException, Request, UploadFile, status
@@ -312,6 +312,39 @@ async def get_distevents(db: AsyncSession):
     result = await db.execute(query, {"xapp": "1000010000", "eventType": "DISTE"})
     return [dict(row._mapping) for row in result.fetchall()]
 
+
+async def get_disteventsthismonth(db: AsyncSession):
+    now = datetime.now()
+    start_date = datetime(now.year, now.month, 1).strftime('%Y-%m-%d 00:00:00')
+    last_day = calendar.monthrange(now.year, now.month)[1]
+    end_date = datetime(now.year, now.month, last_day).strftime('%Y-%m-%d 23:59:59')
+    query = text("""
+                 SELECT eventNo,
+                        periodNo,
+                        eventTitle,
+                        eventTitleEng,
+                        eventType,
+                        eventFrom,
+                        eventTo,
+                        clubNo,
+                        eventCost,
+                        sortNo,
+                        locationNo
+                 FROM yk_event
+                 WHERE attrib = :xapp
+                   AND eventType = :eventType
+                   AND eventFrom >= :start_date
+                   AND eventFrom <= :end_date
+                 ORDER BY eventFrom
+                 """)
+    result = await db.execute(query, {
+        "xapp": "1000010000",
+        "eventType": "DISTE",
+        "start_date": start_date,
+        "end_date": end_date
+    })
+    return [dict(row._mapping) for row in result.fetchall()]
+
 async def get_clubeventsperiod(clubno: int, periodno: int, db: AsyncSession):
     query = text("""
                  SELECT a.eventNo, a.periodNo, a.eventTitle, a.eventTitleEng, a.eventType,
@@ -333,6 +366,42 @@ async def get_allclubeventsperiod(periodno: int, db: AsyncSession):
                  WHERE a.attrib = :xapp and a.periodNo = :periodno and a.clubNo != 0 
                  ORDER BY a.eventFrom """)
     result = await db.execute(query, {"xapp": "1000010000", "periodno": periodno})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_allclubeventsthismonth(periodno: int, db: AsyncSession):
+    now = datetime.now()
+    start_date = datetime(now.year, now.month, 1).strftime('%Y-%m-%d 00:00:00')
+    last_day = calendar.monthrange(now.year, now.month)[1]
+    end_date = datetime(now.year, now.month, last_day).strftime('%Y-%m-%d 23:59:59')
+    query = text("""
+                 SELECT a.eventNo,
+                        a.periodNo,
+                        a.eventTitle,
+                        a.eventTitleEng,
+                        a.eventType,
+                        a.eventFrom,
+                        a.eventTo,
+                        a.clubNo,
+                        a.eventCost,
+                        a.sortNo,
+                        b.clubName,
+                        a.locationNo
+                 FROM yk_event a
+                          left join yk_club b on a.clubNo = b.clubNo
+                 WHERE a.attrib = :xapp
+                   AND a.periodNo = :periodno
+                   AND a.clubNo != 0 
+                   AND a.eventFrom >= :start_date 
+                   AND a.eventFrom <= :end_date
+                 ORDER BY a.eventFrom
+                 """)
+    result = await db.execute(query, {
+        "xapp": "1000010000",
+        "periodno": periodno,
+        "start_date": start_date,
+        "end_date": end_date
+    })
     return [dict(row._mapping) for row in result.fetchall()]
 
 
@@ -442,8 +511,13 @@ async def get_clubmember(clubno: int, db: AsyncSession):
 
 async def get_distmember(db: AsyncSession):
     query = text("""SELECT count(*) FROM yk_members
-                    where memberStatus = :sts and attrib = :xapp""")
-    result = await db.execute(query, { "sts": "ACTIV", "xapp": "1000010000"})
+                    where memberStatus = :sts """)
+    result = await db.execute(query, { "sts": "ACTIV"})
+    return result.fetchone()[0]
+
+async def get_clubcount(db: AsyncSession):
+    query = text("""SELECT count(*) FROM yk_club where clubNo > 0 """)
+    result = await db.execute(query)
     return result.fetchone()[0]
 
 async def get_clubsponser(clubno: int, db: AsyncSession):

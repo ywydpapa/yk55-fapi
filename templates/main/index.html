@@ -37,8 +37,8 @@
                                 <div class="card shadow-sm h-100">
                                     <div class="card-body text-center">
                                         <h5 class="card-title">클럽수</h5>
-                                        <div class="h2 font-weight-bold text-success mb-1">163</div>
-                                        <div class="text-muted small">활동 클럽 160 / 비활동 3</div>
+                                        <div class="h2 font-weight-bold text-success mb-1">{{ clubcnt }}</div>
+                                        <div class="text-muted small">활동 클럽 / 비활동</div>
                                         <hr>
                                         <a href="#" class="btn btn-sm btn-outline-success">클럽 현황</a>
                                     </div>
@@ -54,7 +54,8 @@
 
                                         <div class="progress mb-2" style="height: 10px;">
                                             <div class="progress-bar bg-info" role="progressbar"
-                                                 style="width: 88%;" aria-valuenow="68" aria-valuemin="0" aria-valuemax="100">
+                                                 style="width: 88%;" aria-valuenow="68" aria-valuemin="0"
+                                                 aria-valuemax="100">
                                             </div>
                                         </div>
 
@@ -72,23 +73,37 @@
                             <div class="col-md-6 mb-3">
                                 <div class="card shadow-sm h-100">
                                     <div class="card-body">
-                                        <h5 class="card-title text-center">지구행사일정</h5>
+                                        <h5 class="card-title text-center">이번 달 지구행사일정</h5>
                                         <ul class="list-group list-group-flush">
+                                            <!-- 💡 백엔드에서 넘겨받은 devents 리스트를 반복 출력합니다. -->
+                                            {% for event in devents %}
                                             <li class="list-group-item d-flex justify-content-between">
-                                                <span>지구 임원회의</span>
-                                                <span class="text-muted">2026-02-05</span>
+                                                <!-- 행사 제목 -->
+                                                <span>{{ event.eventTitle }}</span>
+
+                                                <!-- 행사 날짜 표시 로직 -->
+                                                <span class="text-muted">
+                                                    {% set from_date = event.eventFrom | string %}
+                                                    {% set to_date = event.eventTo | string %}
+
+                                                    <!-- 시작일과 종료일이 같거나 종료일이 없으면 하루만 표시 -->
+                                                    {% if not event.eventTo or from_date[:10] == to_date[:10] %}
+                                                        {{ from_date[:10] }}
+                                                    {% else %}
+                                                    <!-- 시작일과 종료일이 다르면 물결(~)로 연결해서 표시 -->
+                                                        {{ from_date[:10] }} ~ {{ to_date[:10] }}
+                                                    {% endif %}
+                                                </span>
                                             </li>
-                                            <li class="list-group-item d-flex justify-content-between">
-                                                <span>신입회원 연수</span>
-                                                <span class="text-muted">2026-02-12</span>
+                                            {% else %}
+                                            <!-- 💡 행사가 하나도 없을 때 표시할 내용 -->
+                                            <li class="list-group-item text-center text-muted">
+                                                이번 달 예정된 행사가 없습니다.
                                             </li>
-                                            <li class="list-group-item d-flex justify-content-between">
-                                                <span>대만 자매지구 방문</span>
-                                                <span class="text-muted">2026-02-25~ 2026-03-01</span>
-                                            </li>
+                                            {% endfor %}
                                         </ul>
                                         <div class="text-center mt-3">
-                                            <a href="#" class="btn btn-sm btn-primary">전체 일정 보기</a>
+                                            <a href="/events" class="btn btn-sm btn-primary">전체 일정 보기</a>
                                         </div>
                                     </div>
                                 </div>
@@ -98,20 +113,35 @@
                             <div class="col-md-6 mb-3">
                                 <div class="card shadow-sm h-100">
                                     <div class="card-body">
-                                        <h5 class="card-title text-center">클럽행사일정</h5>
+                                        <h5 class="card-title text-center">이번 달 클럽행사일정</h5>
                                         <ul class="list-group list-group-flush">
+                                            <!-- 💡 백엔드에서 넘겨받은 cevents 리스트를 반복 출력합니다. -->
+                                            {% for event in cevents %}
                                             <li class="list-group-item d-flex justify-content-between">
-                                                <span>부일 클럽 정기 월례회</span>
-                                                <span class="text-muted">2026-02-22</span>
+                                                <!-- 💡 클럽명과 행사 제목을 함께 표시합니다. -->
+                                                <span><strong>[{{ event.clubName }}]</strong> {{ event.eventTitle }}</span>
+
+                                                <!-- 행사 날짜 표시 로직 -->
+                                                <span class="text-muted">
+                        {% set from_date = event.eventFrom | string %}
+                        {% set to_date = event.eventTo | string %}
+
+                                                    <!-- 시작일과 종료일이 같거나 종료일이 없으면 하루만 표시 -->
+                        {% if not event.eventTo or from_date[:10] == to_date[:10] %}
+                            {{ from_date[:10] }}
+                        {% else %}
+                                                    <!-- 시작일과 종료일이 다르면 물결(~)로 연결해서 표시 -->
+                            {{ from_date[:10] }} ~ {{ to_date[:10] }}
+                        {% endif %}
+                    </span>
                                             </li>
-                                            <li class="list-group-item d-flex justify-content-between">
-                                                <span>육대주 클럽 정기 월례회</span>
-                                                <span class="text-muted">2026-02-22</span>
+                                            {% else %}
+                                            <!-- 💡 행사가 하나도 없을 때 표시할 내용 -->
+                                            <li class="list-group-item text-center text-muted">
+                                                이번 달 예정된 클럽 행사가 없습니다.
                                             </li>
-                                            <li class="list-group-item d-flex justify-content-between">
-                                                <span></span>
-                                                <span class="text-muted">2026-02-22</span>
-                                            </li>
+                                            {% endfor %}
+
                                         </ul>
                                         <div class="text-center mt-3">
                                             <a href="#" class="btn btn-sm btn-primary">클럽 일정 목록</a>
@@ -119,50 +149,31 @@
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                            <!-- 3줄: 1개 -->
+                            <div class="row justify-content-center">
+                                <!-- 게시판 -->
 
-                        <!-- 3줄: 1개 -->
-                        <div class="row justify-content-center">
-                            <!-- 게시판 -->
-                            <div class="col-md-6 mb-6">
-                                <div class="card shadow-sm h-100">
-                                    <div class="card-body">
-                                        <h5 class="card-title text-center">게시판</h5>
-                                        <div class="d-flex justify-content-between mb-2">
-                                            <span class="text-muted">공지</span>
-                                            <span class="badge badge-danger">NEW</span>
-                                        </div>
-                                        <div class="mb-2">2026 연회비 납부 안내</div>
-                                        <div class="text-muted small mb-3">작성일: 2026-02-15 · 조회 214</div>
+                            </div> <!-- 💡 3줄 row 종료 -->
 
-                                        <div class="d-flex justify-content-between">
-                                            <a href="#" class="btn btn-sm btn-outline-dark">최신 글 보기</a>
-                                            <a href="#" class="btn btn-sm btn-dark">게시판 이동</a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        </div> <!-- col-lg-12 col-xl-11 종료 -->
+                    </div> <!-- d-flex justify-content-center 종료 -->
+                </div> <!-- container-fluid 종료 -->
+            </div> <!-- content 종료 -->
 
+            <footer class="sticky-footer bg-white">
+                <div class="container my-auto">
+                    <div class="copyright text-center my-auto">
+                        <span>Copyright &copy; SOFTCORE 2026</span>
                     </div>
                 </div>
-            </div>
-        </div>
+            </footer>
+        </div> <!-- content-wrapper 종료 -->
+    </div> <!-- wrapper 종료 -->
 
-        <footer class="sticky-footer bg-white">
-            <div class="container my-auto">
-                <div class="copyright text-center my-auto">
-                    <span>Copyright &copy; SOFTCORE 2026</span>
-                </div>
-            </div>
-        </footer>
-    </div>
-</div>
+    <a class="scroll-to-top rounded" href="#page-top">
+        <i class="fas fa-angle-up"></i>
+    </a>
 
-<a class="scroll-to-top rounded" href="#page-top">
-    <i class="fas fa-angle-up"></i>
-</a>
-
-{% include '/common/commonScript.html' %}
+    {% include '/common/commonScript.html' %}
 </body>
 </html>
