@@ -163,6 +163,7 @@ async def login_post(request: Request, response: Response, username: str = Form(
 
 @app.get("/success", response_class=HTMLResponse)
 async def success_page(request: Request, db: AsyncSession = Depends(get_db)):
+    global club_count, devent, cevent
     user_No = request.session.get("user_No")
     user_Role = request.session.get("user_Role")
     user_clubno = request.session.get("user_Clubno")
