@@ -962,7 +962,7 @@ async def get_member_photo(memberno: int, periodno: int):
 
 
 @app.get("/main_dash", response_class=HTMLResponse)
-async def maindash(request: Request,db: AsyncSession = Depends(get_db) ,user_no: int = Depends(get_current_user)):
+async def maindash(request: Request,db: AsyncSession = Depends(get_db)):
     clublist = await funchub.get_board001(db)
     return templates.TemplateResponse("board/main_dash.html",
                                           {"request": request, "session": dict(request.session), "clublist": clublist})
