@@ -943,6 +943,11 @@ async def yk55mjfhist(request: Request, user_no: int = Depends(get_current_user)
                                           {"request": request, "session": dict(request.session)})
 
 
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy(request: Request):
+    return templates.TemplateResponse("privacy/privacy.htm", {"request": request})
+
+
 # ---------------------------------------------------------
 # 1. [신규] 회원 사진 제공 라우터 (Fallback 로직 포함)
 # ---------------------------------------------------------
