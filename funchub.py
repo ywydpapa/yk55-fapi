@@ -684,6 +684,6 @@ async def getdocdetail(docno: int, db: AsyncSession):
         return None
 
 async def get_board001(db: AsyncSession):
-    query = text("""SELECT  a.clubNo, a.clubName, COUNT(b.memberNo) AS memberCount FROM yk_club a LEFT JOIN yk_members b ON a.clubNo = b.clubNo AND b.memberStatus = 'ACTIV' WHERE a.attrib = :attr GROUP BY a.clubNo, a.clubName """)
+    query = text("""SELECT  a.clubNo, a.clubName, COUNT(b.memberNo) AS memberCount, yrm.memberCount as prevMembers FROM yk_club a LEFT JOIN yk_members b ON a.clubNo = b.clubNo AND b.memberStatus = 'ACTIV' LEFT JOIN yk_regMembers yrm on a.clubCno = yrm.clubNo WHERE a.attrib = :attr GROUP BY a.clubNo, a.clubName""")
     result = await db.execute(query, {"attr": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]

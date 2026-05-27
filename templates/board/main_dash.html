@@ -76,8 +76,8 @@
             <!-- 우측 날짜 및 로고 -->
             <div class="flex items-center gap-4 z-10 shrink-0">
                 <div class="bg-white text-gray-800 px-5 py-1 rounded-xl shadow-md flex items-baseline space-x-2">
-                    <span class="text-3xl font-bold">2</span>
-                    <span class="text-lg font-bold">月末</span>
+                    <span class="text-3xl font-bold">4</span>
+                    <span class="text-2xl font-bold">月末</span>
                 </div>
                 <img src="/static/img/boardlogo/govlogo.png" alt="Gov Logo" class="h-12 w-auto object-contain shrink-0 drop-shadow-md">
             </div>
@@ -131,9 +131,9 @@
             <div class="col-span-12 md:col-span-4 flex flex-col justify-center items-center border-[3px] border-gray-300 rounded-sm p-1 bg-gray-50 h-full overflow-hidden">
                 <h2 class="text-2xl font-black mb-2 tracking-widest text-gray-800">총재 김 용 권 L</h2>
                 <div class="text-[0.8rem] text-center space-y-1 w-full text-gray-700 whitespace-nowrap">
-                    <p><span class="font-bold text-black">지구제1부총재 :</span> 이숙희L &nbsp;&nbsp;|&nbsp;&nbsp; <span class="font-bold text-black">지구제2부총재 :</span> 이현욱L</p>
-                    <p><span class="font-bold text-black">사무총장 :</span> 우상욱L &nbsp;&nbsp;|&nbsp;&nbsp; <span class="font-bold text-black">재무총장 :</span> 김미애L &nbsp;&nbsp;|&nbsp;&nbsp; <span class="font-bold text-black">수석부총장 :</span> 이시명L</p>
-                    <p><span class="font-bold text-black">사무부총장 :</span> 성태성L, 이영균L, 강윤식L &nbsp;&nbsp;|&nbsp;&nbsp; <span class="font-bold text-black">재무부총장 :</span> 강윤순L</p>
+                    <p><span class="text-xl font-bold text-black">지구제1부총재 : 이숙희L </span>&nbsp;&nbsp;|&nbsp;&nbsp; <span class="text-xl font-bold text-black">지구제2부총재 : 이현욱L</span></p>
+                    <p><span class="text-xl font-bold text-black">사무총장 : 우상욱L </span>&nbsp;&nbsp;|&nbsp;&nbsp; <span class="text-xl font-bold text-black">재무총장 : 김미애L</span>&nbsp;&nbsp;|&nbsp;&nbsp; <span class="text-xl font-bold text-black">수석부총장 : 이시명L</span></p>
+                    <p><span class="text-xl font-bold text-black">사무부총장 : 성태경L, 이영균L, 강윤식L </span>&nbsp;&nbsp;|&nbsp;&nbsp; <span class="text-xl font-bold text-black">재무부총장 : 강윤순L</span></p>
                 </div>
             </div>
 
@@ -162,13 +162,13 @@
                         </tr>
                         <tr class="text-xl font-bold">
                             <td class="text-pen-blue">162</td>
-                            <td class="text-pen-blue">166</td>
-                            <td class="text-pen-blue">167</td>
+                            <td class="text-pen-blue">168</td>
+                            <td class="text-pen-blue">168</td>
                             <td class="text-pen-blue">5,873</td>
-                            <td class="text-pen-blue">6,036</td>
+                            <td class="text-pen-blue">6,412</td>
                             <!-- 기존 6,097 대신 계산된 총합 변수 출력 -->
                             <td class="text-pen-blue">{{ "{:,}".format(total_current_members) }}</td>
-                            <td class="text-pen-red text-2xl">61</td>
+                            <td class="text-pen-red text-2xl">24</td>
                         </tr>
                     </table>
                 </div>
@@ -206,13 +206,15 @@
                                 <td></td>
                             </tr>
                             {% else %}
+                            <!-- 증감 계산 (현재 - 전회기) -->
+                            {% set diff = (club.memberCount | default(0) | int) - (club.prevMembers | default(0) | int) %}
                             <tr>
                                 <td class="col-bg font-bold text-gray-600">{{ club.clubNo }}</td>
                                 <td class="col-bg font-bold">{{ club.clubName }}</td>
-                                <td>{{ club.prev_count }}</td>
+                                <td>{{ club.prevMembers }}</td>
                                 <td>{{ club.memberCount }}</td>
-                                <td class="{% if club.diff and club.diff != 0 %}text-pen-red{% endif %}">
-                                    {% if club.diff and club.diff != 0 %}{{ club.diff }}{% endif %}
+                                <td class="{% if diff > 0 %}text-pen-blue{% elif diff < 0 %}text-pen-red{% endif %}">
+                                    {% if diff != 0 %}{{ diff }}{% endif %}
                                 </td>
                                 <td>{{ club.family_count if club.family_count else '' }}</td>
                             </tr>
