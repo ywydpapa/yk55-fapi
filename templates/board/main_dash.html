@@ -76,7 +76,7 @@
             <!-- 우측 날짜 및 로고 -->
             <div class="flex items-center gap-4 z-10 shrink-0">
                 <div class="bg-white text-gray-800 px-5 py-1 rounded-xl shadow-md flex items-baseline space-x-2">
-                    <span class="text-3xl font-bold">4</span>
+                    <span class="text-3xl font-bold">5</span>
                     <span class="text-2xl font-bold">月末</span>
                 </div>
                 <img src="/static/img/boardlogo/govlogo.png" alt="Gov Logo" class="h-12 w-auto object-contain shrink-0 drop-shadow-md">
@@ -165,10 +165,9 @@
                             <td class="text-pen-blue">168</td>
                             <td class="text-pen-blue">168</td>
                             <td class="text-pen-blue">5,873</td>
-                            <td class="text-pen-blue">6,412</td>
-                            <!-- 기존 6,097 대신 계산된 총합 변수 출력 -->
+                            <td class="text-pen-blue">6,142</td>
                             <td class="text-pen-blue">{{ "{:,}".format(total_current_members) }}</td>
-                            <td class="text-pen-red text-2xl">24</td>
+                            <td class="text-pen-red text-2xl">{{ "{:,}".format(total_current_members - 6142) }}</td>
                         </tr>
                     </table>
                 </div>
