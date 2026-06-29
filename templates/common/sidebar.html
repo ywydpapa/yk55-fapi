@@ -90,9 +90,18 @@
         </div>
     </li>
     <li class="nav-item">
-        <a class="nav-link" href="/main_dash">
-            <i class="fas fa-fw fa-chart-area"></i>
-            <span>지구 현황 자료</span></a>
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseDash"
+           aria-expanded="true" aria-controls="collapseDash">
+            <i class="fas fa-fw fa-cog"></i>
+            <span>지구 현황</span>
+        </a>
+        <div id="collapseDash" class="collapse" aria-labelledby="headingUtilities"
+             data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="/main_dash">지구회원 현황 대시보드</a>
+                <a class="collapse-item" href="/edit_dashdata">지구회원 현황 관리</a>
+            </div>
+        </div>
     </li>
     <li class="nav-item">
         <a class="nav-link" href="/admin/webhard/">

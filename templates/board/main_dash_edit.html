@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>국제라이온스협회 355-A(부산)지구 현황 - 4K</title>
+    <title>지구 현황 수정</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* 세로 비율(vh)의 가중치를 높여 세로가 좁은 모니터에서도 절대 넘치지 않도록 스케일링 */
@@ -48,8 +48,8 @@
         }
 
         /* 색상 및 포인트 클래스 */
-        .bg-main-red { background-color: #c8102e; }
-        .bg-sub-red { background-color: #b91c1c; }
+        .bg-main-red { background-color: #1059f7; }
+        .bg-sub-red { background-color: #619be6; }
         .header-cell { background-color: #f3f4f6; font-weight: bold; }
         .sub-header { background-color: #e5e7eb; }
         .col-bg { background-color: #f9fafb; }
@@ -66,20 +66,14 @@
         <!-- [1] 상단 타이틀 배너 (로고 이미지 적용 및 전체 중앙 정렬) -->
         <div class="bg-main-red text-white flex items-center justify-center p-2.5 rounded-t-sm shadow-inner relative overflow-hidden shrink-0 gap-6 md:gap-8">
             <div class="absolute inset-0 opacity-10" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, #000 10px, #000 20px);"></div>
-
-            <!-- 좌측 라이온스 로고 -->
-            <img src="/static/img/boardlogo/lionslogo.png" alt="Lions Logo" class="h-12 w-auto object-contain z-10 shrink-0 drop-shadow-md">
-
             <!-- 메인 타이틀 -->
-            <h1 class="text-4xl md:text-5xl font-extrabold tracking-widest drop-shadow-md whitespace-nowrap z-10">국제라이온스협회 355-A(부산)지구 현황</h1>
-
+            <h1 class="text-4xl md:text-5xl font-extrabold tracking-widest drop-shadow-md whitespace-nowrap z-10">355-A(부산)지구 회원 현황 편집</h1>
             <!-- 우측 날짜 및 로고 -->
             <div class="flex items-center gap-4 z-10 shrink-0">
                 <div class="bg-white text-gray-800 px-5 py-1 rounded-xl shadow-md flex items-baseline space-x-2">
                     <span class="text-3xl font-bold">5</span>
                     <span class="text-2xl font-bold">月末</span>
                 </div>
-                <img src="/static/img/boardlogo/govlogo.png" alt="Gov Logo" class="h-12 w-auto object-contain shrink-0 drop-shadow-md">
             </div>
         </div>
 
@@ -126,17 +120,6 @@
                     </table>
                 </div>
             </div>
-
-            <!-- 중앙: 총재 및 임원진 -->
-            <div class="col-span-12 md:col-span-4 flex flex-col justify-center items-center border-[3px] border-gray-300 rounded-sm p-1 bg-gray-50 h-full overflow-hidden">
-                <h2 class="text-2xl font-black mb-2 tracking-widest text-gray-800">총재 이 숙 희 L</h2>
-                <div class="text-[0.8rem] text-center space-y-1 w-full text-gray-700 whitespace-nowrap">
-                    <p><span class="text-xl font-bold text-black">지구제1부총재 : 이현욱L </span>&nbsp;&nbsp;|&nbsp;&nbsp; <span class="text-xl font-bold text-black">지구제2부총재 : 전희충L</span></p>
-                    <p><span class="text-xl font-bold text-black">사무총장 : 장성혁L </span>&nbsp; | &nbsp; <span class="text-xl font-bold text-black">재무총장 : 정영희L</span>&nbsp;&nbsp;</p>
-                    <p><span class="text-xl font-bold text-black">사무부총장 : 천석기L, 송해중L, 윤생민L </span>&nbsp;&nbsp;|&nbsp;&nbsp; <span class="text-xl font-bold text-black">재무부총장 : 이종섭L</span></p>
-                </div>
-            </div>
-
             <!-- 우측: 355-A(부산)지구 현황 -->
             <div class="col-span-12 md:col-span-4 flex flex-col">
                 <div class="bg-sub-red text-white text-center py-0.5 font-bold rounded-t-sm text-base">355-A(부산)지구 현황</div>
@@ -166,8 +149,8 @@
                             <td class="text-pen-blue">168</td>
                             <td class="text-pen-blue">5,873</td>
                             <td class="text-pen-blue">6,118</td>
-                            <td class="text-pen-blue">{{ "{:,}".format(total_current_members) }}</td>
-                            <td class="text-pen-red text-2xl">{{ "{:,}".format(total_current_members - 6118) }}</td>
+                            <td class="text-pen-blue" id="total-current-members">{{ "{:,}".format(total_current_members) }}</td>
+                            <td class="text-2xl" id="total-diff">{{ "{:,}".format(total_current_members - 5873) }}</td>
                         </tr>
                     </table>
                 </div>
@@ -206,16 +189,19 @@
                             </tr>
                             {% else %}
                             <!-- 증감 계산 (현재 - 전회기) -->
-                            {% set diff = (club.memberCount | default(0) | int) - (club.prevMembers | default(0) | int) %}
-                            <tr>
-                                <td class="col-bg font-bold text-gray-600">{{ club.clubNo }}</td>
+                            <!-- 기존 코드 대체 -->
+                                {% set prev_val = club.prevMembers | default(0) | int %}
+                                {% set curr_val = club.memberCount | default(0) | int %}
+                                {% set diff = curr_val - prev_val %}
+                            <tr data-club-no="{{ club.clubNo }}">
+                                <td class="col-bg font-bold text-gray-600">{{ club.clubCno }}</td>
                                 <td class="col-bg font-bold">{{ club.clubName }}</td>
-                                <td>{{ club.prevMembers }}</td>
-                                <td>{{ club.memberCount }}</td>
-                                <td class="{% if diff > 0 %}text-pen-blue{% elif diff < 0 %}text-pen-red{% endif %}">
-                                    {% if diff != 0 %}{{ diff }}{% endif %}
+                                <td class="prev-members" data-prev="{{ prev_val }}">{{ club.prevMembers }}</td>
+                                <td><input type="number" value="{{ curr_val }}" class="w-full member-input" style="text-align: center"></td>
+                                <td class="diff-cell {% if diff > 0 %}text-pen-blue{% elif diff < 0 %}text-pen-red{% endif %}">
+                                {% if diff != 0 %}{{ diff }}{% endif %}
                                 </td>
-                                <td>{{ club.family_count if club.family_count else '' }}</td>
+                                <td><input type="number" value="{{ club.family_count if club.family_count>0 else '' }}" class="w-full fmember-input" style="text-align: center"></td>
                             </tr>
                             {% endif %}
                         {% endfor %}
@@ -226,5 +212,130 @@
 
         </div>
     </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+    const inputs = document.querySelectorAll('.member-input');
+    const totalCurrentEl = document.getElementById('total-current-members');
+    const totalDiffEl = document.getElementById('total-diff');
+
+    // 상단 테이블에 명시된 전회기말 전체 회원수 (5,873명)
+    const prevTotalMembers = 5873;
+
+    // 전체 회원수 합계 및 상단 테이블 업데이트 함수
+    function updateTotal() {
+        let total = 0;
+        // 모든 클럽의 현재 회원수 입력값을 더함
+        inputs.forEach(input => {
+            total += parseInt(input.value) || 0;
+        });
+
+        // 1. 상단 현재 회원수 업데이트 (천 단위 콤마 추가)
+        if (totalCurrentEl) {
+            totalCurrentEl.textContent = total.toLocaleString();
+        }
+
+        // 2. 상단 증감수 업데이트 (현재 총합 - 전회기말 총합)
+        if (totalDiffEl) {
+            const diff = total - prevTotalMembers;
+
+            // 증감이 0이면 빈칸, 아니면 콤마 찍어서 표시
+            totalDiffEl.textContent = diff === 0 ? '' : diff.toLocaleString();
+
+            // 색상 클래스 업데이트 (양수면 파란색, 음수면 빨간색)
+            totalDiffEl.classList.remove('text-pen-blue', 'text-pen-red');
+            if (diff > 0) {
+                totalDiffEl.classList.add('text-pen-blue');
+            } else if (diff < 0) {
+                totalDiffEl.classList.add('text-pen-red');
+            }
+        }
+    }
+
+    inputs.forEach(input => {
+        input.addEventListener('input', function() {
+            const tr = this.closest('tr');
+            const prevCell = tr.querySelector('.prev-members');
+            const diffCell = tr.querySelector('.diff-cell');
+
+            const prevVal = parseInt(prevCell.getAttribute('data-prev')) || 0;
+            const currVal = parseInt(this.value) || 0;
+            const diff = currVal - prevVal;
+
+            // 개별 클럽 증감 텍스트 업데이트
+            if (diff === 0) {
+                diffCell.textContent = '';
+            } else {
+                diffCell.textContent = diff;
+            }
+
+            // 개별 클럽 증감 색상 업데이트
+            diffCell.classList.remove('text-pen-blue', 'text-pen-red');
+            if (diff > 0) {
+                diffCell.classList.add('text-pen-blue');
+            } else if (diff < 0) {
+                diffCell.classList.add('text-pen-red');
+            }
+            // ★ 입력값이 변할 때마다 전체 합계 업데이트 함수 호출
+            updateTotal();
+        });
+    });
+    // 페이지 로드 시 초기 전체 합계 및 색상 세팅을 위해 한 번 실행
+    updateTotal();
+});
+
+    // 현재 날짜를 기준으로 YYYYMM 형식의 회기 번호를 생성하는 함수
+function getCurrentPeriodNo() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${year}${month}`;
+}
+
+// 회원수 및 가족회원수 입력칸 모두 선택
+const allInputs = document.querySelectorAll('.member-input, .fmember-input');
+
+allInputs.forEach(input => {
+    // 'input' 대신 'change' 이벤트를 사용하여 입력이 완료(포커스 아웃)되었을 때만 서버로 전송
+    input.addEventListener('change', function() {
+        const tr = this.closest('tr');
+
+        // 데이터 수집
+        const clubNo = tr.getAttribute('data-club-no');
+        const presMcnt = parseInt(tr.querySelector('.member-input').value) || 0;
+        const familyMcnt = parseInt(tr.querySelector('.fmember-input').value) || 0;
+        const periodNo = getCurrentPeriodNo();
+
+        // 서버로 보낼 데이터 객체 생성
+        const requestData = {
+            clubNo: clubNo,
+            periodNo: periodNo,
+            presMcnt: presMcnt,
+            familyMcnt: familyMcnt
+        };
+
+        fetch('/api/update_dashdata', {
+            method: 'POST', // 또는 PUT
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log(`클럽 ${clubNo} 업데이트 성공:`, data);
+        })
+        .catch(error => {
+            console.error('업데이트 실패:', error);
+            alert('데이터 저장 중 오류가 발생했습니다.');
+        });
+    });
+});
+
+</script>
 </body>
 </html>

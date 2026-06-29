@@ -968,8 +968,15 @@ async def get_member_photo(memberno: int, periodno: int):
 
 @app.get("/main_dash", response_class=HTMLResponse)
 async def maindash(request: Request,db: AsyncSession = Depends(get_db)):
-    clublist = await funchub.get_board001(db)
+    clublist = await funchub.get_board002(db)
     return templates.TemplateResponse("board/main_dash.html",
+                                          {"request": request, "session": dict(request.session), "clublist": clublist})
+
+
+@app.get("/edit_dashdata", response_class=HTMLResponse)
+async def editdashdata(request: Request,db: AsyncSession = Depends(get_db)):
+    clublist = await funchub.get_board002(db)
+    return templates.TemplateResponse("board/main_dash_edit.html",
                                           {"request": request, "session": dict(request.session), "clublist": clublist})
 
 
@@ -984,6 +991,68 @@ async def dashlcif(request: Request,db: AsyncSession = Depends(get_db) ,user_no:
 async def useredit(request: Request,db: AsyncSession = Depends(get_db) ,user_no: int = Depends(get_current_user)):
     return templates.TemplateResponse("login/changePass.html",
                                           {"request": request, "session": dict(request.session)})
+
+
+# ==========================================
+# 8. 대시보드 데이터 업데이트 라우터
+# ==========================================
+@app.post("/api/update_dashdata")
+async def update_dashdata(
+        data: dict = Body(...),
+        db: AsyncSession = Depends(get_db),
+        user_no: int = Depends(get_current_user)
+):
+    try:
+        club_no = int(data.get("clubNo", 0))
+        period_no = str(data.get("periodNo", ""))
+        pres_mcnt = int(data.get("presMcnt", 0))
+        family_mcnt = int(data.get("familyMcnt", 0))
+
+        if not club_no or not period_no:
+            return JSONResponse({"ok": False, "message": "Invalid clubNo or periodNo"}, status_code=400)
+
+        # 1. 해당 기수(periodNo)와 클럽(clubNo)의 데이터가 이미 있는지 확인
+        check_sql = text("SELECT logNo FROM yk_dashboarddata WHERE clubNo = :clubNo AND periodNo = :periodNo")
+        result = await db.execute(check_sql, {"clubNo": club_no, "periodNo": period_no})
+        row = result.fetchone()
+
+        if row:
+            # 2. 데이터가 존재하면 UPDATE
+            update_sql = text("""
+                UPDATE yk_dashboarddata 
+                SET presMcnt = :presMcnt, 
+                    familyMcnt = :familyMcnt, 
+                    modDate = NOW() 
+                WHERE clubNo = :clubNo AND periodNo = :periodNo
+            """)
+            await db.execute(update_sql, {
+                "presMcnt": pres_mcnt,
+                "familyMcnt": family_mcnt,
+                "clubNo": club_no,
+                "periodNo": period_no
+            })
+        else:
+            # 3. 데이터가 없으면 새로 INSERT (초기 prevMcnt는 0으로 세팅, 필요시 수정 가능)
+            insert_sql = text("""
+                INSERT INTO yk_dashboarddata 
+                (periodNo, clubNo, prevMcnt, presMcnt, familyMcnt, regDate, modDate, attrib) 
+                VALUES (:periodNo, :clubNo, 0, :presMcnt, :familyMcnt, NOW(), NOW(), '1000010000')
+            """)
+            await db.execute(insert_sql, {
+                "periodNo": period_no,
+                "clubNo": club_no,
+                "presMcnt": pres_mcnt,
+                "familyMcnt": family_mcnt
+            })
+
+        await db.commit()
+        return {"ok": True, "message": "Dashboard data updated successfully"}
+
+    except Exception as e:
+        await db.rollback()
+        print(f"Update Dashboard Error: {e}")
+        return JSONResponse({"ok": False, "message": str(e)}, status_code=500)
+
 
 # ==========================================
 # 🚀 웹하드 라우터 연결

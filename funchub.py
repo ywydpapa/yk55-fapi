@@ -684,6 +684,53 @@ async def getdocdetail(docno: int, db: AsyncSession):
         return None
 
 async def get_board001(db: AsyncSession):
-    query = text("""SELECT  a.clubNo, a.clubName, COUNT(b.memberNo) AS memberCount, yrm.memberCount as prevMembers FROM yk_club a LEFT JOIN yk_members b ON a.clubNo = b.clubNo AND b.memberStatus = 'ACTIV' LEFT JOIN yk_regMembers yrm on a.clubCno = yrm.clubNo WHERE a.attrib = :attr GROUP BY a.clubNo, a.clubName""")
+    query = text("""SELECT a.clubNo,a.clubName, COUNT(b.memberNo) AS memberCount, MAX(yrm.memberCount) AS prevMembers FROM yk_club a 
+        LEFT JOIN yk_members b ON a.clubNo = b.clubNo AND b.memberStatus = 'ACTIV' 
+        LEFT JOIN (SELECT clubNo, memberCount, ROW_NUMBER() OVER (PARTITION BY clubNo ORDER BY periodYM DESC) as rn FROM yk_regMembers) yrm ON a.clubCno = yrm.clubNo AND yrm.rn = 1
+        WHERE a.attrib = :attr GROUP BY a.clubNo, a.clubName """)
+    result = await db.execute(query, {"attr": "1000010000"})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_board002(db: AsyncSession):
+    query = text("""
+                 SELECT a.clubNo,
+                        a.clubName,
+                        a.clubCno, 
+                        -- 대시보드 데이터가 있으면 presMcnt 사용, 없으면 실제 멤버수 카운트
+                        COALESCE(MAX(dash.presMcnt), COUNT(b.memberNo))               AS memberCount,
+
+                        -- 대시보드 데이터의 prevMcnt가 0이 아니면 사용, 0이거나 없으면 yk_regMembers 데이터 사용
+                        COALESCE(NULLIF(MAX(dash.prevMcnt), 0), MAX(yrm.memberCount)) AS prevMembers,
+
+                        -- 대시보드 데이터가 있으면 familyMcnt 사용, 없으면 0
+                        COALESCE(MAX(dash.familyMcnt), 0)                             AS family_count
+
+                 FROM yk_club a
+
+                          -- 1. 실제 회원수 조인을 위한 yk_members
+                          LEFT JOIN yk_members b
+                                    ON a.clubNo = b.clubNo AND b.memberStatus = 'ACTIV'
+
+                     -- 2. 전회기 회원수 조인을 위한 yk_regMembers (가장 최근 기수 1건)
+                          LEFT JOIN (SELECT clubNo,
+                                            memberCount,
+                                            ROW_NUMBER() OVER (PARTITION BY clubNo ORDER BY periodYM DESC) as rn
+                                     FROM yk_regMembers) yrm
+                                    ON a.clubNo = yrm.clubNo AND yrm.rn = 1
+
+                     -- 3. 수동 입력된 대시보드 데이터 조인을 위한 yk_dashboarddata (가장 최근 기수 1건)
+                          LEFT JOIN (SELECT clubNo,
+                                            prevMcnt,
+                                            presMcnt,
+                                            familyMcnt,
+                                            ROW_NUMBER() OVER (PARTITION BY clubNo ORDER BY periodNo DESC) as rn
+                                     FROM yk_dashboarddata
+                                     WHERE attrib = '1000010000') dash
+                                    ON a.clubNo = dash.clubNo AND dash.rn = 1
+
+                 WHERE a.attrib = :attr
+                 GROUP BY a.clubNo, a.clubName
+                 """)
     result = await db.execute(query, {"attr": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
