@@ -101,27 +101,27 @@
                         </tr>
                         <tr>
                             <td class="header-cell">지구수</td>
-                            <td class="text-pen-blue">7</td>
-                            <td class="text-pen-blue">8</td>
-                            <td class="text-pen-blue">6</td>
-                            <td class="text-pen-blue">21</td>
-                            <td class="text-pen-blue">215 개국</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data01|int) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data02|int) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data03|int) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format((topdata[0].data01|int) + (topdata[0].data02|int) + (topdata[0].data03|int)) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data15|int) }}</td>
                         </tr>
                         <tr>
                             <td class="header-cell">클럽수</td>
-                            <td class="text-pen-blue">618</td>
-                            <td class="text-pen-blue">796</td>
-                            <td class="text-pen-blue">585</td>
-                            <td class="text-pen-blue">1,999</td>
-                            <td class="text-pen-blue">49,968</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data04|int) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data05|int) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data06|int) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format((topdata[0].data04|int) + (topdata[0].data05|int) + (topdata[0].data06|int)) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data16|int) }}</td>
                         </tr>
                         <tr>
                             <td class="header-cell">회원수</td>
-                            <td class="text-pen-blue">22,719</td>
-                            <td class="text-pen-blue">24,729</td>
-                            <td class="text-pen-blue">19,709</td>
-                            <td class="text-pen-blue">67,323</td>
-                            <td class="text-pen-blue">1,360,005</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data07|int) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data08|int) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data09|int) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format((topdata[0].data07|int) + (topdata[0].data08|int) + (topdata[0].data09|int)) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data17|int) }}</td>
                         </tr>
                     </table>
                 </div>
@@ -161,18 +161,19 @@
                             <th>현재</th>
                         </tr>
                         <tr class="text-xl font-bold">
-                            <td class="text-pen-blue">162</td>
-                            <td class="text-pen-blue">168</td>
-                            <td class="text-pen-blue">168</td>
-                            <td class="text-pen-blue">6,118</td>
-                            <td class="text-pen-blue">6,118</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data10|int) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data11|int) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data12|int) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data13|int) }}</td>
+                            <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data14|int) }}</td>
                             <td class="text-pen-blue">{{ "{:,}".format(total_current_members) }}</td>
-                            <td class="text-pen-red text-2xl">{{ "{:,}".format(total_current_members - 6118) }}</td>
+                            <!-- 기존에 하드코딩된 6118을 전회기말 회원수 데이터(data13)로 변경하여 계산 -->
+                            <td class="text-pen-red text-2xl">{{ "{:,}".format(total_current_members - (topdata[0].data13|int)) }}</td>
                         </tr>
                     </table>
                 </div>
             </div>
-        </div> <!-- ★ 추가된 닫는 태그 ★ (이 div가 없어서 하단 리스트가 깨졌습니다) -->
+        </div>
 
         <!-- [3] 하단 클럽 리스트 (4단 그리드, 균등 분할) -->
         <div class="flex-1 grid grid-cols-4 gap-1.5 min-h-0">
@@ -208,7 +209,7 @@
                             <!-- 증감 계산 (현재 - 전회기) -->
                             {% set diff = (club.memberCount | default(0) | int) - (club.prevMembers | default(0) | int) %}
                             <tr>
-                                <td class="col-bg font-bold text-gray-600">{{ club.clubNo }}</td>
+                                <td class="col-bg font-bold text-gray-600">{{ club.clubCno }}</td>
                                 <td class="col-bg font-bold">{{ club.clubName }}</td>
                                 <td>{{ club.prevMembers }}</td>
                                 <td>{{ club.memberCount }}</td>
