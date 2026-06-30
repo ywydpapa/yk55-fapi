@@ -976,8 +976,9 @@ async def maindash(request: Request,db: AsyncSession = Depends(get_db)):
 @app.get("/edit_dashdata", response_class=HTMLResponse)
 async def editdashdata(request: Request,db: AsyncSession = Depends(get_db)):
     clublist = await funchub.get_board002(db)
+    topdata = await funchub.get_boarddata2001(db)
     return templates.TemplateResponse("board/main_dash_edit.html",
-                                          {"request": request, "session": dict(request.session), "clublist": clublist})
+                                          {"request": request, "session": dict(request.session), "clublist": clublist, "topdata": topdata})
 
 
 @app.get("/dash_lcif", response_class=HTMLResponse)
@@ -1051,6 +1052,51 @@ async def update_dashdata(
     except Exception as e:
         await db.rollback()
         print(f"Update Dashboard Error: {e}")
+        return JSONResponse({"ok": False, "message": str(e)}, status_code=500)
+
+
+@app.post("/api/update_topdata")
+async def update_topdata(
+        data: dict = Body(...),
+        db: AsyncSession = Depends(get_db),
+        user_no: int = Depends(get_current_user)
+):
+    try:
+        # 1. 기존 유효한 데이터 무효화 (기간 조건 없이 현재 유효한 모든 데이터를 무효화)
+        update_sql = text("""
+                          UPDATE yk_dashboarddata2
+                          SET attrib  = 'xxxupxxxup',
+                              modDate = NOW()
+                          WHERE attrib != 'xxxupxxxup'
+                          """)
+        await db.execute(update_sql)
+
+        # 2. 새로운 데이터 INSERT (periodNo 제외, data01 ~ data14만 삽입)
+        insert_sql = text("""
+                          INSERT INTO yk_dashboarddata2
+                          (data01, data02, data03, data04, data05, data06, data07,
+                           data08, data09, data10, data11, data12, data13, data14,data15, data16, data17,
+                           regDate, attrib)
+                          VALUES (:data01, :data02, :data03, :data04, :data05, :data06, :data07,
+                                  :data08, :data09, :data10, :data11, :data12, :data13, :data14,:data15, :data16, :data17,
+                                  NOW(), '1000010000')
+                          """)
+
+        # 파라미터 바인딩 (data01 ~ data14)
+        params = {}
+        for i in range(1, 18):
+            col_name = f"data{i:02d}"
+            # 프론트에서 값이 안 넘어왔을 경우 빈 문자열로 처리
+            params[col_name] = str(data.get(col_name, ""))
+
+        await db.execute(insert_sql, params)
+        await db.commit()
+
+        return {"ok": True, "message": "Top dashboard data updated successfully"}
+
+    except Exception as e:
+        await db.rollback()
+        print(f"Update Top Dashboard Error: {e}")
         return JSONResponse({"ok": False, "message": str(e)}, status_code=500)
 
 

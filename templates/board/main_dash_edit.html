@@ -56,6 +56,21 @@
 
         .text-pen-red { color: #ef4444; font-weight: bold; font-size: 1.1em; }
         .text-pen-blue { color: #3b82f6; font-weight: bold; font-size: 1.1em; }
+
+        /* 추가: input 스타일 초기화 */
+        .topdata-input {
+            width: 100%;
+            text-align: center;
+            background-color: transparent;
+            border: none;
+            outline: none;
+            color: #3b82f6; /* text-pen-blue 색상과 동일 */
+            font-weight: bold;
+        }
+        .topdata-input:focus {
+            background-color: #e5e7eb;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body class="bg-gray-300 p-1.5 flex justify-center items-center">
@@ -93,29 +108,30 @@
                             <th>계</th>
                             <th>국제협회</th>
                         </tr>
-                        <tr>
+                        <!-- 계산을 위해 tr에 calc-row 클래스 추가 -->
+                        <tr class="calc-row">
                             <td class="header-cell">지구수</td>
-                            <td class="text-pen-blue">7</td>
-                            <td class="text-pen-blue">8</td>
-                            <td class="text-pen-blue">6</td>
-                            <td class="text-pen-blue">21</td>
-                            <td class="text-pen-blue">215 개국</td>
+                            <td><input type="text" class="topdata-input num-input calc-target" data-column="data01" value="{{ topdata[0].data01 }}"></td>
+                            <td><input type="text" class="topdata-input num-input calc-target" data-column="data02" value="{{ topdata[0].data02 }}"></td>
+                            <td><input type="text" class="topdata-input num-input calc-target" data-column="data03" value="{{ topdata[0].data03 }}"></td>
+                            <td class="text-pen-blue row-sum">0</td>
+                            <td><input type="text" class="topdata-input num-input" data-column="data15" value="{{ topdata[0].data15 }}"></td>
                         </tr>
-                        <tr>
+                        <tr class="calc-row">
                             <td class="header-cell">클럽수</td>
-                            <td class="text-pen-blue">618</td>
-                            <td class="text-pen-blue">796</td>
-                            <td class="text-pen-blue">585</td>
-                            <td class="text-pen-blue">1,999</td>
-                            <td class="text-pen-blue">49,968</td>
+                            <td><input type="text" class="topdata-input num-input calc-target" data-column="data04" value="{{ topdata[0].data04 }}"></td>
+                            <td><input type="text" class="topdata-input num-input calc-target" data-column="data05" value="{{ topdata[0].data05 }}"></td>
+                            <td><input type="text" class="topdata-input num-input calc-target" data-column="data06" value="{{ topdata[0].data06 }}"></td>
+                            <td class="text-pen-blue row-sum">0</td>
+                            <td><input type="text" class="topdata-input num-input" data-column="data16" value="{{ topdata[0].data16 }}"></td>
                         </tr>
-                        <tr>
+                        <tr class="calc-row">
                             <td class="header-cell">회원수</td>
-                            <td class="text-pen-blue">22,719</td>
-                            <td class="text-pen-blue">24,729</td>
-                            <td class="text-pen-blue">19,709</td>
-                            <td class="text-pen-blue">67,323</td>
-                            <td class="text-pen-blue">1,360,005</td>
+                            <td><input type="text" class="topdata-input num-input calc-target" data-column="data07" value="{{ topdata[0].data07 }}"></td>
+                            <td><input type="text" class="topdata-input num-input calc-target" data-column="data08" value="{{ topdata[0].data08 }}"></td>
+                            <td><input type="text" class="topdata-input num-input calc-target" data-column="data09" value="{{ topdata[0].data09 }}"></td>
+                            <td class="text-pen-blue row-sum">0</td>
+                            <td><input type="text" class="topdata-input num-input" data-column="data17" value="{{ topdata[0].data17 }}"></td>
                         </tr>
                     </table>
                 </div>
@@ -144,18 +160,18 @@
                             <th>현재</th>
                         </tr>
                         <tr class="text-xl font-bold">
-                            <td class="text-pen-blue">162</td>
-                            <td class="text-pen-blue">168</td>
-                            <td class="text-pen-blue">168</td>
-                            <td class="text-pen-blue">5,873</td>
-                            <td class="text-pen-blue">6,118</td>
+                            <td><input type="text" class="topdata-input num-input" data-column="data10" value="{{ topdata[0].data10 }}"></td>
+                            <td><input type="text" class="topdata-input num-input" data-column="data11" value="{{ topdata[0].data11 }}"></td>
+                            <td><input type="text" class="topdata-input num-input" data-column="data12" value="{{ topdata[0].data12 }}"></td>
+                            <td><input type="text" class="topdata-input num-input" data-column="data13" value="{{ topdata[0].data13 }}"></td>
+                            <td><input type="text" class="topdata-input num-input" data-column="data14" value="{{ topdata[0].data14 }}"></td>
                             <td class="text-pen-blue" id="total-current-members">{{ "{:,}".format(total_current_members) }}</td>
-                            <td class="text-2xl" id="total-diff">{{ "{:,}".format(total_current_members - 5873) }}</td>
+                            <td class="text-2xl" id="total-diff">{{ "{:,}".format(total_current_members - topdata[0].data13) }}</td>
                         </tr>
                     </table>
                 </div>
             </div>
-        </div> <!-- ★ 추가된 닫는 태그 ★ (이 div가 없어서 하단 리스트가 깨졌습니다) -->
+        </div>
 
         <!-- [3] 하단 클럽 리스트 (4단 그리드, 균등 분할) -->
         <div class="flex-1 grid grid-cols-4 gap-1.5 min-h-0">
@@ -189,7 +205,6 @@
                             </tr>
                             {% else %}
                             <!-- 증감 계산 (현재 - 전회기) -->
-                            <!-- 기존 코드 대체 -->
                                 {% set prev_val = club.prevMembers | default(0) | int %}
                                 {% set curr_val = club.memberCount | default(0) | int %}
                                 {% set diff = curr_val - prev_val %}
@@ -213,129 +228,197 @@
         </div>
     </div>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-    const inputs = document.querySelectorAll('.member-input');
-    const totalCurrentEl = document.getElementById('total-current-members');
-    const totalDiffEl = document.getElementById('total-diff');
-
-    // 상단 테이블에 명시된 전회기말 전체 회원수 (5,873명)
-    const prevTotalMembers = 5873;
-
-    // 전체 회원수 합계 및 상단 테이블 업데이트 함수
-    function updateTotal() {
-        let total = 0;
-        // 모든 클럽의 현재 회원수 입력값을 더함
-        inputs.forEach(input => {
-            total += parseInt(input.value) || 0;
-        });
-
-        // 1. 상단 현재 회원수 업데이트 (천 단위 콤마 추가)
-        if (totalCurrentEl) {
-            totalCurrentEl.textContent = total.toLocaleString();
-        }
-
-        // 2. 상단 증감수 업데이트 (현재 총합 - 전회기말 총합)
-        if (totalDiffEl) {
-            const diff = total - prevTotalMembers;
-
-            // 증감이 0이면 빈칸, 아니면 콤마 찍어서 표시
-            totalDiffEl.textContent = diff === 0 ? '' : diff.toLocaleString();
-
-            // 색상 클래스 업데이트 (양수면 파란색, 음수면 빨간색)
-            totalDiffEl.classList.remove('text-pen-blue', 'text-pen-red');
-            if (diff > 0) {
-                totalDiffEl.classList.add('text-pen-blue');
-            } else if (diff < 0) {
-                totalDiffEl.classList.add('text-pen-red');
-            }
-        }
-    }
-
-    inputs.forEach(input => {
-        input.addEventListener('input', function() {
-            const tr = this.closest('tr');
-            const prevCell = tr.querySelector('.prev-members');
-            const diffCell = tr.querySelector('.diff-cell');
-
-            const prevVal = parseInt(prevCell.getAttribute('data-prev')) || 0;
-            const currVal = parseInt(this.value) || 0;
-            const diff = currVal - prevVal;
-
-            // 개별 클럽 증감 텍스트 업데이트
-            if (diff === 0) {
-                diffCell.textContent = '';
-            } else {
-                diffCell.textContent = diff;
-            }
-
-            // 개별 클럽 증감 색상 업데이트
-            diffCell.classList.remove('text-pen-blue', 'text-pen-red');
-            if (diff > 0) {
-                diffCell.classList.add('text-pen-blue');
-            } else if (diff < 0) {
-                diffCell.classList.add('text-pen-red');
-            }
-            // ★ 입력값이 변할 때마다 전체 합계 업데이트 함수 호출
-            updateTotal();
-        });
-    });
-    // 페이지 로드 시 초기 전체 합계 및 색상 세팅을 위해 한 번 실행
-    updateTotal();
-});
+    // =================================================================
+    // 공통 유틸리티 함수
+    // =================================================================
 
     // 현재 날짜를 기준으로 YYYYMM 형식의 회기 번호를 생성하는 함수
-function getCurrentPeriodNo() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    return `${year}${month}`;
-}
+    function getCurrentPeriodNo() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        return `${year}${month}`;
+    }
 
-// 회원수 및 가족회원수 입력칸 모두 선택
-const allInputs = document.querySelectorAll('.member-input, .fmember-input');
+    // 콤마 추가 함수
+    function addCommas(x) {
+        if (!x) return "";
+        return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
 
-allInputs.forEach(input => {
-    // 'input' 대신 'change' 이벤트를 사용하여 입력이 완료(포커스 아웃)되었을 때만 서버로 전송
-    input.addEventListener('change', function() {
-        const tr = this.closest('tr');
+    // 콤마 제거 함수
+    function removeCommas(x) {
+        if (!x) return "0";
+        return x.toString().replace(/,/g, "");
+    }
 
-        // 데이터 수집
-        const clubNo = tr.getAttribute('data-club-no');
-        const presMcnt = parseInt(tr.querySelector('.member-input').value) || 0;
-        const familyMcnt = parseInt(tr.querySelector('.fmember-input').value) || 0;
-        const periodNo = getCurrentPeriodNo();
+    document.addEventListener('DOMContentLoaded', function() {
 
-        // 서버로 보낼 데이터 객체 생성
-        const requestData = {
-            clubNo: clubNo,
-            periodNo: periodNo,
-            presMcnt: presMcnt,
-            familyMcnt: familyMcnt
-        };
+        // =================================================================
+        // 1. 하단 클럽 리스트 관련 로직 (합계, 증감, 서버 전송)
+        // =================================================================
+        const inputs = document.querySelectorAll('.member-input');
+        const totalCurrentEl = document.getElementById('total-current-members');
+        const totalDiffEl = document.getElementById('total-diff');
+        const prevTotalMembers = 5873; // 상단 테이블에 명시된 전회기말 전체 회원수
 
-        fetch('/api/update_dashdata', {
-            method: 'POST', // 또는 PUT
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestData)
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
+        // 전체 회원수 합계 및 상단 테이블 업데이트 함수
+        function updateTotal() {
+            let total = 0;
+            inputs.forEach(input => {
+                total += parseInt(input.value) || 0;
+            });
+
+            if (totalCurrentEl) {
+                totalCurrentEl.textContent = addCommas(total);
             }
-            return response.json();
-        })
-        .then(data => {
-            console.log(`클럽 ${clubNo} 업데이트 성공:`, data);
-        })
-        .catch(error => {
-            console.error('업데이트 실패:', error);
-            alert('데이터 저장 중 오류가 발생했습니다.');
+
+            if (totalDiffEl) {
+                const diff = total - prevTotalMembers;
+                totalDiffEl.textContent = diff === 0 ? '' : addCommas(diff);
+
+                totalDiffEl.classList.remove('text-pen-blue', 'text-pen-red');
+                if (diff > 0) {
+                    totalDiffEl.classList.add('text-pen-blue');
+                } else if (diff < 0) {
+                    totalDiffEl.classList.add('text-pen-red');
+                }
+            }
+        }
+
+        inputs.forEach(input => {
+            input.addEventListener('input', function() {
+                const tr = this.closest('tr');
+                const prevCell = tr.querySelector('.prev-members');
+                const diffCell = tr.querySelector('.diff-cell');
+
+                const prevVal = parseInt(prevCell.getAttribute('data-prev')) || 0;
+                const currVal = parseInt(this.value) || 0;
+                const diff = currVal - prevVal;
+
+                if (diff === 0) {
+                    diffCell.textContent = '';
+                } else {
+                    diffCell.textContent = diff;
+                }
+
+                diffCell.classList.remove('text-pen-blue', 'text-pen-red');
+                if (diff > 0) {
+                    diffCell.classList.add('text-pen-blue');
+                } else if (diff < 0) {
+                    diffCell.classList.add('text-pen-red');
+                }
+                updateTotal();
+            });
+        });
+
+        // 페이지 로드 시 초기 세팅
+        updateTotal();
+
+        const allInputs = document.querySelectorAll('.member-input, .fmember-input');
+        allInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                const tr = this.closest('tr');
+                const clubNo = tr.getAttribute('data-club-no');
+                const presMcnt = parseInt(tr.querySelector('.member-input').value) || 0;
+                const familyMcnt = parseInt(tr.querySelector('.fmember-input').value) || 0;
+                const periodNo = getCurrentPeriodNo();
+
+                const requestData = {
+                    clubNo: clubNo,
+                    periodNo: periodNo,
+                    presMcnt: presMcnt,
+                    familyMcnt: familyMcnt
+                };
+
+                fetch('/api/update_dashdata', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then(data => console.log(`클럽 ${clubNo} 업데이트 성공:`, data))
+                .catch(error => {
+                    console.error('업데이트 실패:', error);
+                    alert('데이터 저장 중 오류가 발생했습니다.');
+                });
+            });
+        });
+
+        // =================================================================
+        // 2. 상단 요약 데이터 관련 로직 (콤마, 가로 합계, 서버 전송)
+        // =================================================================
+
+        // 각 행(calc-row)의 합계 계산 함수
+        function updateRowSums() {
+            const rows = document.querySelectorAll('.calc-row');
+            rows.forEach(row => {
+                // 수정됨: num-input 대신 calc-target 클래스를 가진 요소만 합산
+                const sumInputs = row.querySelectorAll('.calc-target');
+                let sum = 0;
+
+                sumInputs.forEach(input => {
+                    const val = parseInt(removeCommas(input.value)) || 0;
+                    sum += val;
+                });
+
+                const sumCell = row.querySelector('.row-sum');
+                if (sumCell) {
+                    sumCell.textContent = addCommas(sum);
+                }
+            });
+        }
+
+
+        const numInputs = document.querySelectorAll('.num-input');
+        numInputs.forEach(input => {
+            // 페이지 로드 시 초기 데이터에 콤마 적용
+            input.value = addCommas(removeCommas(input.value));
+
+            // 사용자가 값을 입력할 때마다 숫자 외 문자 제거, 콤마 적용 및 합계 재계산
+            input.addEventListener('input', function(e) {
+                let val = removeCommas(this.value).replace(/[^0-9]/g, '');
+                this.value = addCommas(val);
+                updateRowSums();
+            });
+        });
+
+        // 페이지 로드 시 가로 합계 최초 1회 계산
+        updateRowSums();
+
+        const topdataInputs = document.querySelectorAll('.topdata-input');
+        topdataInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                const payload = {};
+
+                topdataInputs.forEach(inp => {
+                    const colName = inp.getAttribute('data-column');
+                    // DB에 저장할 때는 콤마를 제거한 순수 숫자로 변환하여 전송
+                    payload[colName] = removeCommas(inp.value);
+                });
+
+                // 서버로 전송
+                fetch('/api/update_topdata', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then(data => console.log('상단 데이터 업데이트 성공:', data))
+                .catch(error => {
+                    console.error('상단 데이터 업데이트 실패:', error);
+                    alert('상단 데이터 저장 중 오류가 발생했습니다.');
+                });
+            });
         });
     });
-});
-
 </script>
+
 </body>
 </html>

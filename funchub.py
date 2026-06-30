@@ -734,3 +734,9 @@ async def get_board002(db: AsyncSession):
                  """)
     result = await db.execute(query, {"attr": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def get_boarddata2001(db: AsyncSession):
+    query = text("""SELECT * from yk_dashboarddata2 WHERE attrib = :attr""")
+    result = await db.execute(query, {"attr": "1000010000"})
+    return [dict(row._mapping) for row in result.fetchall()]
