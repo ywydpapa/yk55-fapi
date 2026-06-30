@@ -6,16 +6,17 @@
     <title>지구 현황 수정</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* 세로 비율(vh)의 가중치를 높여 세로가 좁은 모니터에서도 절대 넘치지 않도록 스케일링 */
-        html { font-size: min(0.75vw, 1.25vh); }
+        /* 세로 비율(vh)의 가중치를 높여 세로가 좁은 모니터에서도 절대 넘치지 않도록 스케일링하되,
+           너무 작아지지 않도록 최소 폰트 크기(12px) 보장 */
+        html { font-size: max(12px, min(0.75vw, 1.25vh)); }
 
         body {
             font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
             margin: 0;
             padding: 0;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden; /* 스크롤바 원천 차단 */
+            width: 100%;
+            min-height: 100vh; /* 화면 크기보다 내용이 길면 늘어날 수 있도록 min-height 사용 */
+            overflow: auto; /* 스크롤바 허용 (기존 hidden에서 변경) */
             box-sizing: border-box;
         }
 
@@ -75,8 +76,8 @@
 </head>
 <body class="bg-gray-300 p-1.5 flex justify-center items-center">
 
-    <!-- 메인 컨테이너 -->
-    <div class="w-full h-full max-w-full max-h-full bg-white border-[0.3rem] border-red-700 shadow-2xl p-1.5 flex flex-col gap-1.5 box-border">
+    <!-- 메인 컨테이너: 최소 너비(1200px)와 최소 높이(800px)를 지정하여 해상도가 낮을 때 스크롤 발생 유도 -->
+    <div class="w-full min-w-[1200px] min-h-[800px] bg-white border-[0.3rem] border-red-700 shadow-2xl p-1.5 flex flex-col gap-1.5 box-border">
 
         <!-- [1] 상단 타이틀 배너 (로고 이미지 적용 및 전체 중앙 정렬) -->
         <div class="bg-main-red text-white flex items-center justify-center p-2.5 rounded-t-sm shadow-inner relative overflow-hidden shrink-0 gap-6 md:gap-8">
