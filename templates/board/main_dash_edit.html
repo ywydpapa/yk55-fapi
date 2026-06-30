@@ -167,7 +167,7 @@
                             <td><input type="text" class="topdata-input num-input" data-column="data13" value="{{ topdata[0].data13 }}"></td>
                             <td><input type="text" class="topdata-input num-input" data-column="data14" value="{{ topdata[0].data14 }}"></td>
                             <td class="text-pen-blue" id="total-current-members">{{ "{:,}".format(total_current_members) }}</td>
-                            <td class="text-2xl" id="total-diff">{{ "{:,}".format(total_current_members - topdata[0].data13) }}</td>
+                            <td class="text-2xl" id="total-diff">{{ "{:,}".format(total_current_members - (topdata[0].data13 | default(0) | int)) }}</td>
                         </tr>
                     </table>
                 </div>
@@ -261,31 +261,35 @@
         const inputs = document.querySelectorAll('.member-input');
         const totalCurrentEl = document.getElementById('total-current-members');
         const totalDiffEl = document.getElementById('total-diff');
-        const prevTotalMembers = 5873; // 상단 테이블에 명시된 전회기말 전체 회원수
 
-        // 전체 회원수 합계 및 상단 테이블 업데이트 함수
-        function updateTotal() {
-            let total = 0;
-            inputs.forEach(input => {
-                total += parseInt(input.value) || 0;
-            });
+    // 전체 회원수 합계 및 상단 테이블 업데이트 함수
+    function updateTotal() {
+        let total = 0;
+        inputs.forEach(input => {
+            total += parseInt(input.value) || 0;
+        });
 
-            if (totalCurrentEl) {
-                totalCurrentEl.textContent = addCommas(total);
-            }
+        if (totalCurrentEl) {
+            totalCurrentEl.textContent = addCommas(total);
+        }
 
-            if (totalDiffEl) {
-                const diff = total - prevTotalMembers;
-                totalDiffEl.textContent = diff === 0 ? '' : addCommas(diff);
+        if (totalDiffEl) {
+            const data13Input = document.querySelector('input[data-column="data13"]');
+            const prevTotalMembers = data13Input ? (parseInt(removeCommas(data13Input.value)) || 0) : 0;
 
-                totalDiffEl.classList.remove('text-pen-blue', 'text-pen-red');
-                if (diff > 0) {
-                    totalDiffEl.classList.add('text-pen-blue');
-                } else if (diff < 0) {
-                    totalDiffEl.classList.add('text-pen-red');
-                }
+            // 증감수 = 현재 인원 - 전회기말(data13)
+            const diff = total - prevTotalMembers;
+
+            totalDiffEl.textContent = diff === 0 ? '' : addCommas(diff);
+
+            totalDiffEl.classList.remove('text-pen-blue', 'text-pen-red');
+            if (diff > 0) {
+                totalDiffEl.classList.add('text-pen-blue');
+            } else if (diff < 0) {
+                totalDiffEl.classList.add('text-pen-red');
             }
         }
+    }
 
         inputs.forEach(input => {
             input.addEventListener('input', function() {
