@@ -53,7 +53,6 @@
         .header-cell { background-color: #f3f4f6; font-weight: bold; }
         .sub-header { background-color: #e5e7eb; }
         .col-bg { background-color: #f9fafb; }
-
         .text-pen-red { color: #ef4444; font-weight: bold; font-size: 1.1em; }
         .text-pen-blue { color: #3b82f6; font-weight: bold; font-size: 1.1em; }
     </style>
@@ -141,8 +140,6 @@
             <div class="col-span-12 md:col-span-4 flex flex-col">
                 <div class="bg-sub-red text-white text-center py-0.5 font-bold rounded-t-sm text-base">355-A(부산)지구 현황</div>
                 <div class="flex-1 border-x border-b border-gray-400">
-
-                    <!-- 클럽 리스트 및 총합 계산을 위한 변수 선언 -->
                     {% set active_clubs = clublist[1:] %}
                     {% set total_current_members = active_clubs | sum(attribute='memberCount') %}
 
@@ -167,7 +164,6 @@
                             <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data13|int) }}</td>
                             <td class="text-pen-blue">{{ "{:,}".format(topdata[0].data14|int) }}</td>
                             <td class="text-pen-blue">{{ "{:,}".format(total_current_members) }}</td>
-                            <!-- 기존에 하드코딩된 6118을 전회기말 회원수 데이터(data13)로 변경하여 계산 -->
                             <td class="text-pen-red text-2xl">{{ "{:,}".format(total_current_members - (topdata[0].data13|int)) }}</td>
                         </tr>
                     </table>
