@@ -1076,16 +1076,16 @@ async def update_topdata(
         insert_sql = text("""
                           INSERT INTO yk_dashboarddata2
                           (data01, data02, data03, data04, data05, data06, data07,
-                           data08, data09, data10, data11, data12, data13, data14,data15, data16, data17,
+                           data08, data09, data10, data11, data12, data13, data14,data15, data16, data17, data18,
                            regDate, attrib)
                           VALUES (:data01, :data02, :data03, :data04, :data05, :data06, :data07,
-                                  :data08, :data09, :data10, :data11, :data12, :data13, :data14,:data15, :data16, :data17,
+                                  :data08, :data09, :data10, :data11, :data12, :data13, :data14,:data15, :data16, :data17, :data18,
                                   NOW(), '1000010000')
                           """)
 
         # 파라미터 바인딩 (data01 ~ data14)
         params = {}
-        for i in range(1, 18):
+        for i in range(1, 19):
             col_name = f"data{i:02d}"
             # 프론트에서 값이 안 넘어왔을 경우 빈 문자열로 처리
             params[col_name] = str(data.get(col_name, ""))
