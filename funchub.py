@@ -740,3 +740,23 @@ async def get_boarddata2001(db: AsyncSession):
     query = text("""SELECT * from yk_dashboarddata2 WHERE attrib = :attr""")
     result = await db.execute(query, {"attr": "1000010000"})
     return [dict(row._mapping) for row in result.fetchall()]
+
+
+async def getservelist(db: AsyncSession):
+    try:
+        query = text(
+            "SELECT * FROM yk_serveHist where attrib = :xapp")
+        result = await db.execute(query, {"xapp": '1000010000'})
+        return [dict(row._mapping) for row in result.fetchall()]
+    except Exception as e:
+        return None
+
+
+async def getservelist_period(periodno: int, db: AsyncSession):
+    try:
+        query = text("SELECT * FROM yk_serveHist WHERE periodNo = :perno")
+        result = await db.execute(query, {"perno": periodno})
+        return [dict(row) for row in result.mappings().all()]
+    except Exception as e:
+        print(f"DB Query Error: {e}")
+        return []

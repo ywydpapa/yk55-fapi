@@ -911,9 +911,9 @@ async def yk55servhist(request: Request, db: AsyncSession = Depends(get_db), use
 
 @app.get("/yk55servhist_view/{period}", response_class=HTMLResponse)
 async def yk55servhist_view(request: Request, period: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
-    svrs = await getperiod(db)
+    serves = await getservelist_period(period,db)
     return templates.TemplateResponse("yk55/yk55_servhistview.html",
-                                          {"request": request, "session": dict(request.session), "svrs": svrs})
+                                          {"request": request, "session": dict(request.session), "svrs": serves or [],})
 
 @app.get("/yk55membhist", response_class=HTMLResponse)
 async def yk55membhist(request: Request, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):

@@ -22,9 +22,22 @@
                     <div class="card-body">
                         <div class="table-responsive">
                             <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
-                                    <thead>
+                                    <thead style="text-align: center">
+                                    <th>봉사명</th>
+                                    <th>봉사내용</th>
+                                    <th colspan="2">봉사기간</th>
+                                    <th>봉사금액</th>
                                     </thead>
                                     <tbody>
+                                    {% for svr in svrs %}
+                                    <tr style="text-align: center">
+                                        <td>{{svr["serveTitle"]}}</td>
+                                        <td>{{svr["serveContent"]}}</td>
+                                        <td>{{svr["serveTimefrom"]}}</td>
+                                        <td>{{svr["serveTimeto"]}}</td>
+                                        <td>{{svr["serveCost"]}}</td>
+                                    </tr>
+                                    {% endfor %}
                                     </tbody>
                             </table>
                         </div>
