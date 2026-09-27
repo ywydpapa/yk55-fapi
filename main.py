@@ -909,26 +909,11 @@ async def yk55servhist(request: Request, db: AsyncSession = Depends(get_db), use
     return templates.TemplateResponse("yk55/yk55_servhist.html",
                                           {"request": request, "session": dict(request.session), "periods": periods})
 
-@app.get("/add_servhist", response_class=HTMLResponse)
-async def add_servhist(request: Request, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
-    periods = await getperiod(db)
-    return templates.TemplateResponse("yk55/yk55_add_servhist.html",
-                                          {"request": request, "session": dict(request.session), "periods": periods})
-
-@app.get("/edit_servhist/{servno}", response_class=HTMLResponse)
-async def edit_servhist(request: Request,servno: int ,db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
-    periods = await getperiod(db)
-    servdtl = await get_servdtl(servno, db)
-    print(servdtl)
-    return templates.TemplateResponse("yk55/yk55_edit_servhist.html",
-                                          {"request": request, "session": dict(request.session), "periods": periods, "servdtl": servdtl})
-
 @app.get("/yk55servhist_view/{period}", response_class=HTMLResponse)
 async def yk55servhist_view(request: Request, period: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
     svrs = await getperiod(db)
-    servlist = await get_servlist(period, db)
     return templates.TemplateResponse("yk55/yk55_servhistview.html",
-                                          {"request": request, "session": dict(request.session), "svrs": svrs ,"period":period ,"servlist": servlist})
+                                          {"request": request, "session": dict(request.session), "svrs": svrs})
 
 @app.get("/yk55membhist", response_class=HTMLResponse)
 async def yk55membhist(request: Request, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
@@ -1115,156 +1100,6 @@ async def update_topdata(
         print(f"Update Top Dashboard Error: {e}")
         return JSONResponse({"ok": False, "message": str(e)}, status_code=500)
 
-
-# ==========================================
-# 봉사실적 저장 라우터 (/save_servhist)
-# ==========================================
-@app.post("/save_servhist", response_class=HTMLResponse)
-async def save_servhist(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    user_no: int = Depends(get_current_user)  # 인증 세션 확인
-):
-    form_data = await request.form()
-
-    # 필수값 및 숫자형 데이터 정제
-    period_no = _clean_int(form_data.get("periodNo"))
-    serve_type = _clean_str(form_data.get("serveType")) or "DISTM"
-    serve_title = _clean_str(form_data.get("serveTitle"))
-    serve_content = _clean_str(form_data.get("serveContent"))
-    serve_cost = _clean_int(form_data.get("serveCost")) or 0
-    serve_timefrom = _clean_str(form_data.get("serveTimefrom")) or None
-    serve_timeto = _clean_str(form_data.get("serveTimeto")) or None
-    attrib = _clean_str(form_data.get("attrib")) or "1000010000"
-
-    # 유효성 검사: 봉사명 누락 방지
-    if not serve_title:
-        raise HTTPException(status_code=400, detail="봉사명(serveTitle)은 필수 항목입니다.")
-
-    insert_query = text("""
-        INSERT INTO yk_serveHist (
-            periodNo,
-            serveType,
-            serveTitle,
-            serveContent,
-            serveCost,
-            serveTimefrom,
-            serveTimeto,
-            regDate,
-            attrib
-        ) VALUES (
-            :periodNo,
-            :serveType,
-            :serveTitle,
-            :serveContent,
-            :serveCost,
-            :serveTimefrom,
-            :serveTimeto,
-            NOW(),
-            :attrib
-        )
-    """)
-
-    params = {
-        "periodNo": period_no,
-        "serveType": serve_type[:5] if serve_type else "DISTM",
-        "serveTitle": serve_title,
-        "serveContent": serve_content,
-        "serveCost": serve_cost,
-        "serveTimefrom": serve_timefrom,
-        "serveTimeto": serve_timeto,
-        "attrib": attrib
-    }
-
-    try:
-        await db.execute(insert_query, params)
-        await db.commit()
-    except Exception as e:
-        await db.rollback()
-        print(f"Error saving serveHist: {e}")
-        raise HTTPException(status_code=500, detail="봉사실적 저장 중 오류가 발생했습니다.")
-
-    # 저장이 완료되면 봉사실적 목록 화면으로 리다이렉트 (회기 정보가 있으면 해당 회기 뷰로 이동 가능)
-    redirect_url = f"/yk55servhist_view/{period_no}" if period_no else "/yk55servhist"
-    return RedirectResponse(url=redirect_url, status_code=303)
-
-
-@app.post("/update_servhist/{servno}", response_class=HTMLResponse)
-async def update_servhist(
-    request: Request,
-    servno: int,
-    db: AsyncSession = Depends(get_db),
-    user_no: int = Depends(get_current_user)
-):
-    form_data = await request.form()
-
-    period_no = _clean_int(form_data.get("periodNo"))
-    serve_type = _clean_str(form_data.get("serveType")) or "DISTM"
-    serve_title = _clean_str(form_data.get("serveTitle"))
-    serve_content = _clean_str(form_data.get("serveContent"))
-    serve_cost = _clean_int(form_data.get("serveCost")) or 0
-    serve_timefrom = _clean_str(form_data.get("serveTimefrom")) or None
-    serve_timeto = _clean_str(form_data.get("serveTimeto")) or None
-
-    update_query = text("""
-        UPDATE yk_serveHist
-        SET periodNo = :periodNo,
-            serveType = :serveType,
-            serveTitle = :serveTitle,
-            serveContent = :serveContent,
-            serveCost = :serveCost,
-            serveTimefrom = :serveTimefrom,
-            serveTimeto = :serveTimeto,
-            modDate = NOW()
-        WHERE serveNo = :serveNo
-    """)
-
-    await db.execute(update_query, {
-        "serveNo": servno,
-        "periodNo": period_no,
-        "serveType": serve_type[:5],
-        "serveTitle": serve_title,
-        "serveContent": serve_content,
-        "serveCost": serve_cost,
-        "serveTimefrom": serve_timefrom,
-        "serveTimeto": serve_timeto
-    })
-    await db.commit()
-
-    return RedirectResponse(url=f"/yk55servhist_view/{period_no}", status_code=303)
-
-
-# ==========================================
-# 봉사실적 삭제(논리 삭제) 라우터 (/delete_servhist/{servno})
-# ==========================================
-@app.post("/delete_servhist/{servno}")
-async def delete_servhist(
-    request: Request,
-    servno: int,
-    db: AsyncSession = Depends(get_db),
-    user_no: int = Depends(get_current_user)
-):
-    form_data = await request.form()
-    period_no = _clean_int(form_data.get("periodNo"))
-
-    delete_query = text("""
-        UPDATE yk_serveHist
-        SET attrib = 'XXXUPXXXUP',
-            modDate = NOW()
-        WHERE serveNo = :serveNo
-    """)
-
-    try:
-        await db.execute(delete_query, {"serveNo": servno})
-        await db.commit()
-    except Exception as e:
-        await db.rollback()
-        print(f"Error deleting serveHist: {e}")
-        raise HTTPException(status_code=500, detail="봉사실적 삭제 중 오류가 발생했습니다.")
-
-    # 삭제 후 원래 보고 있던 회기 목록 페이지로 리다이렉트
-    redirect_url = f"/yk55servhist_view/{period_no}" if period_no else "/yk55servhist"
-    return RedirectResponse(url=redirect_url, status_code=303)
 
 # ==========================================
 # 🚀 웹하드 라우터 연결
