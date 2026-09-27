@@ -429,6 +429,18 @@ async def get_eventmembers(eventno: int, db: AsyncSession):
     result = await db.execute(query, {"xapp": "1000010000", "eno": eventno})
     return [dict(row._mapping) for row in result.fetchall()]
 
+async def get_servlist(periodno: int, db: AsyncSession):
+    query = text("""SELECT * from yk_serveHist
+                    where attrib = :xapp and periodNo = :eno""")
+    result = await db.execute(query, {"xapp": "1000010000", "eno": periodno})
+    return [dict(row._mapping) for row in result.fetchall()]
+
+async def get_servdtl(serveno: int, db: AsyncSession):
+    query = text("""SELECT * from yk_serveHist
+                    where attrib = :xapp and serveNo = :eno""")
+    result = await db.execute(query, {"xapp": "1000010000", "eno": serveno})
+    return result.fetchone()
+
 async def get_cabhist(periodno: int, db: AsyncSession):
     query = text("""SELECT * from yk_distStaff
                     where attrib = :xapp and periodNo = :pno and cabYn = :cyn """)
