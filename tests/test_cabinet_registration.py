@@ -60,6 +60,32 @@ class FakeDB:
         raise AssertionError(f"Unexpected query: {query}")
 
 
+class FakeUpdateDB:
+    def __init__(self, record_exists=True, duplicate=False, allowed_rank=True):
+        self.record_exists = record_exists
+        self.duplicate = duplicate
+        self.allowed_rank = allowed_rank
+        self.updates = []
+
+    def begin(self):
+        return Transaction()
+
+    async def execute(self, statement, params=None):
+        query = str(statement)
+        if "SELECT dstaffNo FROM yk_distStaff" in query and "FOR UPDATE" in query:
+            return Result([(params["dstaffNo"],)] if self.record_exists else [])
+        if "SELECT rankNo FROM yk_rank" in query:
+            return Result([(params["rankNo"],)] if self.allowed_rank else [])
+        if "SELECT memberNo, clubNo FROM yk_members" in query:
+            return Result([{"memberNo": params["memberNo"], "clubNo": 9}])
+        if "SELECT dstaffNo FROM yk_distStaff" in query:
+            return Result([(1,)] if self.duplicate else [])
+        if "UPDATE yk_distStaff" in query:
+            self.updates.append(params)
+            return Result([])
+        raise AssertionError(f"Unexpected query: {query}")
+
+
 class CabinetRegistrationTests(unittest.IsolatedAsyncioTestCase):
     def test_card_view_renders_cabinet_in_hierarchy_order(self):
         scope = {
@@ -97,10 +123,13 @@ class CabinetRegistrationTests(unittest.IsolatedAsyncioTestCase):
             "yk55/yk55_cabhistview_tile.html",
             {
                 "request": request,
-                "session": {},
+                "session": {"user_Role": "ADMIN"},
                 "membs": members,
                 "periodno": 56,
                 "cabinet_ranks": [],
+                "cabinet_edit_ranks": [
+                    {"rankNo": 12, "rankTitle": "직전지구총재", "rankSourceTitle": "직전지구총재"}
+                ],
             },
         )
         body = response.body
@@ -123,6 +152,47 @@ class CabinetRegistrationTests(unittest.IsolatedAsyncioTestCase):
             body.index("재무총장".encode("utf-8")),
             body.index("기획총장".encode("utf-8")),
         )
+        self.assertIn(b'data-mode="edit"', body)
+        self.assertIn(b'data-target="#cabinetMemberModal"', body)
+
+    async def test_update_changes_existing_cabinet_member_and_role(self):
+        db = FakeUpdateDB()
+
+        response = await main.yk55_cabinet_update(
+            None, 56, 321, 202, 30, "card", db, 1
+        )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["location"], "/yk55cabhist_tview/56?updated=1")
+        self.assertEqual(
+            db.updates,
+            [{
+                "memberNo": 202,
+                "clubNo": 9,
+                "rankNo": 30,
+                "dstaffNo": 321,
+                "periodNo": 56,
+                "attrib": "1000010000",
+            }],
+        )
+
+    async def test_update_rejects_duplicate_role_entry(self):
+        db = FakeUpdateDB(duplicate=True)
+
+        with self.assertRaises(HTTPException) as raised:
+            await main.yk55_cabinet_update(None, 56, 321, 202, 30, "list", db, 1)
+
+        self.assertEqual(raised.exception.status_code, 409)
+        self.assertEqual(db.updates, [])
+
+    async def test_update_rejects_record_from_another_period(self):
+        db = FakeUpdateDB(record_exists=False)
+
+        with self.assertRaises(HTTPException) as raised:
+            await main.yk55_cabinet_update(None, 56, 321, 202, 30, "card", db, 1)
+
+        self.assertEqual(raised.exception.status_code, 404)
+        self.assertEqual(db.updates, [])
 
     async def test_registering_cabinet_member_adds_previous_governor(self):
         db = FakeDB()

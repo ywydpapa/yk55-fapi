@@ -43,6 +43,10 @@ CABINET_ROLE_TITLES = {
     "지구2부총재": "지구 제2부총재",
 }
 CABINET_PREVIOUS_GOVERNOR_TITLE = "직전지구총재"
+CABINET_EDIT_ROLE_TITLES = {
+    **CABINET_ROLE_TITLES,
+    CABINET_PREVIOUS_GOVERNOR_TITLE: CABINET_PREVIOUS_GOVERNOR_TITLE,
+}
 
 import funchub
 # ✅ funchub.py에서 분리한 모든 함수와 상수를 가져옵니다.
@@ -1817,34 +1821,41 @@ async def yk55cabhist(request: Request, db: AsyncSession = Depends(get_db), user
 @app.get("/yk55cabhist_view/{periodno}", response_class=HTMLResponse)
 async def yk55cabhist_view(request: Request, periodno: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
     cabs = await get_cabhist_wname(periodno, db)
-    cabinet_ranks = await _get_cabinet_ranks(db) if request.session.get("user_Role") == "ADMIN" else []
+    is_admin = request.session.get("user_Role") == "ADMIN"
+    cabinet_ranks = await _get_cabinet_ranks(db) if is_admin else []
+    cabinet_edit_ranks = await _get_cabinet_ranks(db, include_previous=True) if is_admin else []
     return templates.TemplateResponse("yk55/yk55_cabhistview.html",
-                                          {"request": request, "session": dict(request.session), "membs": cabs, "periodno": periodno, "cabinet_ranks": cabinet_ranks})
+                                          {"request": request, "session": dict(request.session), "membs": cabs, "periodno": periodno, "cabinet_ranks": cabinet_ranks, "cabinet_edit_ranks": cabinet_edit_ranks})
 
 @app.get("/yk55cabhist_tview/{periodno}", response_class=HTMLResponse)
 async def yk55cabhisttv(request: Request, periodno: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
     cabs = await get_cabhist_wname(periodno, db)
-    cabinet_ranks = await _get_cabinet_ranks(db) if request.session.get("user_Role") == "ADMIN" else []
+    is_admin = request.session.get("user_Role") == "ADMIN"
+    cabinet_ranks = await _get_cabinet_ranks(db) if is_admin else []
+    cabinet_edit_ranks = await _get_cabinet_ranks(db, include_previous=True) if is_admin else []
     return templates.TemplateResponse("yk55/yk55_cabhistview_tile.html",
-                                          {"request": request, "session": dict(request.session), "membs": cabs, "periodno": periodno, "cabinet_ranks": cabinet_ranks})
+                                          {"request": request, "session": dict(request.session), "membs": cabs, "periodno": periodno, "cabinet_ranks": cabinet_ranks, "cabinet_edit_ranks": cabinet_edit_ranks})
 
-async def _get_cabinet_ranks(db: AsyncSession) -> list[dict]:
+async def _get_cabinet_ranks(
+    db: AsyncSession, include_previous: bool = False
+) -> list[dict]:
+    role_titles = CABINET_EDIT_ROLE_TITLES if include_previous else CABINET_ROLE_TITLES
     result = await db.execute(
         text(
             "SELECT rankNo, rankTitle FROM yk_rank "
             "WHERE attrib = :attrib AND rankTitle IN :titles"
         ).bindparams(bindparam("titles", expanding=True)),
-        {"attrib": "1000010000", "titles": list(CABINET_ROLE_TITLES)},
+        {"attrib": "1000010000", "titles": list(role_titles)},
     )
     ranks = [
         {
             "rankNo": int(row.rankNo),
-            "rankTitle": CABINET_ROLE_TITLES[row.rankTitle],
+            "rankTitle": role_titles[row.rankTitle],
             "rankSourceTitle": row.rankTitle,
         }
         for row in result.fetchall()
     ]
-    ranks.sort(key=lambda rank: list(CABINET_ROLE_TITLES).index(rank["rankSourceTitle"]))
+    ranks.sort(key=lambda rank: list(role_titles).index(rank["rankSourceTitle"]))
     return ranks
 
 
@@ -2003,6 +2014,104 @@ async def yk55_cabinet_insert(
     return RedirectResponse(
         f"/yk55cabhist_{destination}/{periodno}"
         f"?added=1&previous_added={1 if previous_added else 0}",
+        status_code=303,
+    )
+
+
+@app.post("/yk55cabhist_update/{periodno}/{dstaffno}")
+async def yk55_cabinet_update(
+    request: Request,
+    periodno: int,
+    dstaffno: int,
+    member_no: int = Form(..., alias="memberNo"),
+    rank_no: int = Form(..., alias="rankNo"),
+    view_type: str = Form("card", alias="viewType"),
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(require_admin),
+):
+    if view_type not in {"card", "list"}:
+        raise HTTPException(status_code=400, detail="화면 형식이 올바르지 않습니다.")
+    destination = "tview" if view_type == "card" else "view"
+    async with db.begin():
+        cabinet_result = await db.execute(
+            text(
+                "SELECT dstaffNo FROM yk_distStaff "
+                "WHERE dstaffNo = :dstaffNo AND periodNo = :periodNo AND attrib = :attrib "
+                "FOR UPDATE"
+            ),
+            {
+                "dstaffNo": dstaffno,
+                "periodNo": periodno,
+                "attrib": "1000010000",
+            },
+        )
+        if cabinet_result.first() is None:
+            raise HTTPException(status_code=404, detail="수정할 캐비넷 등록을 찾을 수 없습니다.")
+
+        rank_result = await db.execute(
+            text(
+                "SELECT rankNo FROM yk_rank "
+                "WHERE rankNo = :rankNo AND rankTitle IN :titles AND attrib = :attrib"
+            ).bindparams(bindparam("titles", expanding=True)),
+            {
+                "rankNo": rank_no,
+                "titles": list(CABINET_EDIT_ROLE_TITLES),
+                "attrib": "1000010000",
+            },
+        )
+        if rank_result.first() is None:
+            raise HTTPException(status_code=400, detail="지구 캐비넷에 사용할 수 없는 직책입니다.")
+
+        member_result = await db.execute(
+            text(
+                "SELECT memberNo, clubNo FROM yk_members "
+                "WHERE memberNo = :memberNo AND attrib = :attrib"
+            ),
+            {"memberNo": member_no, "attrib": "1000010000"},
+        )
+        member = member_result.mappings().first()
+        if member is None:
+            raise HTTPException(status_code=400, detail="회원을 찾을 수 없습니다.")
+
+        duplicate_result = await db.execute(
+            text(
+                "SELECT dstaffNo FROM yk_distStaff "
+                "WHERE memberNo = :memberNo AND rankNo = :rankNo AND clubNo <=> :clubNo "
+                "AND periodNo = :periodNo AND attrib = :attrib AND dstaffNo <> :dstaffNo "
+                "LIMIT 1"
+            ),
+            {
+                "memberNo": member_no,
+                "rankNo": rank_no,
+                "clubNo": member["clubNo"],
+                "periodNo": periodno,
+                "attrib": "1000010000",
+                "dstaffNo": dstaffno,
+            },
+        )
+        if duplicate_result.first() is not None:
+            raise HTTPException(
+                status_code=409, detail="같은 회원과 직책이 해당 회기에 이미 등록되어 있습니다."
+            )
+
+        await db.execute(
+            text(
+                "UPDATE yk_distStaff "
+                "SET memberNo = :memberNo, clubNo = :clubNo, rankNo = :rankNo, modDate = NOW() "
+                "WHERE dstaffNo = :dstaffNo AND periodNo = :periodNo AND attrib = :attrib"
+            ),
+            {
+                "memberNo": member_no,
+                "clubNo": member["clubNo"],
+                "rankNo": rank_no,
+                "dstaffNo": dstaffno,
+                "periodNo": periodno,
+                "attrib": "1000010000",
+            },
+        )
+
+    return RedirectResponse(
+        f"/yk55cabhist_{destination}/{periodno}?updated=1",
         status_code=303,
     )
 

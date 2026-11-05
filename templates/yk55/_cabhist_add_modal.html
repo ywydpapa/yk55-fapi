@@ -2,7 +2,7 @@
 <div class="modal fade" id="cabinetMemberModal" tabindex="-1" role="dialog" aria-labelledby="cabinetMemberModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <form method="post" action="/yk55cabhist_insert/{{ periodno }}">
+            <form id="cabinetMemberForm" method="post" action="/yk55cabhist_insert/{{ periodno }}">
                 <input type="hidden" name="viewType" value="{{ 'card' if request.url.path.startswith('/yk55cabhist_tview/') else 'list' }}">
                 <input type="hidden" id="cabinetMemberNo" name="memberNo" value="">
                 <div class="modal-header">
@@ -17,8 +17,8 @@
                         <label for="cabinetRankNo">직책</label>
                         <select class="form-control" id="cabinetRankNo" name="rankNo" required>
                             <option value="">직책을 선택하세요</option>
-                            {% for rank in cabinet_ranks %}
-                            <option value="{{ rank.rankNo }}">{{ rank.rankTitle }}</option>
+                            {% for rank in cabinet_edit_ranks %}
+                            <option value="{{ rank.rankNo }}" {% if rank.rankSourceTitle == '직전지구총재' %}data-edit-only="true"{% endif %}>{{ rank.rankTitle }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -54,7 +54,53 @@
         const selectedMemberNo = document.getElementById('cabinetMemberNo');
         const selectedMemberLabel = document.getElementById('cabinetSelectedMember');
         const submitButton = document.getElementById('cabinetMemberSubmit');
+        const modal = document.getElementById('cabinetMemberModal');
+        const form = document.getElementById('cabinetMemberForm');
+        const rankSelect = document.getElementById('cabinetRankNo');
+        const modalTitle = document.getElementById('cabinetMemberModalLabel');
         let searchTimer;
+
+        function resetForm() {
+            form.reset();
+            form.action = '/yk55cabhist_insert/{{ periodno }}';
+            selectedMemberNo.value = '';
+            selectedMemberLabel.textContent = '선택되지 않음';
+            submitButton.disabled = true;
+            submitButton.textContent = '등록';
+            modalTitle.textContent = '{{ periodno }}대 지구캐비넷 회원 등록';
+            rankSelect.querySelectorAll('[data-edit-only="true"]').forEach(function (option) {
+                option.hidden = true;
+                option.disabled = true;
+            });
+            results.replaceChildren();
+            message.textContent = '';
+            searchInput.value = '';
+        }
+
+        $('#cabinetMemberModal').on('show.bs.modal', function (event) {
+            resetForm();
+            const trigger = event.relatedTarget;
+            if (!trigger || trigger.dataset.mode !== 'edit') {
+                return;
+            }
+
+            const memberNo = trigger.dataset.memberno;
+            const memberName = trigger.dataset.membername;
+            const clubName = trigger.dataset.clubname || '소속 없음';
+            const rankNo = trigger.dataset.rankno;
+            const dstaffNo = trigger.dataset.dstaffno;
+            form.action = '/yk55cabhist_update/{{ periodno }}/' + encodeURIComponent(dstaffNo);
+            selectedMemberNo.value = memberNo;
+            selectedMemberLabel.textContent = memberName + ' (' + clubName + ')';
+            rankSelect.querySelectorAll('[data-edit-only="true"]').forEach(function (option) {
+                option.hidden = false;
+                option.disabled = false;
+            });
+            rankSelect.value = rankNo;
+            submitButton.disabled = false;
+            submitButton.textContent = '변경 저장';
+            modalTitle.textContent = '{{ periodno }}대 지구캐비넷 수정';
+        });
 
         async function searchMembers() {
             const query = searchInput.value.trim();
@@ -112,12 +158,8 @@
             window.clearTimeout(searchTimer);
             searchTimer = window.setTimeout(searchMembers, 350);
         });
-        document.getElementById('cabinetMemberModal').addEventListener('hidden.bs.modal', function () {
-            selectedMemberNo.value = '';
-            selectedMemberLabel.textContent = '선택되지 않음';
-            submitButton.disabled = true;
-            results.replaceChildren();
-            message.textContent = '';
+        $('#cabinetMemberModal').on('hidden.bs.modal', function () {
+            resetForm();
         });
     })();
 </script>

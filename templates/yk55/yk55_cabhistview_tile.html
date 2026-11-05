@@ -32,6 +32,9 @@
                             {% if request.query_params.get('previous_added') == '1' %}직전 회기 지구총재도 직전지구총재로 자동 등록했습니다.{% endif %}
                         </div>
                         {% endif %}
+                        {% if request.query_params.get('updated') == '1' %}
+                        <div class="alert alert-success" role="status">캐비넷 등록 정보를 수정했습니다.</div>
+                        {% endif %}
                         <style>
                             .member-card {
                                 width: 100%;
@@ -105,6 +108,14 @@
                                         {% endif %}
                                     </div>
                                     <div class="text-muted" style="font-size: 0.85rem;">({{ mem.clubName }})</div>
+                                    {% if session.user_Role == 'ADMIN' %}
+                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2"
+                                            data-toggle="modal" data-target="#cabinetMemberModal"
+                                            data-mode="edit" data-dstaffno="{{ mem.dstaffNo }}"
+                                            data-memberno="{{ mem.memberNo }}" data-membername="{{ mem.memberName }}"
+                                            data-clubname="{{ mem.clubName or '소속 없음' }}"
+                                            data-rankno="{{ mem.rankNo }}">수정</button>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>

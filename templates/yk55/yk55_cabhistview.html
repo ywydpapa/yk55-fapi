@@ -32,6 +32,9 @@
                             {% if request.query_params.get('previous_added') == '1' %}직전 회기 지구총재도 직전지구총재로 자동 등록했습니다.{% endif %}
                         </div>
                         {% endif %}
+                        {% if request.query_params.get('updated') == '1' %}
+                        <div class="alert alert-success" role="status">캐비넷 등록 정보를 수정했습니다.</div>
+                        {% endif %}
                         <div class="table-responsive">
                             <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
                                     <thead>
@@ -39,6 +42,7 @@
                                     <th>직책</th>
                                     <th>소속클럽</th>
                                     <th>성명</th>
+                                    {% if session.user_Role == 'ADMIN' %}<th>관리</th>{% endif %}
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -47,6 +51,16 @@
                                         <td>{{ mem.rankTitle }}</td>
                                         <td>{{ mem.clubName }}</td>
                                         <td>{{ mem.memberName }}</td>
+                                        {% if session.user_Role == 'ADMIN' %}
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                                    data-toggle="modal" data-target="#cabinetMemberModal"
+                                                    data-mode="edit" data-dstaffno="{{ mem.dstaffNo }}"
+                                                    data-memberno="{{ mem.memberNo }}" data-membername="{{ mem.memberName }}"
+                                                    data-clubname="{{ mem.clubName or '소속 없음' }}"
+                                                    data-rankno="{{ mem.rankNo }}">수정</button>
+                                        </td>
+                                        {% endif %}
                                     </tr>
                                     {% endfor %}
                                    </tbody>
