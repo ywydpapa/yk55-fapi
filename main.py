@@ -2178,6 +2178,13 @@ async def get_member_photo(memberno: int, periodno: int):
     if os.path.exists(versioned_path):
         return FileResponse(versioned_path)
 
+    for previous_period in range(periodno - 1, 0, -1):
+        previous_versioned_path = (
+            f"static/img/members/mphoto_{memberno}_h{previous_period}.png"
+        )
+        if os.path.exists(previous_versioned_path):
+            return FileResponse(previous_versioned_path)
+
     base_path = f"static/img/members/mphoto_{memberno}.png"
     if os.path.exists(base_path):
         return FileResponse(base_path)

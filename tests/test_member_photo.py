@@ -18,14 +18,25 @@ class MemberPhotoTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result, expected_path)
 
-    async def test_uses_base_photo_when_requested_period_photo_is_missing(self):
-        base_path = "static/img/members/mphoto_101.png"
+    async def test_uses_latest_previous_period_photo_before_base_photo(self):
+        latest_previous_path = "static/img/members/mphoto_101_h54.png"
         existing_paths = {
-            "static/img/members/mphoto_101_h55.png",
-            base_path,
+            "static/img/members/mphoto_101_h54.png",
+            "static/img/members/mphoto_101_h52.png",
+            "static/img/members/mphoto_101.png",
         }
         with (
             patch.object(main.os.path, "exists", side_effect=lambda path: path in existing_paths),
+            patch.object(main, "FileResponse", side_effect=lambda path: path),
+        ):
+            result = await main.get_member_photo(101, 56)
+
+        self.assertEqual(result, latest_previous_path)
+
+    async def test_uses_base_photo_when_no_versioned_photo_exists(self):
+        base_path = "static/img/members/mphoto_101.png"
+        with (
+            patch.object(main.os.path, "exists", side_effect=lambda path: path == base_path),
             patch.object(main, "FileResponse", side_effect=lambda path: path),
         ):
             result = await main.get_member_photo(101, 56)
