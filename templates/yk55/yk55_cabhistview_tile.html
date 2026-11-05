@@ -16,26 +16,28 @@
             <div class="container-fluid">
                 <!-- Page Heading -->
                 <div class="card shadow mb-4">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary"><a href="/yk55cabhist">{{periodno}}대 지구캐비넷</a>
-                        </h6> <a href="/yk55cabhist_view/{{periodno}}">리스트로 보기</a>
+                    <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                        <div>
+                            <h6 class="m-0 font-weight-bold text-primary"><a href="/yk55cabhist">{{periodno}}대 지구캐비넷</a></h6>
+                            <a href="/yk55cabhist_view/{{periodno}}">리스트로 보기</a>
+                        </div>
+                        {% if session.user_Role == 'ADMIN' %}
+                        <button type="button" class="btn btn-sm btn-primary" data-toggle="modal" data-target="#cabinetMemberModal">회원 등록</button>
+                        {% endif %}
                     </div>
                     <div class="card-body">
+                        {% if request.query_params.get('added') == '1' %}
+                        <div class="alert alert-success" role="status">
+                            회원을 지구 캐비넷에 등록했습니다.
+                            {% if request.query_params.get('previous_added') == '1' %}직전 회기 지구총재도 직전지구총재로 자동 등록했습니다.{% endif %}
+                        </div>
+                        {% endif %}
                         <style>
-                            @media (min-width: 1200px) {
-                                .col-xl-2-4 {
-                                    flex: 0 0 20%;
-                                    max-width: 20%;
-                                }
-                            }
-
-                            /* 카드 폭을 줄여서 전체(사진 포함)가 작게 보이게 */
                             .member-card {
                                 width: 100%;
-                                max-width: 130px; /* 원하는 카드 크기: 160~220px 사이로 조절 */
+                                max-width: 130px;
                             }
 
-                            /* 사진은 카드 폭에 딱 맞게(가득) */
                             .member-photo-wrap {
                                 width: 100%;
                                 aspect-ratio: 3 / 4;
@@ -50,59 +52,95 @@
                                 object-fit: cover;
                                 display: block;
                             }
+
+                            .cabinet-tier {
+                                display: flex;
+                                flex-wrap: wrap;
+                                justify-content: center;
+                                align-items: stretch;
+                                gap: 8px;
+                            }
+
+                            .cabinet-tier-primary {
+                                margin-top: 1rem;
+                            }
+
+                            .cabinet-tier-support {
+                                margin-top: 0.5rem;
+                            }
+
+                            .cabinet-card-slot {
+                                width: 130px;
+                                margin-bottom: 0.25rem;
+                            }
+
+                            .cabinet-card-rank {
+                                min-height: 2.5rem;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-weight: bold;
+                                font-size: 0.85rem;
+                            }
                         </style>
 
-                        {% set ns = namespace(prev_rank=None, row_open=false) %}
-                        {% for mem in membs %}
-                        {% if ns.prev_rank != mem.rankTitle %}
-                        {% if ns.row_open %}
-                    </div>
-                    {# /.row #}
-                    {% endif %}
-                    <div class="mt-4 mb-2 d-flex align-items-center justify-content-between">
-                        <h6 class="m-0 font-weight-bold text-primary">
-                            {{ mem.rankTitle }}
-                        </h6>
-                    </div>
-                    <hr class="mt-2 mb-3">
-                    <div class="row gx-2">
-                        {% set ns.row_open = true %}
-                        {% set ns.prev_rank = mem.rankTitle %}
-                        {% endif %}
-                        <div class="col-6 col-md-4 col-lg-3 col-xl-2-4 mb-3 d-flex justify-content-center">
+                        {% macro cabinet_member_card(mem) %}
+                        <div class="cabinet-card-slot">
                             <div class="card h-100 shadow-sm member-card">
-                                <!-- 카드 상단 사진 -->
                                 <div class="member-photo-wrap">
-                                    <!-- 백엔드의 이미지 제공 API를 호출합니다. 캐시 방지를 위해 난수를 붙여줍니다. -->
                                     <img src="/api/member_photo/{{ mem.memberNo }}/{{ periodno }}?v={{ range(1, 99999) | random }}"
                                          alt="{{ mem.memberName }} 사진" class="member-photo">
                                 </div>
-                                <div class="card-body p-3 text-center">
-                                    <div class="mt-2 font-weight-bold" style="font-size: 1rem;">
+                                <div class="card-body p-2 text-center">
+                                    <div class="cabinet-card-rank">{{ mem.rankTitle }}</div>
+                                    <div class="font-weight-bold" style="font-size: 0.95rem;">
                                         {% if session.user_Role == 'ADMIN' %}
-                                        <!-- 링크 대신 모달 호출 버튼으로 변경 -->
                                         <a href="#" class="text-primary photo-edit-btn"
                                            data-toggle="modal"
                                            data-target="#photoModal"
                                            data-memberno="{{ mem.memberNo }}"
-                                           data-membername="{{ mem.memberName }}">
-                                            {{ mem.memberName }}
-                                        </a>
+                                           data-membername="{{ mem.memberName }}">{{ mem.memberName }}</a>
                                         {% else %}
                                         {{ mem.memberName }}
                                         {% endif %}
                                     </div>
-                                    <div class="text-muted" style="font-size: 0.9rem;">
-                                        ({{ mem.clubName }})
-                                    </div>
+                                    <div class="text-muted" style="font-size: 0.85rem;">({{ mem.clubName }})</div>
                                 </div>
-
                             </div>
                         </div>
-                        {% endfor %}
-                        {% if ns.row_open %}
-                    </div>
-                    {% endif %}
+                        {% endmacro %}
+
+                        {% set governors = membs | selectattr('rankTitle', 'equalto', '지구총재') | list %}
+                        {% set former_governors = membs | selectattr('rankTitle', 'equalto', '직전지구총재') | list %}
+                        {% set vice_governors = (membs | selectattr('rankTitle', 'equalto', '지구 제1부총재') | list) + (membs | selectattr('rankTitle', 'equalto', '지구 제2부총재') | list) %}
+                        {% set secretaries = (membs | selectattr('rankTitle', 'equalto', '사무총장') | list) + (membs | selectattr('rankTitle', 'equalto', '재무총장') | list) + (membs | selectattr('rankTitle', 'equalto', '기획총장') | list) %}
+                        {% set deputy_secretaries = (membs | selectattr('rankTitle', 'equalto', '수석부총장') | list) + (membs | selectattr('rankTitle', 'equalto', '사무부총장') | list) + (membs | selectattr('rankTitle', 'equalto', '재무부총장') | list) %}
+
+                        {% if governors %}
+                        <div class="cabinet-tier cabinet-tier-primary">
+                            {% for mem in governors %}{{ cabinet_member_card(mem) }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if former_governors %}
+                        <div class="cabinet-tier cabinet-tier-support">
+                            {% for mem in former_governors %}{{ cabinet_member_card(mem) }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if vice_governors %}
+                        <div class="cabinet-tier cabinet-tier-support">
+                            {% for mem in vice_governors %}{{ cabinet_member_card(mem) }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if secretaries %}
+                        <div class="cabinet-tier cabinet-tier-support">
+                            {% for mem in secretaries %}{{ cabinet_member_card(mem) }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if deputy_secretaries %}
+                        <div class="cabinet-tier cabinet-tier-support">
+                            {% for mem in deputy_secretaries %}{{ cabinet_member_card(mem) }}{% endfor %}
+                        </div>
+                        {% endif %}
                 </div>
             </div>
         </div>
@@ -165,6 +203,7 @@
 </a>
 
 <!-- Bootstrap core JavaScript-->
+{% include '/yk55/_cabhist_add_modal.html' %}
 {% include '/common/commonScript.html' %}
 
 <script>

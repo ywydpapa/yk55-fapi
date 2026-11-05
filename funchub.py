@@ -448,14 +448,37 @@ async def get_cabhist(periodno: int, db: AsyncSession):
     return [dict(row._mapping) for row in result.fetchall()]
 
 async def get_cabhist_wname(periodno: int, db: AsyncSession):
-    query = text("""SELECT a.*, b.rankTitle, c.memberName, d.clubName, b.sortNo
+    query = text("""SELECT a.*,
+                           CASE b.rankTitle
+                               WHEN '지구1부총재' THEN '지구 제1부총재'
+                               WHEN '지구2부총재' THEN '지구 제2부총재'
+                               ELSE b.rankTitle
+                           END as rankTitle,
+                           c.memberName, d.clubName, b.sortNo
                     from yk_distStaff a
                              left join yk_rank b on a.rankNo = b.rankNo
                              left join yk_members c on a.memberNo = c.memberNo
                              left join yk_club d on a.clubNo = d.clubNo
-                    where a.attrib = :xapp and b.rankTitle in ('지구총재','사무총장', '재무총장', '기획총장', '수석부총장', '사무부총장', '재무부총장')
+                    where a.attrib = :xapp
+                      and b.attrib = :xapp
+                      and b.rankTitle in ('지구총재', '지구1부총재', '지구2부총재',
+                                          '사무총장', '재무총장', '기획총장',
+                                          '수석부총장', '사무부총장', '재무부총장',
+                                          '직전지구총재')
                       and a.periodNo = :pno
-                    order by b.sortNo""")
+                    order by CASE b.rankTitle
+                                 WHEN '지구총재' THEN 1
+                                 WHEN '지구1부총재' THEN 2
+                                 WHEN '지구2부총재' THEN 3
+                                 WHEN '사무총장' THEN 4
+                                 WHEN '재무총장' THEN 5
+                                 WHEN '기획총장' THEN 6
+                                 WHEN '수석부총장' THEN 7
+                                 WHEN '사무부총장' THEN 8
+                                 WHEN '재무부총장' THEN 9
+                                 WHEN '직전지구총재' THEN 10
+                                 ELSE 100
+                             END, b.sortNo, c.memberName""")
     result = await db.execute(query, {"xapp": "1000010000", "pno": periodno})
     return [dict(row._mapping) for row in result.fetchall()]
 

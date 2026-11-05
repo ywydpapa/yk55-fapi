@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    {% include '/common/commHeader.html' %}
+</head>
+<body id="page-top">
+<div id="wrapper">
+    {% include '/common/sidebar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content">
+            {% include '/common/topbar.html' %}
+            <div class="container-fluid">
+                <h1 class="h3 mb-3 text-gray-800">지구 행사 엑셀 가져오기 미리보기</h1>
+                {% if error_message %}
+                <div class="alert alert-danger" role="alert">{{ error_message }}</div>
+                {% else %}
+                <div class="alert alert-info">
+                    총 {{ rows|length }}개 행입니다. 중복 행은 등록하지 않습니다.
+                    {% if not can_confirm %}오류가 있는 행을 수정한 뒤 파일을 다시 업로드해 주세요. 이번 미리보기는 등록할 수 없습니다.{% endif %}
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead>
+                        <tr>
+                            <th>엑셀 행</th>
+                            <th>행사명</th>
+                            <th>시작일시</th>
+                            <th>종료일시</th>
+                            <th>회기번호</th>
+                            <th>장소</th>
+                            <th>상태</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for row in rows %}
+                        <tr class="{% if row.error %}table-danger{% elif row.duplicate %}table-warning{% else %}table-success{% endif %}">
+                            <td>{{ row.rowNumber }}</td>
+                            <td>{{ row.eventTitle }}</td>
+                            <td>{{ row.eventFrom }}</td>
+                            <td>{{ row.eventTo }}</td>
+                            <td>{{ row.periodNo }}</td>
+                            <td>{{ row.locationTitle or '장소 미정' }}</td>
+                            <td>
+                                {% if row.error %}오류: {{ row.error }}
+                                {% elif row.duplicate %}중복 — 건너뜀
+                                {% else %}등록 예정{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if can_confirm %}
+                <form method="post" action="/dist_event_import_confirm">
+                    <input type="hidden" name="rows_json" value="{{ rows_json }}">
+                    <button class="btn btn-primary" type="submit">확인 후 등록</button>
+                </form>
+                {% endif %}
+                {% endif %}
+                <a class="btn btn-secondary mt-2" href="/dist_eventlist">행사 목록으로 돌아가기</a>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

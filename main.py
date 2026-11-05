@@ -3,6 +3,7 @@ import calendar
 import re
 import secrets
 import html
+import json
 import zipfile
 from io import BytesIO
 from datetime import date
@@ -21,6 +22,27 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import bindparam, text
 import webhard
+from event_import import (
+    EVENT_IMPORT_COLUMNS,
+    MAX_EVENT_IMPORT_ROWS,
+    EventImportError,
+    event_duplicate_key,
+    parse_event_workbook,
+    validate_event_rows,
+)
+
+CABINET_ROLE_TITLES = {
+    "지구총재": "지구총재",
+    "사무총장": "사무총장",
+    "재무총장": "재무총장",
+    "기획총장": "기획총장",
+    "수석부총장": "수석부총장",
+    "사무부총장": "사무부총장",
+    "재무부총장": "재무부총장",
+    "지구1부총재": "지구 제1부총재",
+    "지구2부총재": "지구 제2부총재",
+}
+CABINET_PREVIOUS_GOVERNOR_TITLE = "직전지구총재"
 
 import funchub
 # ✅ funchub.py에서 분리한 모든 함수와 상수를 가져옵니다.
@@ -622,6 +644,191 @@ async def ceventedit(request: Request, eventno: int, db: AsyncSession = Depends(
 @app.get("/dist_eventedit/{eventno}", response_class=HTMLResponse)
 async def deventedit(request: Request, eventno: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
     return templates.TemplateResponse("dist/dist_eventedit.html", {"request": request, "session": dict(request.session), "periodlist": await getperiod(db), "eventdtl": await get_eventdtl(eventno, db)})
+
+async def _validate_district_event_rows(rows: list[dict], db: AsyncSession) -> list[dict]:
+    periods_result = await db.execute(
+        text("SELECT periodNo FROM yk_period WHERE attrib = :attrib"),
+        {"attrib": "1000010000"},
+    )
+    valid_periods = {int(row[0]) for row in periods_result.fetchall()}
+    locations_result = await db.execute(
+        text("SELECT locationNo, locationTitle FROM yk_location WHERE attrib = :attrib"),
+        {"attrib": "1000010000"},
+    )
+    location_ids_by_title = {
+        str(row.locationTitle).strip().casefold(): int(row.locationNo)
+        for row in locations_result.fetchall()
+    }
+    return validate_event_rows(rows, valid_periods, location_ids_by_title)
+
+
+async def _district_event_duplicate_keys(
+    rows: list[dict], db: AsyncSession
+) -> set[tuple[str, str, int]]:
+    period_numbers = sorted({int(row["periodNo"]) for row in rows})
+    if not period_numbers:
+        return set()
+    query = text(
+        "SELECT eventTitle, eventFrom, periodNo FROM yk_event "
+        "WHERE attrib = :attrib AND eventType = 'DISTE' AND periodNo IN :periods"
+    ).bindparams(bindparam("periods", expanding=True))
+    result = await db.execute(query, {"attrib": "1000010000", "periods": period_numbers})
+    existing = set()
+    for row in result.mappings().all():
+        try:
+            existing.add(event_duplicate_key(dict(row)))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return existing
+
+
+@app.get("/dist_event_import_template")
+async def district_event_import_template(
+    request: Request, user_no: int = Depends(get_current_user)
+):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "행사"
+    headers = [header for header, _ in EVENT_IMPORT_COLUMNS]
+    worksheet.append(headers)
+    worksheet.freeze_panes = "A2"
+    worksheet.auto_filter.ref = f"A1:{chr(64 + len(headers))}1"
+    for cell in worksheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="4E73DF")
+    for column, width in zip("ABCDEFGH", (28, 16, 22, 22, 14, 28, 14, 14)):
+        worksheet.column_dimensions[column].width = width
+
+    guide = workbook.create_sheet("안내")
+    guide.append(["열 이름", "작성 안내"])
+    guide_rows = [
+        ("행사명", "필수"),
+        ("행사종류", "지구 행사에서는 DISTE 입력. 비우면 DISTE"),
+        ("시작일시 / 종료일시", "필수. 엑셀 날짜·시간 또는 YYYY-MM-DD HH:MM"),
+        ("회기번호", "필수. 회기 관리 화면의 회기번호 입력"),
+        ("장소", "등록된 장소명 입력. 비우면 장소 미정"),
+        ("소요비용 / 배치순서", "비우면 각각 10000 / 100으로 등록"),
+        ("행 제한", f"한 번에 최대 {MAX_EVENT_IMPORT_ROWS}개 행사"),
+    ]
+    for row in guide_rows:
+        guide.append(row)
+    guide.column_dimensions["A"].width = 28
+    guide.column_dimensions["B"].width = 70
+    guide.freeze_panes = "A2"
+    output = BytesIO()
+    workbook.save(output)
+    workbook.close()
+    return Response(
+        output.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="district_events_template.xlsx"'},
+    )
+
+
+@app.post("/dist_event_import_preview", response_class=HTMLResponse)
+async def district_event_import_preview(
+    request: Request,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(get_current_user),
+):
+    if not file.filename or Path(file.filename).suffix.lower() != ".xlsx":
+        raise HTTPException(status_code=400, detail=".xlsx 파일만 업로드할 수 있습니다.")
+    contents = await file.read(5 * 1024 * 1024 + 1)
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="파일 크기는 5MB 이하여야 합니다.")
+    try:
+        source_rows = parse_event_workbook(contents)
+    except EventImportError as exc:
+        return templates.TemplateResponse(
+            "dist/eventimportpreview.html",
+            {
+                "request": request,
+                "session": dict(request.session),
+                "rows": [],
+                "rows_json": "[]",
+                "error_message": str(exc),
+                "can_confirm": False,
+            },
+            status_code=400,
+        )
+
+    rows = await _validate_district_event_rows(source_rows, db)
+    duplicate_keys = await _district_event_duplicate_keys(
+        [row for row in rows if not row["error"]], db
+    )
+    seen = set(duplicate_keys)
+    for row in rows:
+        row["duplicate"] = False
+        if row["error"]:
+            continue
+        key = event_duplicate_key(row)
+        row["duplicate"] = key in seen
+        seen.add(key)
+
+    return templates.TemplateResponse(
+        "dist/eventimportpreview.html",
+        {
+            "request": request,
+            "session": dict(request.session),
+            "rows": rows,
+            "rows_json": json.dumps(rows, ensure_ascii=False),
+            "error_message": "",
+            "can_confirm": all(not row["error"] for row in rows),
+        },
+    )
+
+
+@app.post("/dist_event_import_confirm")
+async def district_event_import_confirm(
+    request: Request,
+    rows_json: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(get_current_user),
+):
+    try:
+        submitted_rows = json.loads(rows_json)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="미리보기 데이터가 올바르지 않습니다.") from exc
+    if not isinstance(submitted_rows, list) or not 1 <= len(submitted_rows) <= MAX_EVENT_IMPORT_ROWS:
+        raise HTTPException(status_code=400, detail="등록할 행사 행 수가 올바르지 않습니다.")
+    if any(not isinstance(row, dict) for row in submitted_rows):
+        raise HTTPException(status_code=400, detail="행사 미리보기 데이터 형식이 올바르지 않습니다.")
+
+    inserted = 0
+    skipped = 0
+    async with db.begin():
+        rows = await _validate_district_event_rows(submitted_rows, db)
+        if any(row["error"] for row in rows):
+            raise HTTPException(status_code=400, detail="행사 정보를 다시 확인한 후 가져오기를 진행해 주세요.")
+        duplicate_keys = await _district_event_duplicate_keys(rows, db)
+        for row in rows:
+            key = event_duplicate_key(row)
+            if key in duplicate_keys:
+                skipped += 1
+                continue
+            await db.execute(
+                text(
+                    "INSERT INTO yk_event "
+                    "(eventTitle, eventType, eventFrom, eventTo, periodNo, eventCost, sortNo, locationNo) "
+                    "VALUES (:eventTitle, :eventType, :eventFrom, :eventTo, :periodNo, :eventCost, :sortNo, :locationNo)"
+                ),
+                {
+                    field: row[field]
+                    for field in (
+                        "eventTitle", "eventType", "eventFrom", "eventTo",
+                        "periodNo", "eventCost", "sortNo", "locationNo",
+                    )
+                },
+            )
+            duplicate_keys.add(key)
+            inserted += 1
+    return RedirectResponse(
+        f"/dist_eventlist?imported={inserted}&skipped={skipped}", status_code=303
+    )
 
 @app.post("/club_eventinsert/{clubno}")
 async def save_devent(request: Request,clubno:int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
@@ -1610,14 +1817,194 @@ async def yk55cabhist(request: Request, db: AsyncSession = Depends(get_db), user
 @app.get("/yk55cabhist_view/{periodno}", response_class=HTMLResponse)
 async def yk55cabhist_view(request: Request, periodno: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
     cabs = await get_cabhist_wname(periodno, db)
+    cabinet_ranks = await _get_cabinet_ranks(db) if request.session.get("user_Role") == "ADMIN" else []
     return templates.TemplateResponse("yk55/yk55_cabhistview.html",
-                                          {"request": request, "session": dict(request.session), "membs": cabs, "periodno": periodno,})
+                                          {"request": request, "session": dict(request.session), "membs": cabs, "periodno": periodno, "cabinet_ranks": cabinet_ranks})
 
 @app.get("/yk55cabhist_tview/{periodno}", response_class=HTMLResponse)
 async def yk55cabhisttv(request: Request, periodno: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
     cabs = await get_cabhist_wname(periodno, db)
+    cabinet_ranks = await _get_cabinet_ranks(db) if request.session.get("user_Role") == "ADMIN" else []
     return templates.TemplateResponse("yk55/yk55_cabhistview_tile.html",
-                                          {"request": request, "session": dict(request.session), "membs": cabs, "periodno": periodno})
+                                          {"request": request, "session": dict(request.session), "membs": cabs, "periodno": periodno, "cabinet_ranks": cabinet_ranks})
+
+async def _get_cabinet_ranks(db: AsyncSession) -> list[dict]:
+    result = await db.execute(
+        text(
+            "SELECT rankNo, rankTitle FROM yk_rank "
+            "WHERE attrib = :attrib AND rankTitle IN :titles"
+        ).bindparams(bindparam("titles", expanding=True)),
+        {"attrib": "1000010000", "titles": list(CABINET_ROLE_TITLES)},
+    )
+    ranks = [
+        {
+            "rankNo": int(row.rankNo),
+            "rankTitle": CABINET_ROLE_TITLES[row.rankTitle],
+            "rankSourceTitle": row.rankTitle,
+        }
+        for row in result.fetchall()
+    ]
+    ranks.sort(key=lambda rank: list(CABINET_ROLE_TITLES).index(rank["rankSourceTitle"]))
+    return ranks
+
+
+@app.get("/api/yk55/cabinet-members")
+async def yk55_cabinet_members(
+    q: str = Query(..., min_length=2, max_length=50),
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(require_admin),
+):
+    search_text = q.strip().replace("%", "").replace("_", "")
+    if len(search_text) < 2:
+        raise HTTPException(status_code=400, detail="회원 이름이나 클럽명을 두 글자 이상 입력해 주세요.")
+    result = await db.execute(
+        text(
+            "SELECT m.memberNo, m.memberName, m.clubNo, c.clubName "
+            "FROM yk_members m LEFT JOIN yk_club c ON c.clubNo = m.clubNo "
+            "WHERE m.attrib = :attrib AND "
+            "(m.memberName LIKE :term OR c.clubName LIKE :term) "
+            "ORDER BY m.memberName LIMIT 30"
+        ),
+        {"attrib": "1000010000", "term": f"%{search_text}%"},
+    )
+    return {
+        "members": [
+            {
+                "memberNo": row.memberNo,
+                "memberName": row.memberName,
+                "clubNo": row.clubNo,
+                "clubName": row.clubName or "소속 없음",
+            }
+            for row in result.fetchall()
+        ]
+    }
+
+
+@app.post("/yk55cabhist_insert/{periodno}")
+async def yk55_cabinet_insert(
+    request: Request,
+    periodno: int,
+    member_no: int = Form(..., alias="memberNo"),
+    rank_no: int = Form(..., alias="rankNo"),
+    view_type: str = Form("card", alias="viewType"),
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(require_admin),
+):
+    if view_type not in {"card", "list"}:
+        raise HTTPException(status_code=400, detail="화면 형식이 올바르지 않습니다.")
+    previous_added = False
+    async with db.begin():
+        period_result = await db.execute(
+            text("SELECT periodNo FROM yk_period WHERE periodNo = :periodNo AND attrib = :attrib"),
+            {"periodNo": periodno, "attrib": "1000010000"},
+        )
+        if period_result.first() is None:
+            raise HTTPException(status_code=404, detail="회기 정보를 찾을 수 없습니다.")
+
+        rank_result = await db.execute(
+            text(
+                "SELECT rankNo FROM yk_rank "
+                "WHERE rankNo = :rankNo AND rankTitle IN :titles AND attrib = :attrib"
+            ).bindparams(bindparam("titles", expanding=True)),
+            {
+                "rankNo": rank_no,
+                "titles": list(CABINET_ROLE_TITLES),
+                "attrib": "1000010000",
+            },
+        )
+        if rank_result.first() is None:
+            raise HTTPException(status_code=400, detail="지구 캐비넷에 등록할 수 없는 직책입니다.")
+
+        member_result = await db.execute(
+            text(
+                "SELECT memberNo, clubNo FROM yk_members "
+                "WHERE memberNo = :memberNo AND attrib = :attrib"
+            ),
+            {"memberNo": member_no, "attrib": "1000010000"},
+        )
+        member = member_result.mappings().first()
+        if member is None:
+            raise HTTPException(status_code=400, detail="회원을 찾을 수 없습니다.")
+
+        await db.execute(
+            text(
+                "INSERT INTO yk_distStaff (periodNo, clubNo, rankNo, memberNo, attrib) "
+                "VALUES (:periodNo, :clubNo, :rankNo, :memberNo, :attrib) "
+                "ON DUPLICATE KEY UPDATE dstaffNo = dstaffNo"
+            ),
+            {
+                "periodNo": periodno,
+                "clubNo": member["clubNo"],
+                "rankNo": rank_no,
+                "memberNo": member_no,
+                "attrib": "1000010000",
+            },
+        )
+
+        prior_governor_result = await db.execute(
+            text(
+                "SELECT s.memberNo, s.clubNo "
+                "FROM yk_distStaff s "
+                "JOIN yk_rank r ON r.rankNo = s.rankNo AND r.attrib = s.attrib "
+                "WHERE s.attrib = :attrib AND s.periodNo = :priorPeriod "
+                "AND r.rankTitle = '지구총재' "
+                "ORDER BY s.dstaffNo DESC LIMIT 1"
+            ),
+            {"attrib": "1000010000", "priorPeriod": periodno - 1},
+        )
+        prior_governor = prior_governor_result.mappings().first()
+        if prior_governor:
+            former_rank_result = await db.execute(
+                text(
+                    "SELECT rankNo FROM yk_rank "
+                    "WHERE rankTitle = :rankTitle AND attrib = :attrib"
+                ),
+                {
+                    "rankTitle": CABINET_PREVIOUS_GOVERNOR_TITLE,
+                    "attrib": "1000010000",
+                },
+            )
+            former_rank = former_rank_result.first()
+            if former_rank is None:
+                raise HTTPException(
+                    status_code=500, detail="직전지구총재 직책 정보를 찾을 수 없습니다."
+                )
+            existing_former_result = await db.execute(
+                text(
+                    "SELECT dstaffNo FROM yk_distStaff "
+                    "WHERE attrib = :attrib AND periodNo = :periodNo "
+                    "AND rankNo = :rankNo LIMIT 1"
+                ),
+                {
+                    "attrib": "1000010000",
+                    "periodNo": periodno,
+                    "rankNo": former_rank[0],
+                },
+            )
+            if existing_former_result.first() is None:
+                await db.execute(
+                    text(
+                        "INSERT INTO yk_distStaff "
+                        "(periodNo, clubNo, rankNo, memberNo, attrib) "
+                        "VALUES (:periodNo, :clubNo, :rankNo, :memberNo, :attrib) "
+                        "ON DUPLICATE KEY UPDATE dstaffNo = dstaffNo"
+                    ),
+                    {
+                        "periodNo": periodno,
+                        "clubNo": prior_governor["clubNo"],
+                        "rankNo": former_rank[0],
+                        "memberNo": prior_governor["memberNo"],
+                        "attrib": "1000010000",
+                    },
+                )
+                previous_added = True
+
+    destination = "tview" if view_type == "card" else "view"
+    return RedirectResponse(
+        f"/yk55cabhist_{destination}/{periodno}"
+        f"?added=1&previous_added={1 if previous_added else 0}",
+        status_code=303,
+    )
 
 @app.get("/yk55servhist", response_class=HTMLResponse)
 async def yk55servhist(request: Request, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):

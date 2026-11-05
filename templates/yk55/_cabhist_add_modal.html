@@ -1,0 +1,124 @@
+{% if session.user_Role == 'ADMIN' %}
+<div class="modal fade" id="cabinetMemberModal" tabindex="-1" role="dialog" aria-labelledby="cabinetMemberModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form method="post" action="/yk55cabhist_insert/{{ periodno }}">
+                <input type="hidden" name="viewType" value="{{ 'card' if request.url.path.startswith('/yk55cabhist_tview/') else 'list' }}">
+                <input type="hidden" id="cabinetMemberNo" name="memberNo" value="">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="cabinetMemberModalLabel">{{ periodno }}대 지구캐비넷 회원 등록</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="닫기">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">등록 시 직전 회기의 지구총재가 있으면 직전지구총재로 자동 등록됩니다.</p>
+                    <div class="form-group">
+                        <label for="cabinetRankNo">직책</label>
+                        <select class="form-control" id="cabinetRankNo" name="rankNo" required>
+                            <option value="">직책을 선택하세요</option>
+                            {% for rank in cabinet_ranks %}
+                            <option value="{{ rank.rankNo }}">{{ rank.rankTitle }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="cabinetMemberSearch">회원 검색</label>
+                        <div class="input-group">
+                            <input type="search" class="form-control" id="cabinetMemberSearch" maxlength="50" placeholder="회원명 또는 클럽명 (2자 이상)">
+                            <div class="input-group-append">
+                                <button type="button" class="btn btn-outline-primary" id="cabinetMemberSearchButton">검색</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="cabinetMemberResults" class="list-group mb-3" aria-live="polite"></div>
+                    <div id="cabinetMemberSearchMessage" class="small text-muted" role="status"></div>
+                    <div class="alert alert-secondary mb-0">
+                        선택한 회원: <strong id="cabinetSelectedMember">선택되지 않음</strong>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">취소</button>
+                    <button type="submit" class="btn btn-primary" id="cabinetMemberSubmit" disabled>등록</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+    (function () {
+        const searchInput = document.getElementById('cabinetMemberSearch');
+        const searchButton = document.getElementById('cabinetMemberSearchButton');
+        const results = document.getElementById('cabinetMemberResults');
+        const message = document.getElementById('cabinetMemberSearchMessage');
+        const selectedMemberNo = document.getElementById('cabinetMemberNo');
+        const selectedMemberLabel = document.getElementById('cabinetSelectedMember');
+        const submitButton = document.getElementById('cabinetMemberSubmit');
+        let searchTimer;
+
+        async function searchMembers() {
+            const query = searchInput.value.trim();
+            results.replaceChildren();
+            if (query.length < 2) {
+                message.textContent = '회원명이나 클럽명을 두 글자 이상 입력해 주세요.';
+                return;
+            }
+
+            message.textContent = '검색 중...';
+            try {
+                const response = await fetch('/api/yk55/cabinet-members?q=' + encodeURIComponent(query));
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || '회원 검색에 실패했습니다.');
+                }
+                results.replaceChildren();
+                if (data.members.length === 0) {
+                    message.textContent = '검색 결과가 없습니다.';
+                    return;
+                }
+                data.members.forEach(function (member) {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'list-group-item list-group-item-action';
+                    button.textContent = member.memberName + ' (' + member.clubName + ')';
+                    button.addEventListener('click', function () {
+                        selectedMemberNo.value = member.memberNo;
+                        selectedMemberLabel.textContent = button.textContent;
+                        submitButton.disabled = false;
+                        results.querySelectorAll('button').forEach(function (item) {
+                            item.classList.remove('active');
+                        });
+                        button.classList.add('active');
+                    });
+                    results.appendChild(button);
+                });
+                message.textContent = '검색 결과 ' + data.members.length + '명 (최대 30명)';
+            } catch (error) {
+                message.textContent = error.message;
+            }
+        }
+
+        searchButton.addEventListener('click', searchMembers);
+        searchInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                searchMembers();
+            }
+        });
+        searchInput.addEventListener('input', function () {
+            selectedMemberNo.value = '';
+            selectedMemberLabel.textContent = '선택되지 않음';
+            submitButton.disabled = true;
+            window.clearTimeout(searchTimer);
+            searchTimer = window.setTimeout(searchMembers, 350);
+        });
+        document.getElementById('cabinetMemberModal').addEventListener('hidden.bs.modal', function () {
+            selectedMemberNo.value = '';
+            selectedMemberLabel.textContent = '선택되지 않음';
+            submitButton.disabled = true;
+            results.replaceChildren();
+            message.textContent = '';
+        });
+    })();
+</script>
+{% endif %}

@@ -16,10 +16,22 @@
             <div class="container-fluid">
                 <!-- Page Heading -->
                 <div class="card shadow mb-4">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary"><a href="/yk55cabhist">{{periodno}}대 지구캐비넷</a></h6> <a href="/yk55cabhist_tview/{{periodno}}">카드로 보기</a>
+                    <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                        <div>
+                            <h6 class="m-0 font-weight-bold text-primary"><a href="/yk55cabhist">{{periodno}}대 지구캐비넷</a></h6>
+                            <a href="/yk55cabhist_tview/{{periodno}}">카드로 보기</a>
+                        </div>
+                        {% if session.user_Role == 'ADMIN' %}
+                        <button type="button" class="btn btn-sm btn-primary" data-toggle="modal" data-target="#cabinetMemberModal">회원 등록</button>
+                        {% endif %}
                     </div>
                     <div class="card-body">
+                        {% if request.query_params.get('added') == '1' %}
+                        <div class="alert alert-success" role="status">
+                            회원을 지구 캐비넷에 등록했습니다.
+                            {% if request.query_params.get('previous_added') == '1' %}직전 회기 지구총재도 직전지구총재로 자동 등록했습니다.{% endif %}
+                        </div>
+                        {% endif %}
                         <div class="table-responsive">
                             <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
                                     <thead>
@@ -64,6 +76,7 @@
     <i class="fas fa-angle-up"></i>
 </a>
 <!-- Bootstrap core JavaScript-->
+{% include '/yk55/_cabhist_add_modal.html' %}
 {% include '/common/commonScript.html' %}
 
 </body>
