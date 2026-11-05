@@ -138,19 +138,24 @@ class CabinetRegistrationTests(unittest.IsolatedAsyncioTestCase):
             for role in (
                 "지구총재", "직전지구총재",
                 "지구 제1부총재", "지구 제2부총재",
+                "수석부총장",
                 "사무총장", "재무총장", "기획총장",
-                "수석부총장", "사무부총장", "재무부총장",
+                "사무부총장", "재무부총장",
             )
         ]
 
         self.assertEqual(role_positions, sorted(role_positions))
         self.assertLess(
+            body.index("지구 제2부총재".encode("utf-8")),
             body.index("수석부총장".encode("utf-8")),
-            body.index("사무부총장".encode("utf-8")),
         )
         self.assertLess(
-            body.index("재무총장".encode("utf-8")),
+            body.index("수석부총장".encode("utf-8")),
+            body.index("사무총장".encode("utf-8")),
+        )
+        self.assertLess(
             body.index("기획총장".encode("utf-8")),
+            body.index("사무부총장".encode("utf-8")),
         )
         self.assertIn(b'data-mode="edit"', body)
         self.assertIn(b'data-target="#cabinetMemberModal"', body)

@@ -468,15 +468,15 @@ async def get_cabhist_wname(periodno: int, db: AsyncSession):
                       and a.periodNo = :pno
                     order by CASE b.rankTitle
                                  WHEN '지구총재' THEN 1
-                                 WHEN '지구1부총재' THEN 2
-                                 WHEN '지구2부총재' THEN 3
-                                 WHEN '사무총장' THEN 4
-                                 WHEN '재무총장' THEN 5
-                                 WHEN '기획총장' THEN 6
-                                 WHEN '수석부총장' THEN 7
-                                 WHEN '사무부총장' THEN 8
-                                 WHEN '재무부총장' THEN 9
-                                 WHEN '직전지구총재' THEN 10
+                                 WHEN '직전지구총재' THEN 2
+                                 WHEN '지구1부총재' THEN 3
+                                 WHEN '지구2부총재' THEN 4
+                                 WHEN '수석부총장' THEN 5
+                                 WHEN '사무총장' THEN 6
+                                 WHEN '재무총장' THEN 7
+                                 WHEN '기획총장' THEN 8
+                                 WHEN '사무부총장' THEN 9
+                                 WHEN '재무부총장' THEN 10
                                  ELSE 100
                              END, b.sortNo, c.memberName""")
     result = await db.execute(query, {"xapp": "1000010000", "pno": periodno})

@@ -163,8 +163,9 @@
                         {% set governors = membs | selectattr('rankTitle', 'equalto', '지구총재') | list %}
                         {% set former_governors = membs | selectattr('rankTitle', 'equalto', '직전지구총재') | list %}
                         {% set vice_governors = (membs | selectattr('rankTitle', 'equalto', '지구 제1부총재') | list) + (membs | selectattr('rankTitle', 'equalto', '지구 제2부총재') | list) %}
+                        {% set chief_deputy_governors = membs | selectattr('rankTitle', 'equalto', '수석부총장') | list %}
                         {% set secretaries = (membs | selectattr('rankTitle', 'equalto', '사무총장') | list) + (membs | selectattr('rankTitle', 'equalto', '재무총장') | list) + (membs | selectattr('rankTitle', 'equalto', '기획총장') | list) %}
-                        {% set deputy_secretaries = (membs | selectattr('rankTitle', 'equalto', '수석부총장') | list) + (membs | selectattr('rankTitle', 'equalto', '사무부총장') | list) + (membs | selectattr('rankTitle', 'equalto', '재무부총장') | list) %}
+                        {% set deputy_secretaries = (membs | selectattr('rankTitle', 'equalto', '사무부총장') | list) + (membs | selectattr('rankTitle', 'equalto', '재무부총장') | list) %}
 
                         {% if governors %}
                         <div class="cabinet-tier cabinet-tier-primary">
@@ -179,6 +180,11 @@
                         {% if vice_governors %}
                         <div class="cabinet-tier cabinet-tier-support">
                             {% for mem in vice_governors %}{{ cabinet_member_card(mem) }}{% endfor %}
+                        </div>
+                        {% endif %}
+                        {% if chief_deputy_governors %}
+                        <div class="cabinet-tier cabinet-tier-support">
+                            {% for mem in chief_deputy_governors %}{{ cabinet_member_card(mem) }}{% endfor %}
                         </div>
                         {% endif %}
                         {% if secretaries %}
