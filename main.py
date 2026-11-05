@@ -47,6 +47,21 @@ CABINET_EDIT_ROLE_TITLES = {
     **CABINET_ROLE_TITLES,
     CABINET_PREVIOUS_GOVERNOR_TITLE: CABINET_PREVIOUS_GOVERNOR_TITLE,
 }
+DISTRICT_OFFICER_ROLE_TITLES = {
+    "전지구총재": "전총재",
+    "지구감사": "지구감사",
+    "전총장": "전총장",
+    "전감사": "전감사",
+    "총재대외홍보특임": "국제재단부이사장책임비서/총재특보/총재대외홍보특임",
+    "총재상임고문": "총재상임고문",
+    "연수부원장": "연수부원장",
+    "총재고문": "총재고문",
+    "지역위원장": "지역위원장",
+    "기획위원장": "기획위원장",
+    "공인가이딩": "공인가이딩",
+    "지대위원장": "지대위원장",
+    "명예위원장": "명예위원장",
+}
 
 import funchub
 # ✅ funchub.py에서 분리한 모든 함수와 상수를 가져옵니다.
@@ -2146,17 +2161,125 @@ async def yk55membhist(request: Request, db: AsyncSession = Depends(get_db), use
 async def yk55membhist_view(request: Request, periodno: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
     membs = await get_dmemberhist_wname(periodno, db)
     periods = await getperiod(db)
+    is_admin = request.session.get("user_Role") == "ADMIN"
+    district_officer_ranks = await _get_district_officer_ranks(db) if is_admin else []
     return templates.TemplateResponse("yk55/yk55_memberhistview.html",
                                           {"request": request, "session": dict(request.session), "membs": membs,
-                                           "periodno": periodno, "periods": periods})
+                                           "periodno": periodno, "periods": periods,
+                                           "district_officer_ranks": district_officer_ranks,
+                                           "view_type": "list"})
 
 @app.get("/yk55membhist_tview/{periodno}", response_class=HTMLResponse)
 async def yk55membhist_tview(request: Request, periodno: int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
     membs = await get_dmemberhist_wname(periodno, db)
     periods = await getperiod(db)
+    is_admin = request.session.get("user_Role") == "ADMIN"
+    district_officer_ranks = await _get_district_officer_ranks(db) if is_admin else []
     return templates.TemplateResponse("yk55/yk55_memberhistview_tile.html",
                                           {"request": request, "session": dict(request.session), "membs": membs,
-                                           "periodno": periodno, "periods": periods})
+                                           "periodno": periodno, "periods": periods,
+                                           "district_officer_ranks": district_officer_ranks,
+                                           "view_type": "card"})
+
+
+async def _get_district_officer_ranks(db: AsyncSession) -> list[dict]:
+    result = await db.execute(
+        text(
+            "SELECT rankNo, rankTitle FROM yk_rank "
+            "WHERE attrib = :attrib AND rankTitle IN :titles"
+        ).bindparams(bindparam("titles", expanding=True)),
+        {
+            "attrib": "1000010000",
+            "titles": list(DISTRICT_OFFICER_ROLE_TITLES),
+        },
+    )
+    ranks = [
+        {
+            "rankNo": int(row.rankNo),
+            "rankTitle": DISTRICT_OFFICER_ROLE_TITLES[row.rankTitle],
+            "rankSourceTitle": row.rankTitle,
+        }
+        for row in result.fetchall()
+    ]
+    ranks.sort(
+        key=lambda rank: list(DISTRICT_OFFICER_ROLE_TITLES).index(
+            rank["rankSourceTitle"]
+        )
+    )
+    return ranks
+
+
+@app.post("/yk55membhist_insert/{periodno}")
+async def yk55_district_officer_insert(
+    periodno: int,
+    member_no: int = Form(..., alias="memberNo"),
+    rank_no: int = Form(..., alias="rankNo"),
+    view_type: str = Form("card", alias="viewType"),
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(require_admin),
+):
+    if view_type not in {"card", "list"}:
+        raise HTTPException(status_code=400, detail="화면 형식이 올바르지 않습니다.")
+    async with db.begin():
+        period_result = await db.execute(
+            text(
+                "SELECT periodNo FROM yk_period "
+                "WHERE periodNo = :periodNo AND attrib = :attrib"
+            ),
+            {"periodNo": periodno, "attrib": "1000010000"},
+        )
+        if period_result.first() is None:
+            raise HTTPException(status_code=404, detail="회기 정보를 찾을 수 없습니다.")
+
+        rank_result = await db.execute(
+            text(
+                "SELECT rankNo FROM yk_rank "
+                "WHERE rankNo = :rankNo AND rankTitle IN :titles AND attrib = :attrib"
+            ).bindparams(
+                bindparam("titles", expanding=True)
+            ),
+            {
+                "rankNo": rank_no,
+                "titles": list(DISTRICT_OFFICER_ROLE_TITLES),
+                "attrib": "1000010000",
+            },
+        )
+        if rank_result.first() is None:
+            raise HTTPException(
+                status_code=400, detail="역대 지구임원에 등록할 수 없는 직책입니다."
+            )
+
+        member_result = await db.execute(
+            text(
+                "SELECT memberNo, clubNo FROM yk_members "
+                "WHERE memberNo = :memberNo AND attrib = :attrib"
+            ),
+            {"memberNo": member_no, "attrib": "1000010000"},
+        )
+        member = member_result.mappings().first()
+        if member is None:
+            raise HTTPException(status_code=400, detail="회원을 찾을 수 없습니다.")
+
+        await db.execute(
+            text(
+                "INSERT INTO yk_distStaff (periodNo, clubNo, rankNo, memberNo, attrib) "
+                "VALUES (:periodNo, :clubNo, :rankNo, :memberNo, :attrib) "
+                "ON DUPLICATE KEY UPDATE dstaffNo = dstaffNo"
+            ),
+            {
+                "periodNo": periodno,
+                "clubNo": member["clubNo"],
+                "rankNo": rank_no,
+                "memberNo": member_no,
+                "attrib": "1000010000",
+            },
+        )
+
+    destination = "tview" if view_type == "card" else "view"
+    return RedirectResponse(
+        f"/yk55membhist_{destination}/{periodno}?added=1",
+        status_code=303,
+    )
 
 @app.get("/yk55mjfhist", response_class=HTMLResponse)
 async def yk55mjfhist(request: Request, user_no: int = Depends(get_current_user)):

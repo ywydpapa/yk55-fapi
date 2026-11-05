@@ -489,13 +489,35 @@ async def get_dmemberhist(periodno: int, db: AsyncSession):
     return [dict(row._mapping) for row in result.fetchall()]
 
 async def get_dmemberhist_wname(periodno: int, db: AsyncSession):
-    query = text("""SELECT a.*, b.rankTitle, c.memberName, d.clubName, b.sortNo
+    query = text("""SELECT a.*,
+                           CASE b.rankTitle
+                               WHEN '전지구총재' THEN '전총재'
+                               WHEN '총재대외홍보특임'
+                                   THEN '국제재단부이사장책임비서/총재특보/총재대외홍보특임'
+                               ELSE b.rankTitle
+                           END as rankTitle,
+                           c.memberName, d.clubName, b.sortNo
                     from yk_distStaff a
                              left join yk_rank b on a.rankNo = b.rankNo
                              left join yk_members c on a.memberNo = c.memberNo
                              left join yk_club d on a.clubNo = d.clubNo
                     where a.attrib = :xapp and a.periodNo = :pno
-                    order by b.sortNo""")
+                    order by CASE b.rankTitle
+                                 WHEN '전지구총재' THEN 1
+                                 WHEN '지구감사' THEN 2
+                                 WHEN '전총장' THEN 3
+                                 WHEN '전감사' THEN 4
+                                 WHEN '총재대외홍보특임' THEN 5
+                                 WHEN '총재상임고문' THEN 6
+                                 WHEN '연수부원장' THEN 7
+                                 WHEN '총재고문' THEN 8
+                                 WHEN '지역위원장' THEN 9
+                                 WHEN '기획위원장' THEN 10
+                                 WHEN '공인가이딩' THEN 11
+                                 WHEN '지대위원장' THEN 12
+                                 WHEN '명예위원장' THEN 13
+                                 ELSE 100
+                             END, b.sortNo, c.memberName""")
     result = await db.execute(query, {"xapp": "1000010000", "pno": periodno})
     return [dict(row._mapping) for row in result.fetchall()]
 

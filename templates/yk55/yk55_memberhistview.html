@@ -16,10 +16,19 @@
             <div class="container-fluid">
                 <!-- Page Heading -->
                 <div class="card shadow mb-4">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary"><a href="/yk55membhist">{{periodno}}대 지구임원</a></h6> <a href="/yk55membhist_tview/{{periodno}}">카드로 보기</a>
+                    <div class="card-header py-3 d-flex align-items-center justify-content-between">
+                        <div>
+                            <h6 class="m-0 font-weight-bold text-primary"><a href="/yk55membhist">{{periodno}}대 지구임원</a></h6>
+                            <a href="/yk55membhist_tview/{{periodno}}">카드로 보기</a>
+                        </div>
+                        {% if session.user_Role == 'ADMIN' %}
+                        <button type="button" class="btn btn-sm btn-primary" data-toggle="modal" data-target="#districtOfficerModal">회원 등록</button>
+                        {% endif %}
                     </div>
                     <div class="card-body">
+                        {% if request.query_params.get('added') == '1' %}
+                        <div class="alert alert-success" role="status">회원을 역대 지구임원에 등록했습니다.</div>
+                        {% endif %}
                         <div class="table-responsive">
                             <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
                                     <thead>
@@ -65,6 +74,7 @@
 </a>
 <!-- Bootstrap core JavaScript-->
 {% include '/common/commonScript.html' %}
+{% include '/yk55/_dmemberhist_add_modal.html' %}
 
 </body>
 </html>
