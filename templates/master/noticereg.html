@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    {% include '/common/commHeader.html' %}
+    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+    <style>
+        #editor-container { min-height: 300px; }
+    </style>
+</head>
+<body id="page-top">
+<div id="wrapper">
+    {% include '/common/sidebar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content">
+            {% include '/common/topbar.html' %}
+            <div class="container-fluid">
+                <h1 class="h3 mb-4 text-gray-800">
+                    {% if edit_mode %}공지사항 수정{% else %}공지사항 작성{% endif %}
+                </h1>
+                <div class="card shadow mb-4">
+                    <div class="card-body">
+                        {% if error %}
+                        <div class="alert alert-danger" role="alert">{{ error }}</div>
+                        {% endif %}
+                        <form method="post" action="{{ form_action }}" enctype="multipart/form-data" id="notice-form">
+                            <div class="form-group">
+                                <label for="title">제목</label>
+                                <input class="form-control" id="title" name="title" type="text"
+                                       maxlength="200" required value="{{ title }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="content">내용</label>
+                                <div class="mb-2">
+                                    <button class="btn btn-sm btn-outline-primary" type="button" id="insert-image-button">
+                                        이미지 삽입
+                                    </button>
+                                    <input type="file" id="notice-image" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+                                    <small class="text-muted">이미지는 업로드 완료 후 본문에 삽입됩니다.</small>
+                                </div>
+                                <div id="editor-container"></div>
+                                <textarea hidden id="content" name="content">{{ content }}</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="files">첨부파일 (PDF, HWP, HWPX / 파일당 최대 25MB, 최대 10개)</label>
+                                <input class="form-control-file" id="files" name="files" type="file"
+                                       accept=".pdf,.hwp,.hwpx" multiple>
+                                <small id="file-list" class="form-text text-muted"></small>
+                            </div>
+                            {% if attachments %}
+                            <div class="form-group">
+                                <label>기존 첨부파일 (유지할 파일을 선택하세요)</label>
+                                {% for file in attachments %}
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="keep_file_ids"
+                                           id="keep-file-{{ file.fileNo }}" value="{{ file.fileNo }}" checked>
+                                    <label class="form-check-label" for="keep-file-{{ file.fileNo }}">{{ file.originalName }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            <div class="d-flex justify-content-between">
+                                <a class="btn btn-dark" href="/notices">목록으로</a>
+                                <button class="btn btn-primary" type="submit">
+                                    {% if edit_mode %}수정 공지 게시{% else %}공지사항 저장{% endif %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<a class="scroll-to-top rounded" href="#page-top"><i class="fas fa-angle-up"></i></a>
+{% include '/common/commonScript.html' %}
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script>
+    const initialContent = {{ content | tojson }};
+    const quill = new Quill('#editor-container', {
+        theme: 'snow',
+        modules: {
+            toolbar: {
+                container: [
+                    [{ header: [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ color: [] }, { background: [] }],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    [{ align: [] }],
+                    ['link', 'clean']
+                ]
+            }
+        }
+    });
+    if (initialContent) {
+        quill.clipboard.dangerouslyPasteHTML(0, initialContent, 'silent');
+    }
+
+    const noticeForm = document.getElementById('notice-form');
+    const contentField = document.getElementById('content');
+    const imageInput = document.getElementById('notice-image');
+    document.getElementById('insert-image-button').addEventListener('click', function () {
+        imageInput.click();
+    });
+    imageInput.addEventListener('change', async function () {
+        const image = imageInput.files[0];
+        if (!image) return;
+        const range = quill.getSelection(true) || { index: quill.getLength(), length: 0 };
+        const formData = new FormData();
+        formData.append('image', image);
+        try {
+            const response = await fetch('/notices/images', { method: 'POST', body: formData });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail || '이미지 업로드에 실패했습니다.');
+            quill.insertEmbed(range.index, 'image', result.url, 'user');
+            quill.setSelection(range.index + 1, 0, 'silent');
+        } catch (error) {
+            alert(error.message || '이미지 업로드에 실패했습니다.');
+        } finally {
+            imageInput.value = '';
+            syncContent();
+        }
+    });
+    const syncContent = () => {
+        contentField.value = quill.root.innerHTML;
+    };
+    quill.on('text-change', syncContent);
+    syncContent();
+
+    noticeForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        syncContent();
+        if (!quill.getText().trim() && !quill.root.querySelector('img')) {
+            alert('공지 내용을 입력하거나 이미지를 삽입해 주세요.');
+            return;
+        }
+
+        const submitButton = noticeForm.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
+        try {
+            const formData = new FormData(noticeForm);
+            formData.set('content', contentField.value);
+            const response = await fetch(noticeForm.action, { method: 'POST', body: formData });
+            if (response.redirected) {
+                window.location.assign(response.url);
+                return;
+            }
+
+            const result = await response.json().catch(() => ({}));
+            const detail = Array.isArray(result.detail)
+                ? result.detail.map(error => error.msg).join('\n')
+                : result.detail;
+            alert(detail || '공지사항 저장에 실패했습니다.');
+        } catch (error) {
+            alert(error.message || '공지사항 저장 중 통신 오류가 발생했습니다.');
+        } finally {
+            submitButton.disabled = false;
+        }
+    });
+
+    document.getElementById('files').addEventListener('change', function () {
+        const names = Array.from(this.files, file => file.name);
+        document.getElementById('file-list').textContent = names.join(', ');
+    });
+</script>
+</body>
+</html>

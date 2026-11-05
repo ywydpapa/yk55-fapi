@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    {% include '/common/commHeader.html' %}
+    <style>
+        .announcement-content img { max-width: 100%; height: auto; }
+    </style>
+</head>
+<body id="page-top">
+<div id="wrapper">
+    {% include '/common/sidebar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content">
+            {% include '/common/topbar.html' %}
+            <div class="container-fluid">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">공지사항</h6>
+                    </div>
+                    <div class="card-body">
+                        <h3>{{ notice.noticeTitle }}</h3>
+                        <div class="text-muted mb-3">
+                            {{ notice.userName or '관리자' }} · {{ notice.regDate }}
+                        </div>
+                        <hr>
+                        <div class="announcement-content">{{ notice.noticeContent | safe }}</div>
+                        {% if attachments %}
+                        <hr>
+                        <h6>첨부파일</h6>
+                        <ul>
+                            {% for file in attachments %}
+                            <li><a href="/notices/attachments/{{ file.fileNo }}">{{ file.originalName }}</a></li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                        <hr>
+                        <a class="btn btn-dark" href="/announcements">공지사항 목록</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<a class="scroll-to-top rounded" href="#page-top"><i class="fas fa-angle-up"></i></a>
+{% include '/common/commonScript.html' %}
+</body>
+</html>

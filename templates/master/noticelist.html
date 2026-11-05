@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    {% include '/common/commHeader.html' %}
+</head>
+<body id="page-top">
+<div id="wrapper">
+    {% include '/common/sidebar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content">
+            {% include '/common/topbar.html' %}
+            <div class="container-fluid">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">공지사항 관리</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="btn-group mb-3" role="group" aria-label="공지 상태">
+                            <a class="btn {% if status_filter == 'PUBLISHED' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                               href="/notices?status=PUBLISHED">게시중 공지</a>
+                            <a class="btn {% if status_filter == 'ARCHIVED' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                               href="/notices?status=ARCHIVED">내린 공지 / 수정 이력</a>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-bordered" width="100%" cellspacing="0">
+                                <thead>
+                                <tr class="text-center">
+                                    <th>제목</th>
+                                    <th>내용</th>
+                                    <th>상태</th>
+                                    <th>작성자</th>
+                                    <th>작성일</th>
+                                    <th>연결 공지</th>
+                                    <th>관리</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for notice in notices %}
+                                <tr>
+                                    <td class="text-center"><a href="/notices/{{ notice.noticeNo }}">{{ notice.noticeTitle }}</a></td>
+                                    <td class="text-center">
+                                        <details>
+                                            <summary>내용 보기</summary>
+                                            <div>{{ notice.noticeContent | safe }}</div>
+                                            {% if notice.attachments %}
+                                            <ul class="mt-2 mb-0">
+                                                {% for file in notice.attachments %}
+                                                <li><a href="/notices/attachments/{{ file.fileNo }}">{{ file.originalName }}</a></li>
+                                                {% endfor %}
+                                            </ul>
+                                            {% endif %}
+                                        </details>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if notice.status == 'PUBLISHED' %}<span class="badge badge-success">게시중</span>
+                                        {% else %}<span class="badge badge-secondary">내림</span>{% endif %}
+                                    </td>
+                                    <td class="text-center">{{ notice.userName or '알 수 없음' }}</td>
+                                    <td class="text-center">{{ notice.regDate }}</td>
+                                    <td>
+                                        {% if notice.history|length > 1 %}
+                                        <details>
+                                            <summary>{{ notice.history|length }}개 버전</summary>
+                                            <ul class="mb-0 pl-3">
+                                                {% for version in notice.history %}
+                                                <li>
+                                                    <a href="/notices/{{ version.noticeNo }}">{{ version.noticeTitle }}</a>
+                                                    {% if version.status == 'PUBLISHED' %}(게시중){% else %}(내림){% endif %}
+                                                </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </details>
+                                        {% else %}-{% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if notice.status == 'PUBLISHED' %}
+                                        <a class="btn btn-sm btn-primary mb-1" href="/notices/{{ notice.noticeNo }}/edit">수정 공지</a>
+                                        <form method="post" action="/notices/{{ notice.noticeNo }}/archive"
+                                              onsubmit="return confirm('이 공지를 내리시겠습니까? 내린 공지는 수정할 수 없습니다.');">
+                                            <button class="btn btn-sm btn-outline-danger" type="submit">내리기</button>
+                                        </form>
+                                        {% else %}<span class="text-muted">수정 불가</span>{% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="7" class="text-center">해당 상태의 공지사항이 없습니다.</td></tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="row justify-content-end">
+                            <div class="col" style="max-width: 30%">
+                                <a class="btn btn-primary btn-block" href="/notices/new">공지사항 작성</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<a class="scroll-to-top rounded" href="#page-top"><i class="fas fa-angle-up"></i></a>
+{% include '/common/commonScript.html' %}
+</body>
+</html>

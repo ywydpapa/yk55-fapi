@@ -1,8 +1,16 @@
 import os
 import calendar
+import re
+import secrets
+import html
+import zipfile
+from io import BytesIO
 from datetime import date
-import dotenv
 from pathlib import Path
+from html.parser import HTMLParser
+from PIL import Image, UnidentifiedImageError
+from urllib.parse import urlsplit
+import dotenv
 from fastapi import Depends, FastAPI, Request, Query, Form, Response, HTTPException, File, UploadFile, Body
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse
 from fastapi.templating import Jinja2Templates
@@ -11,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 import webhard
 
 import funchub
@@ -48,11 +56,164 @@ templates.env.filters["currency"] = currency
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/thumbnails", StaticFiles(directory="static/img/members/"), name="thumbnails")
 BASE_DIR = Path(__file__).resolve().parent
+NOTICE_UPLOAD_DIR = BASE_DIR / "uploads" / "notices"
+NOTICE_IMAGE_DIR = NOTICE_UPLOAD_DIR / "images"
+NOTICE_ATTACHMENT_DIR = NOTICE_UPLOAD_DIR / "attachments"
+NOTICE_MAX_ATTACHMENTS = 10
+NOTICE_MAX_IMAGE_SIZE = 10 * 1024 * 1024
+NOTICE_ALLOWED_ATTACHMENT_EXTENSIONS = {".pdf", ".hwp", ".hwpx"}
+
+def sanitize_notice_html(content: str) -> str:
+    allowed_tags = {
+        "a", "blockquote", "br", "code", "em", "h1", "h2", "h3", "img",
+        "li", "ol", "p", "pre", "s", "span", "strong", "u", "ul",
+    }
+    void_tags = {"br", "img"}
+    blocked_tags = {"iframe", "math", "noscript", "object", "script", "style", "svg", "template"}
+    allowed_styles = {
+        "background-color", "color", "font-family", "font-size", "font-style",
+        "font-weight", "text-align", "text-decoration",
+    }
+
+    def safe_style(value: str) -> str:
+        declarations = []
+        for declaration in value.split(";"):
+            if ":" not in declaration:
+                continue
+            name, raw_value = (part.strip().lower() for part in declaration.split(":", 1))
+            if name not in allowed_styles or not re.fullmatch(r"[\w\s#(),.%\"'-]+", raw_value):
+                continue
+            if re.search(r"url|expression|var\s*\(", raw_value, re.IGNORECASE):
+                continue
+            if name in {"color", "background-color"} and not re.fullmatch(
+                r"(?:#[0-9a-f]{3,8}|[a-z]{3,20}|rgba?\([\d\s.,%]+\))", raw_value
+            ):
+                continue
+            if name == "text-align" and raw_value not in {"left", "center", "right", "justify"}:
+                continue
+            if name == "font-style" and raw_value not in {"normal", "italic"}:
+                continue
+            if name == "font-weight" and raw_value not in {"normal", "bold"} | {str(n) for n in range(100, 1000, 100)}:
+                continue
+            declarations.append(f"{name}: {raw_value}")
+        return "; ".join(declarations)
+
+    class NoticeHTMLSanitizer(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__(convert_charrefs=True)
+            self.output: list[str] = []
+            self.stack: list[str] = []
+            self.blocked_stack: list[str] = []
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            tag = tag.lower()
+            if self.blocked_stack:
+                if tag in blocked_tags:
+                    self.blocked_stack.append(tag)
+                return
+            if tag in blocked_tags:
+                self.blocked_stack.append(tag)
+                return
+            if tag not in allowed_tags:
+                return
+
+            safe_attrs = []
+            attr_map = dict(attrs)
+            if tag == "a":
+                href = attr_map.get("href") or ""
+                try:
+                    parsed = urlsplit(href)
+                except ValueError:
+                    parsed = None
+                if parsed and parsed.scheme.lower() in {"http", "https", "mailto"} and not any(
+                    ord(char) < 32 or char == "\\" for char in href
+                ):
+                    safe_attrs.append(("href", href))
+                if attr_map.get("title"):
+                    safe_attrs.append(("title", attr_map["title"]))
+                if any(name == "href" for name, _ in safe_attrs):
+                    safe_attrs.append(("rel", "nofollow noopener noreferrer"))
+            elif tag == "img":
+                src = attr_map.get("src") or ""
+                if not re.fullmatch(r"/notice-media/[a-f0-9]{32}\.png", src):
+                    return
+                safe_attrs.append(("src", src))
+                for name in ("alt", "title"):
+                    if attr_map.get(name) is not None:
+                        safe_attrs.append((name, attr_map[name] or ""))
+                for name in ("height", "width"):
+                    value = attr_map.get(name) or ""
+                    if value.isdigit() and len(value) <= 4 and int(value) <= 2400:
+                        safe_attrs.append((name, value))
+            else:
+                if tag == "li" and attr_map.get("data-list") in {"bullet", "ordered"}:
+                    safe_attrs.append(("data-list", attr_map["data-list"]))
+                classes = (attr_map.get("class") or "").split()
+                if classes and all(
+                    re.fullmatch(r"ql-(?:align-(?:center|right|justify)|indent-[1-8])", item)
+                    for item in classes
+                ):
+                    safe_attrs.append(("class", " ".join(classes)))
+                style = safe_style(attr_map.get("style") or "")
+                if style:
+                    safe_attrs.append(("style", style))
+
+            attributes = "".join(
+                f' {name}="{html.escape(value, quote=True)}"'
+                for name, value in safe_attrs
+                if value is not None
+            )
+            self.output.append(f"<{tag}{attributes}>")
+            if tag not in void_tags:
+                self.stack.append(tag)
+
+        def handle_endtag(self, tag: str) -> None:
+            tag = tag.lower()
+            if self.blocked_stack:
+                if tag == self.blocked_stack[-1]:
+                    self.blocked_stack.pop()
+                return
+            if tag in self.stack:
+                while self.stack:
+                    open_tag = self.stack.pop()
+                    self.output.append(f"</{open_tag}>")
+                    if open_tag == tag:
+                        break
+
+        def handle_data(self, data: str) -> None:
+            if not self.blocked_stack:
+                self.output.append(html.escape(data))
+
+    sanitizer = NoticeHTMLSanitizer()
+    sanitizer.feed(content)
+    while sanitizer.stack:
+        sanitizer.output.append(f"</{sanitizer.stack.pop()}>")
+    return "".join(sanitizer.output)
+
+def notice_has_invalid_image_source(content: str) -> bool:
+    class ImageSourceValidator(HTMLParser):
+        invalid = False
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            if tag.lower() != "img":
+                return
+            src = dict(attrs).get("src") or ""
+            if not re.fullmatch(r"/notice-media/[a-f0-9]{32}\.png", src):
+                self.invalid = True
+
+    validator = ImageSourceValidator()
+    validator.feed(content)
+    return validator.invalid
 
 # 데이터베이스 세션 생성
 async def get_db():
     async with async_session() as session:
         yield session
+
+async def require_admin(request: Request, user_no: int = Depends(get_current_user)) -> int:
+    if request.session.get("user_Role") != "ADMIN":
+        raise HTTPException(status_code=403, detail="관리자 권한이 필요합니다.")
+    return user_no
 
 # ==========================================
 # 1. 파일 업로드 라우터
@@ -586,6 +747,561 @@ async def updatedevent(request: Request, eventno: int, db: AsyncSession = Depend
 # ==========================================
 # 6. 마스터 데이터 관리 라우터
 # ==========================================
+@app.get("/notices", response_class=HTMLResponse)
+async def notice_list(
+    request: Request,
+    status_filter: str = Query("PUBLISHED", alias="status"),
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(require_admin),
+):
+    if status_filter not in {"PUBLISHED", "ARCHIVED"}:
+        status_filter = "PUBLISHED"
+    result = await db.execute(text(
+        "SELECT n.noticeNo, n.noticeTitle, n.noticeContent, n.status, n.rootNoticeNo, "
+        "n.previousNoticeNo, u.userName, n.regDate "
+        "FROM yk_notice AS n "
+        "LEFT JOIN yk_user AS u ON u.userNo = n.userNo "
+        "WHERE n.status = :status "
+        "ORDER BY n.regDate DESC, n.noticeNo DESC"
+    ), {"status": status_filter})
+    notices = [dict(notice) for notice in result.mappings().all()]
+    if notices:
+        for notice in notices:
+            notice["noticeContent"] = sanitize_notice_html(notice["noticeContent"] or "")
+        notice_ids = [notice["noticeNo"] for notice in notices]
+        root_ids = list({notice["rootNoticeNo"] for notice in notices})
+        history_result = await db.execute(
+            text(
+                "SELECT noticeNo, rootNoticeNo, noticeTitle, status, regDate "
+                "FROM yk_notice WHERE rootNoticeNo IN :root_ids "
+                "ORDER BY regDate, noticeNo"
+            ).bindparams(bindparam("root_ids", expanding=True)),
+            {"root_ids": root_ids},
+        )
+        history_by_root: dict[int, list[dict[str, object]]] = {}
+        for version in history_result.mappings().all():
+            history_by_root.setdefault(version["rootNoticeNo"], []).append(dict(version))
+        for notice in notices:
+            notice["history"] = history_by_root.get(notice["rootNoticeNo"], [])
+        attachment_result = await db.execute(
+            text(
+                "SELECT fileNo, noticeNo, originalName FROM yk_notice_files "
+                "WHERE noticeNo IN :notice_ids ORDER BY fileNo"
+            ).bindparams(bindparam("notice_ids", expanding=True)),
+            {"notice_ids": notice_ids},
+        )
+        attachments_by_notice: dict[int, list[dict[str, object]]] = {}
+        for attachment in attachment_result.mappings().all():
+            attachments_by_notice.setdefault(attachment["noticeNo"], []).append(dict(attachment))
+        for notice in notices:
+            notice["attachments"] = attachments_by_notice.get(notice["noticeNo"], [])
+    return templates.TemplateResponse(
+        "master/noticelist.html",
+        {
+            "request": request,
+            "session": dict(request.session),
+            "notices": notices,
+            "status_filter": status_filter,
+        },
+    )
+
+@app.get("/announcements", response_class=HTMLResponse)
+async def announcement_list(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(get_current_user),
+):
+    result = await db.execute(
+        text(
+            "SELECT n.noticeNo, n.noticeTitle, n.regDate, "
+            "EXISTS (SELECT 1 FROM yk_notice_views v "
+            "WHERE v.noticeNo = n.noticeNo AND v.userNo = :user_no) AS is_read "
+            "FROM yk_notice n WHERE n.status = 'PUBLISHED' "
+            "ORDER BY n.regDate DESC, n.noticeNo DESC"
+        ),
+        {"user_no": user_no},
+    )
+    return templates.TemplateResponse(
+        "notice/announcementlist.html",
+        {
+            "request": request,
+            "session": dict(request.session),
+            "announcements": result.mappings().all(),
+        },
+    )
+
+@app.get("/announcements/{notice_no:int}", response_class=HTMLResponse)
+async def announcement_detail(
+    request: Request,
+    notice_no: int,
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(get_current_user),
+):
+    result = await db.execute(
+        text(
+            "SELECT n.noticeNo, n.noticeTitle, n.noticeContent, n.regDate, u.userName "
+            "FROM yk_notice n LEFT JOIN yk_user u ON u.userNo = n.userNo "
+            "WHERE n.noticeNo = :notice_no AND n.status = 'PUBLISHED'"
+        ),
+        {"notice_no": notice_no},
+    )
+    notice = result.mappings().first()
+    if notice is None:
+        raise HTTPException(status_code=404, detail="게시 중인 공지사항을 찾을 수 없습니다.")
+
+    await db.execute(
+        text(
+            "INSERT INTO yk_notice_views (noticeNo, userNo) "
+            "VALUES (:notice_no, :user_no) "
+            "ON DUPLICATE KEY UPDATE "
+            "viewCount = viewCount + 1, lastViewedAt = CURRENT_TIMESTAMP"
+        ),
+        {"notice_no": notice_no, "user_no": user_no},
+    )
+    attachment_result = await db.execute(
+        text(
+            "SELECT fileNo, originalName FROM yk_notice_files "
+            "WHERE noticeNo = :notice_no ORDER BY fileNo"
+        ),
+        {"notice_no": notice_no},
+    )
+    await db.commit()
+    return templates.TemplateResponse(
+        "notice/announcementdetail.html",
+        {
+            "request": request,
+            "session": dict(request.session),
+            "notice": {
+                **dict(notice),
+                "noticeContent": sanitize_notice_html(notice["noticeContent"] or ""),
+            },
+            "attachments": attachment_result.mappings().all(),
+        },
+    )
+
+@app.get("/notices/{notice_no:int}", response_class=HTMLResponse)
+async def notice_detail(
+    request: Request,
+    notice_no: int,
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(require_admin),
+):
+    result = await db.execute(
+        text(
+            "SELECT n.noticeNo, n.noticeTitle, n.noticeContent, n.status, n.rootNoticeNo, "
+            "n.previousNoticeNo, u.userName, n.regDate "
+            "FROM yk_notice AS n LEFT JOIN yk_user AS u ON u.userNo = n.userNo "
+            "WHERE n.noticeNo = :notice_no"
+        ),
+        {"notice_no": notice_no},
+    )
+    notice = result.mappings().first()
+    if notice is None:
+        raise HTTPException(status_code=404, detail="공지사항을 찾을 수 없습니다.")
+
+    history_result = await db.execute(
+        text(
+            "SELECT noticeNo, noticeTitle, status, regDate FROM yk_notice "
+            "WHERE rootNoticeNo = :root_notice_no ORDER BY regDate, noticeNo"
+        ),
+        {"root_notice_no": notice["rootNoticeNo"]},
+    )
+    attachment_result = await db.execute(
+        text("SELECT fileNo, originalName FROM yk_notice_files WHERE noticeNo = :notice_no ORDER BY fileNo"),
+        {"notice_no": notice_no},
+    )
+    view_result = await db.execute(
+        text(
+            "SELECT u.userName, u.userId, v.firstViewedAt, v.lastViewedAt, v.viewCount "
+            "FROM yk_notice_views v JOIN yk_user u ON u.userNo = v.userNo "
+            "WHERE v.noticeNo = :notice_no ORDER BY v.lastViewedAt DESC"
+        ),
+        {"notice_no": notice_no},
+    )
+    return templates.TemplateResponse(
+        "master/noticedetail.html",
+        {
+            "request": request,
+            "session": dict(request.session),
+            "notice": {**dict(notice), "noticeContent": sanitize_notice_html(notice["noticeContent"] or "")},
+            "history": history_result.mappings().all(),
+            "attachments": attachment_result.mappings().all(),
+            "viewers": view_result.mappings().all(),
+        },
+    )
+
+@app.get("/notices/new", response_class=HTMLResponse)
+async def notice_new(request: Request, user_no: int = Depends(require_admin)):
+    return templates.TemplateResponse(
+        "master/noticereg.html",
+        {
+            "request": request,
+            "session": dict(request.session),
+            "title": "",
+            "content": "",
+            "error": None,
+            "form_action": "/notices",
+            "attachments": [],
+            "edit_mode": False,
+        },
+    )
+
+@app.get("/notices/{notice_no}/edit", response_class=HTMLResponse)
+async def notice_edit(
+    request: Request,
+    notice_no: int,
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(require_admin),
+):
+    result = await db.execute(
+        text(
+            "SELECT noticeNo, noticeTitle, noticeContent, status "
+            "FROM yk_notice WHERE noticeNo = :notice_no"
+        ),
+        {"notice_no": notice_no},
+    )
+    notice = result.mappings().first()
+    if notice is None:
+        raise HTTPException(status_code=404, detail="공지사항을 찾을 수 없습니다.")
+    if notice["status"] != "PUBLISHED":
+        raise HTTPException(status_code=409, detail="내린 공지사항은 수정할 수 없습니다.")
+    attachment_result = await db.execute(
+        text("SELECT fileNo, originalName FROM yk_notice_files WHERE noticeNo = :notice_no ORDER BY fileNo"),
+        {"notice_no": notice_no},
+    )
+    return templates.TemplateResponse(
+        "master/noticereg.html",
+        {
+            "request": request,
+            "session": dict(request.session),
+            "title": notice["noticeTitle"],
+            "content": sanitize_notice_html(notice["noticeContent"] or ""),
+            "error": None,
+            "form_action": f"/notices/{notice_no}/revise",
+            "attachments": attachment_result.mappings().all(),
+            "edit_mode": True,
+        },
+    )
+
+@app.post("/notices", response_class=HTMLResponse)
+async def notice_create(
+    request: Request,
+    title: str = Form(...),
+    content: str = Form(...),
+    files: list[UploadFile] | None = File(default=None),
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(require_admin),
+):
+    title = title.strip()
+    if notice_has_invalid_image_source(content):
+        raise HTTPException(
+            status_code=400,
+            detail="본문 이미지 업로드가 완료되지 않았습니다. 이미지 삽입 버튼으로 다시 추가해 주세요.",
+        )
+    content = sanitize_notice_html(content.strip())
+    if not title or len(title) > 200 or not content:
+        error = "제목은 1~200자, 내용은 비워둘 수 없습니다."
+        return templates.TemplateResponse(
+            "master/noticereg.html",
+            {
+                "request": request,
+                "session": dict(request.session),
+                "title": title,
+                "content": content,
+                "error": error,
+                "form_action": "/notices",
+                "attachments": [],
+                "edit_mode": False,
+            },
+            status_code=400,
+        )
+
+    selected_files = [upload for upload in files or [] if upload.filename]
+    if len(selected_files) > NOTICE_MAX_ATTACHMENTS:
+        raise HTTPException(status_code=400, detail=f"첨부파일은 최대 {NOTICE_MAX_ATTACHMENTS}개까지 가능합니다.")
+
+    attachments, stored_paths = await _store_notice_uploads(selected_files)
+    NOTICE_ATTACHMENT_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        result = await db.execute(
+            text(
+                "INSERT INTO yk_notice "
+                "(noticeTitle, noticeContent, userNo, status, rootNoticeNo) "
+                "VALUES (:title, :content, :user_no, 'PUBLISHED', NULL)"
+            ),
+            {"title": title, "content": content, "user_no": user_no},
+        )
+        notice_no = result.lastrowid
+        await db.execute(
+            text("UPDATE yk_notice SET rootNoticeNo = :notice_no WHERE noticeNo = :notice_no"),
+            {"notice_no": notice_no},
+        )
+        await _insert_notice_attachments(db, notice_no, attachments)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        _remove_stored_files(stored_paths)
+        raise
+    return RedirectResponse(url="/notices", status_code=303)
+
+@app.post("/notices/{notice_no}/revise", response_class=HTMLResponse)
+async def notice_revise(
+    request: Request,
+    notice_no: int,
+    title: str = Form(...),
+    content: str = Form(...),
+    keep_file_ids: list[int] | None = Form(default=None),
+    files: list[UploadFile] | None = File(default=None),
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(require_admin),
+):
+    title = title.strip()
+    if notice_has_invalid_image_source(content):
+        raise HTTPException(
+            status_code=400,
+            detail="본문 이미지 업로드가 완료되지 않았습니다. 이미지 삽입 버튼으로 다시 추가해 주세요.",
+        )
+    content = sanitize_notice_html(content.strip())
+    if not title or len(title) > 200 or not content:
+        raise HTTPException(status_code=400, detail="제목은 1~200자, 내용은 비워둘 수 없습니다.")
+
+    selected_files = [upload for upload in files or [] if upload.filename]
+    if len(selected_files) > NOTICE_MAX_ATTACHMENTS:
+        raise HTTPException(status_code=400, detail=f"새 첨부파일은 최대 {NOTICE_MAX_ATTACHMENTS}개까지 가능합니다.")
+
+    stored_paths: list[Path] = []
+    try:
+        previous_result = await db.execute(
+            text(
+                "SELECT noticeNo, status, rootNoticeNo FROM yk_notice "
+                "WHERE noticeNo = :notice_no FOR UPDATE"
+            ),
+            {"notice_no": notice_no},
+        )
+        previous = previous_result.mappings().first()
+        if previous is None:
+            raise HTTPException(status_code=404, detail="공지사항을 찾을 수 없습니다.")
+        if previous["status"] != "PUBLISHED":
+            raise HTTPException(status_code=409, detail="내린 공지사항은 수정할 수 없습니다.")
+
+        old_attachments_result = await db.execute(
+            text(
+                "SELECT fileNo, originalName, storedName, mediaType, fileSize "
+                "FROM yk_notice_files WHERE noticeNo = :notice_no ORDER BY fileNo"
+            ),
+            {"notice_no": notice_no},
+        )
+        old_attachments = [dict(row) for row in old_attachments_result.mappings().all()]
+        keep_ids = set(keep_file_ids or [])
+        retained = [item for item in old_attachments if item["fileNo"] in keep_ids]
+        new_attachments, stored_paths = await _store_notice_uploads(selected_files)
+
+        await db.execute(
+            text("UPDATE yk_notice SET status = 'ARCHIVED' WHERE noticeNo = :notice_no AND status = 'PUBLISHED'"),
+            {"notice_no": notice_no},
+        )
+        insert_result = await db.execute(
+            text(
+                "INSERT INTO yk_notice "
+                "(noticeTitle, noticeContent, userNo, status, previousNoticeNo, rootNoticeNo) "
+                "VALUES (:title, :content, :user_no, 'PUBLISHED', :previous_no, :root_no)"
+            ),
+            {
+                "title": title,
+                "content": content,
+                "user_no": user_no,
+                "previous_no": notice_no,
+                "root_no": previous["rootNoticeNo"] or notice_no,
+            },
+        )
+        new_notice_no = insert_result.lastrowid
+        for attachment in retained:
+            await db.execute(
+                text(
+                    "INSERT INTO yk_notice_files "
+                    "(noticeNo, originalName, storedName, mediaType, fileSize) "
+                    "VALUES (:notice_no, :original_name, :stored_name, :media_type, :file_size)"
+                ),
+                {
+                    "notice_no": new_notice_no,
+                    "original_name": attachment["originalName"],
+                    "stored_name": attachment["storedName"],
+                    "media_type": attachment["mediaType"],
+                    "file_size": attachment["fileSize"],
+                },
+            )
+        await _insert_notice_attachments(db, new_notice_no, new_attachments)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        _remove_stored_files(stored_paths)
+        raise
+    return RedirectResponse(url="/notices", status_code=303)
+
+@app.post("/notices/{notice_no}/archive")
+async def notice_archive(
+    notice_no: int,
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(require_admin),
+):
+    try:
+        result = await db.execute(
+            text("SELECT status FROM yk_notice WHERE noticeNo = :notice_no FOR UPDATE"),
+            {"notice_no": notice_no},
+        )
+        notice = result.mappings().first()
+        if notice is None:
+            raise HTTPException(status_code=404, detail="공지사항을 찾을 수 없습니다.")
+        if notice["status"] != "PUBLISHED":
+            raise HTTPException(status_code=409, detail="이미 내린 공지사항은 다시 내릴 수 없습니다.")
+        await db.execute(
+            text("UPDATE yk_notice SET status = 'ARCHIVED' WHERE noticeNo = :notice_no"),
+            {"notice_no": notice_no},
+        )
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+    return RedirectResponse(url="/notices?status=PUBLISHED", status_code=303)
+
+async def _store_notice_uploads(
+    uploads: list[UploadFile],
+) -> tuple[list[dict[str, object]], list[Path]]:
+    attachments: list[dict[str, object]] = []
+    stored_paths: list[Path] = []
+    NOTICE_ATTACHMENT_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        for upload in uploads:
+            extension = Path(upload.filename or "").suffix.lower()
+            if extension not in NOTICE_ALLOWED_ATTACHMENT_EXTENSIONS:
+                raise HTTPException(status_code=400, detail="PDF, HWP, HWPX 파일만 첨부할 수 있습니다.")
+
+            data = await safe_file_read(upload)
+            if not _is_valid_notice_attachment(extension, data):
+                raise HTTPException(status_code=400, detail=f"{upload.filename}: 파일 형식을 확인할 수 없습니다.")
+
+            stored_name = f"{secrets.token_hex(16)}{extension}"
+            stored_path = NOTICE_ATTACHMENT_DIR / stored_name
+            stored_path.write_bytes(data)
+            stored_paths.append(stored_path)
+            attachments.append({
+                "original_name": Path((upload.filename or "").replace("\\", "/")).name[:255],
+                "stored_name": stored_name,
+                "media_type": _notice_attachment_media_type(extension),
+                "file_size": len(data),
+            })
+    except Exception:
+        _remove_stored_files(stored_paths)
+        raise
+    return attachments, stored_paths
+
+def _remove_stored_files(paths: list[Path]) -> None:
+    for path in paths:
+        path.unlink(missing_ok=True)
+
+async def _insert_notice_attachments(
+    db: AsyncSession,
+    notice_no: int,
+    attachments: list[dict[str, object]],
+) -> None:
+    for attachment in attachments:
+        await db.execute(
+            text(
+                "INSERT INTO yk_notice_files "
+                "(noticeNo, originalName, storedName, mediaType, fileSize) "
+                "VALUES (:notice_no, :original_name, :stored_name, :media_type, :file_size)"
+            ),
+            {"notice_no": notice_no, **attachment},
+        )
+
+def _is_valid_notice_attachment(extension: str, data: bytes) -> bool:
+    if extension == ".pdf":
+        return data.startswith(b"%PDF-")
+    if extension == ".hwp":
+        return data.startswith(bytes.fromhex("D0CF11E0A1B11AE1"))
+    if extension != ".hwpx" or not data.startswith(b"PK\x03\x04"):
+        return False
+    try:
+        with zipfile.ZipFile(BytesIO(data)) as archive:
+            return "[Content_Types].xml" in archive.namelist()
+    except zipfile.BadZipFile:
+        return False
+
+def _notice_attachment_media_type(extension: str) -> str:
+    return {
+        ".pdf": "application/pdf",
+        ".hwp": "application/x-hwp",
+        ".hwpx": "application/octet-stream",
+    }[extension]
+
+@app.post("/notices/images", response_class=JSONResponse)
+async def notice_image_upload(
+    image: UploadFile = File(...),
+    user_no: int = Depends(require_admin),
+):
+    data = await safe_file_read(image, max_size=NOTICE_MAX_IMAGE_SIZE)
+    try:
+        with Image.open(BytesIO(data)) as uploaded_image:
+            if uploaded_image.format not in {"PNG", "JPEG", "GIF", "WEBP"}:
+                raise HTTPException(status_code=400, detail="PNG, JPG, GIF, WEBP 이미지만 삽입할 수 있습니다.")
+            if uploaded_image.width * uploaded_image.height > 12_000_000:
+                raise HTTPException(status_code=400, detail="이미지 해상도가 너무 큽니다.")
+            uploaded_image.verify()
+        with Image.open(BytesIO(data)) as uploaded_image:
+            image_data = uploaded_image.convert("RGBA")
+            image_data.thumbnail((2400, 2400))
+            normalized_image = BytesIO()
+            image_data.save(normalized_image, format="PNG", optimize=True)
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError, SyntaxError) as exc:
+        raise HTTPException(status_code=400, detail="유효한 이미지 파일이 아닙니다.") from exc
+
+    NOTICE_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+    stored_name = f"{secrets.token_hex(16)}.png"
+    (NOTICE_IMAGE_DIR / stored_name).write_bytes(normalized_image.getvalue())
+    return {"url": f"/notice-media/{stored_name}"}
+
+@app.get("/notice-media/{filename}")
+async def notice_image_get(filename: str, user_no: int = Depends(get_current_user)):
+    if not re.fullmatch(r"[a-f0-9]{32}\.png", filename):
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.")
+    image_path = NOTICE_IMAGE_DIR / filename
+    if not image_path.is_file():
+        raise HTTPException(status_code=404, detail="이미지를 찾을 수 없습니다.")
+    return FileResponse(image_path, media_type="image/png")
+
+@app.get("/notices/attachments/{file_no:int}")
+async def notice_attachment_get(
+    request: Request,
+    file_no: int,
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(get_current_user),
+):
+    result = await db.execute(
+        text(
+            "SELECT f.originalName, f.storedName, f.mediaType, n.status "
+            "FROM yk_notice_files f JOIN yk_notice n ON n.noticeNo = f.noticeNo "
+            "WHERE f.fileNo = :file_no"
+        ),
+        {"file_no": file_no},
+    )
+    attachment = result.mappings().first()
+    if attachment is None:
+        raise HTTPException(status_code=404, detail="첨부파일을 찾을 수 없습니다.")
+    if attachment["status"] != "PUBLISHED" and request.session.get("user_Role") != "ADMIN":
+        raise HTTPException(status_code=404, detail="첨부파일을 찾을 수 없습니다.")
+    stored_name = attachment["storedName"]
+    if not re.fullmatch(r"[a-f0-9]{32}\.(?:pdf|hwp|hwpx)", stored_name):
+        raise HTTPException(status_code=404, detail="첨부파일을 찾을 수 없습니다.")
+    attachment_path = NOTICE_ATTACHMENT_DIR / stored_name
+    if not attachment_path.is_file():
+        raise HTTPException(status_code=404, detail="첨부파일을 찾을 수 없습니다.")
+    return FileResponse(
+        attachment_path,
+        media_type=attachment["mediaType"],
+        filename=attachment["originalName"],
+        content_disposition_type="attachment",
+    )
+
 @app.get("/mst_rank", response_class=HTMLResponse)
 async def rankmaster(request: Request, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
     return templates.TemplateResponse("master/ranklist.html", {"request": request, "session": dict(request.session), "ranklist": await get_rank(db)})
