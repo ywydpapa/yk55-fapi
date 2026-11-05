@@ -503,21 +503,29 @@ async def get_dmemberhist_wname(periodno: int, db: AsyncSession):
                              left join yk_club d on a.clubNo = d.clubNo
                     where a.attrib = :xapp and a.periodNo = :pno
                     order by CASE b.rankTitle
-                                 WHEN '전지구총재' THEN 1
-                                 WHEN '지구감사' THEN 2
-                                 WHEN '전총장' THEN 3
-                                 WHEN '전감사' THEN 4
-                                 WHEN '총재대외홍보특임' THEN 5
-                                 WHEN '총재상임고문' THEN 6
-                                 WHEN '연수부원장' THEN 7
-                                 WHEN '총재고문' THEN 8
-                                 WHEN '지역위원장' THEN 9
-                                 WHEN '기획위원장' THEN 10
-                                 WHEN '공인가이딩' THEN 11
-                                 WHEN '지대위원장' THEN 12
-                                 WHEN '명예위원장' THEN 13
-                                 ELSE 100
-                             END, b.sortNo, c.memberName""")
+                                          WHEN '지구총재' THEN 1
+                                          WHEN '직전지구총재' THEN 2
+                                          WHEN '지구1부총재' THEN 3
+                                          WHEN '지구2부총재' THEN 4
+                                          WHEN '전지구총재' THEN 5
+                                          WHEN '지구감사' THEN 6
+                                          WHEN '전총장' THEN 7
+                                          WHEN '전감사' THEN 8
+                                          WHEN '사무총장' THEN 9
+                                          WHEN '재무총장' THEN 10
+                                          WHEN '총재대외홍보특임' THEN 11
+                                          WHEN '총재상임고문' THEN 12
+                                          WHEN '연수부원장' THEN 13
+                                          WHEN '총재고문' THEN 14
+                                          WHEN '지역위원장' THEN 15
+                                          WHEN '기획위원장' THEN 16
+                                          WHEN '사무부총장' THEN 17
+                                          WHEN '재무부총장' THEN 18
+                                          WHEN '공인가이딩' THEN 19
+                                          WHEN '지대위원장' THEN 20
+                                          WHEN '명예위원장' THEN 21
+                                          ELSE 100
+                                      END, b.sortNo, c.memberName""")
     result = await db.execute(query, {"xapp": "1000010000", "pno": periodno})
     return [dict(row._mapping) for row in result.fetchall()]
 

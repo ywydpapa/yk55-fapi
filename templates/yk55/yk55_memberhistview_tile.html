@@ -29,6 +29,12 @@
                         {% if request.query_params.get('added') == '1' %}
                         <div class="alert alert-success" role="status">회원을 역대 지구임원에 등록했습니다.</div>
                         {% endif %}
+                        {% if request.query_params.get('updated') == '1' %}
+                        <div class="alert alert-success" role="status">지구임원 정보를 수정했습니다.</div>
+                        {% endif %}
+                        {% if request.query_params.get('deleted') == '1' %}
+                        <div class="alert alert-success" role="status">지구임원 등록을 목록에서 제거했습니다.</div>
+                        {% endif %}
                         <style>
                             @media (min-width: 1200px) {
                                 .col-xl-2-4 {
@@ -40,15 +46,24 @@
                             /* 카드 폭을 줄여서 전체(사진 포함)가 작게 보이게 */
                             .member-card {
                                 width: 100%;
-                                max-width: 130px; /* 원하는 카드 크기: 160~220px 사이로 조절 */
+                                max-width: 150px;
+                                border: 0;
+                                border-radius: 16px;
+                                overflow: hidden;
+                                background: linear-gradient(180deg, #fff 0%, #fbfcff 100%);
+                                box-shadow: 0 5px 16px rgba(32, 54, 86, .10) !important;
+                                transition: transform .18s ease, box-shadow .18s ease;
                             }
 
-                            /* 사진은 카드 폭에 딱 맞게(가득) */
+                            .member-card:hover {
+                                transform: translateY(-4px);
+                                box-shadow: 0 10px 24px rgba(32, 54, 86, .17) !important;
+                            }
+
                             .member-photo-wrap {
                                 width: 100%;
-                                aspect-ratio: 3 / 4;
-                                background: #f1f3f5;
-                                border-bottom: 1px solid rgba(0, 0, 0, .08);
+                                aspect-ratio: 4 / 5;
+                                background: linear-gradient(135deg, #eef2f8, #f8f9fc);
                                 overflow: hidden;
                             }
 
@@ -57,6 +72,29 @@
                                 height: 100%;
                                 object-fit: cover;
                                 display: block;
+                                transition: transform .25s ease;
+                            }
+
+                            .member-card:hover .member-photo {
+                                transform: scale(1.035);
+                            }
+
+                            .member-name {
+                                color: #26364a;
+                                font-size: .98rem;
+                                line-height: 1.35;
+                            }
+
+                            .member-club {
+                                margin-top: .2rem;
+                                color: #7a8798;
+                                font-size: .8rem;
+                            }
+
+                            .member-actions .btn {
+                                border-radius: 999px;
+                                padding: .2rem .65rem;
+                                font-size: .78rem;
                             }
                         </style>
 
@@ -78,15 +116,15 @@
                         {% set ns.prev_rank = mem.rankTitle %}
                         {% endif %}
                         <div class="col-6 col-md-4 col-lg-3 col-xl-2-4 mb-3 d-flex justify-content-center">
-                            <div class="card h-100 shadow-sm member-card">
+                            <div class="card h-100 member-card">
                                 <!-- 카드 상단 사진 (백엔드 이미지 API 호출 및 캐시 방지 난수 추가) -->
                                 <div class="member-photo-wrap">
                                     <img src="/api/member_photo/{{ mem.memberNo }}/{{ periodno }}?v={{ range(1, 99999) | random }}"
                                          alt="{{ mem.memberName }} 사진" class="member-photo">
                                 </div>
 
-                                <div class="card-body p-3 text-center">
-                                    <div class="mt-2 font-weight-bold" style="font-size: 1rem;">
+                                <div class="card-body p-2 text-center">
+                                    <div class="mt-2 font-weight-bold member-name">
                                         {% if session.user_Role == 'ADMIN' %}
                                         <!-- 관리자일 경우 모달 호출 링크 -->
                                         <a href="#" class="text-primary photo-edit-btn"
@@ -101,9 +139,25 @@
                                         {{ mem.memberName }}
                                         {% endif %}
                                     </div>
-                                    <div class="text-muted" style="font-size: 0.9rem;">
+                                    <div class="member-club">
                                         ({{ mem.clubName }})
                                     </div>
+                                    {% if session.user_Role == 'ADMIN' %}
+                                    <div class="mt-2 member-actions">
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                data-toggle="modal" data-target="#districtOfficerModal"
+                                                data-mode="edit" data-dstaffno="{{ mem.dstaffNo }}"
+                                                data-memberno="{{ mem.memberNo }}" data-membername="{{ mem.memberName }}"
+                                                data-clubname="{{ mem.clubName or '소속 없음' }}"
+                                                data-rankno="{{ mem.rankNo }}">수정</button>
+                                        <form action="/yk55membhist_delete/{{ periodno }}/{{ mem.dstaffNo }}"
+                                              method="post" class="d-inline"
+                                              onsubmit="return confirm('이 지구임원 등록을 목록에서 제거하시겠습니까?');">
+                                            <input type="hidden" name="viewType" value="card">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">제거</button>
+                                        </form>
+                                    </div>
+                                    {% endif %}
                                 </div>
 
                             </div>

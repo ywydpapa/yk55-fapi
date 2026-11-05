@@ -51,7 +51,23 @@
         const memberNoInput = document.getElementById('districtOfficerMemberNo');
         const selectedMember = document.getElementById('districtOfficerSelectedMember');
         const submitButton = document.getElementById('districtOfficerSubmit');
+        const form = document.getElementById('districtOfficerForm');
+        const rankSelect = document.getElementById('districtOfficerRankNo');
+        const modalTitle = document.getElementById('districtOfficerModalLabel');
         let searchTimer;
+
+        function resetForm() {
+            form.reset();
+            form.action = '/yk55membhist_insert/{{ periodno }}';
+            memberNoInput.value = '';
+            selectedMember.textContent = '선택되지 않음';
+            submitButton.disabled = true;
+            submitButton.textContent = '등록';
+            modalTitle.textContent = '{{ periodno }}대 지구임원 회원 등록';
+            results.replaceChildren();
+            message.textContent = '';
+            searchInput.value = '';
+        }
 
         async function searchMembers() {
             const query = searchInput.value.trim();
@@ -105,16 +121,30 @@
             }
         });
         searchInput.addEventListener('input', function () {
-            window.clearTimeout(searchTimer);
-            searchTimer = window.setTimeout(searchMembers, 350);
-        });
-        $('#districtOfficerModal').on('show.bs.modal', function () {
-            document.getElementById('districtOfficerForm').reset();
             memberNoInput.value = '';
             selectedMember.textContent = '선택되지 않음';
             submitButton.disabled = true;
-            results.replaceChildren();
-            message.textContent = '';
+            window.clearTimeout(searchTimer);
+            searchTimer = window.setTimeout(searchMembers, 350);
+        });
+        $('#districtOfficerModal').on('show.bs.modal', function (event) {
+            resetForm();
+            const trigger = event.relatedTarget;
+            if (!trigger || trigger.dataset.mode !== 'edit') {
+                return;
+            }
+
+            const memberNo = trigger.dataset.memberno;
+            const memberName = trigger.dataset.membername;
+            const clubName = trigger.dataset.clubname || '소속 없음';
+            const dstaffNo = trigger.dataset.dstaffno;
+            form.action = '/yk55membhist_update/{{ periodno }}/' + encodeURIComponent(dstaffNo);
+            memberNoInput.value = memberNo;
+            selectedMember.textContent = memberName + ' (' + clubName + ')';
+            rankSelect.value = trigger.dataset.rankno;
+            submitButton.disabled = false;
+            submitButton.textContent = '변경 저장';
+            modalTitle.textContent = '{{ periodno }}대 지구임원 수정';
         });
     })();
 </script>

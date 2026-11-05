@@ -2281,6 +2281,153 @@ async def yk55_district_officer_insert(
         status_code=303,
     )
 
+
+@app.post("/yk55membhist_update/{periodno}/{dstaffno}")
+async def yk55_district_officer_update(
+    periodno: int,
+    dstaffno: int,
+    member_no: int = Form(..., alias="memberNo"),
+    rank_no: int = Form(..., alias="rankNo"),
+    view_type: str = Form("card", alias="viewType"),
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(require_admin),
+):
+    if view_type not in {"card", "list"}:
+        raise HTTPException(status_code=400, detail="화면 형식이 올바르지 않습니다.")
+    async with db.begin():
+        record_result = await db.execute(
+            text(
+                "SELECT dstaffNo FROM yk_distStaff "
+                "WHERE dstaffNo = :dstaffNo AND periodNo = :periodNo "
+                "AND attrib = :attrib FOR UPDATE"
+            ),
+            {
+                "dstaffNo": dstaffno,
+                "periodNo": periodno,
+                "attrib": "1000010000",
+            },
+        )
+        if record_result.first() is None:
+            raise HTTPException(status_code=404, detail="수정할 지구임원 등록을 찾을 수 없습니다.")
+
+        rank_result = await db.execute(
+            text(
+                "SELECT rankNo FROM yk_rank "
+                "WHERE rankNo = :rankNo AND rankTitle IN :titles AND attrib = :attrib"
+            ).bindparams(bindparam("titles", expanding=True)),
+            {
+                "rankNo": rank_no,
+                "titles": list(DISTRICT_OFFICER_ROLE_TITLES),
+                "attrib": "1000010000",
+            },
+        )
+        if rank_result.first() is None:
+            raise HTTPException(
+                status_code=400, detail="역대 지구임원에 사용할 수 없는 직책입니다."
+            )
+
+        member_result = await db.execute(
+            text(
+                "SELECT memberNo, clubNo FROM yk_members "
+                "WHERE memberNo = :memberNo AND attrib = :attrib"
+            ),
+            {"memberNo": member_no, "attrib": "1000010000"},
+        )
+        member = member_result.mappings().first()
+        if member is None:
+            raise HTTPException(status_code=400, detail="회원을 찾을 수 없습니다.")
+
+        duplicate_result = await db.execute(
+            text(
+                "SELECT dstaffNo FROM yk_distStaff "
+                "WHERE memberNo = :memberNo AND rankNo = :rankNo "
+                "AND clubNo <=> :clubNo AND periodNo = :periodNo "
+                "AND attrib = :attrib AND dstaffNo <> :dstaffNo LIMIT 1"
+            ),
+            {
+                "memberNo": member_no,
+                "rankNo": rank_no,
+                "clubNo": member["clubNo"],
+                "periodNo": periodno,
+                "attrib": "1000010000",
+                "dstaffNo": dstaffno,
+            },
+        )
+        if duplicate_result.first() is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="같은 회원과 직책이 해당 회기에 이미 등록되어 있습니다.",
+            )
+
+        await db.execute(
+            text(
+                "UPDATE yk_distStaff "
+                "SET memberNo = :memberNo, clubNo = :clubNo, rankNo = :rankNo, "
+                "modDate = NOW() "
+                "WHERE dstaffNo = :dstaffNo AND periodNo = :periodNo AND attrib = :attrib"
+            ),
+            {
+                "memberNo": member_no,
+                "clubNo": member["clubNo"],
+                "rankNo": rank_no,
+                "dstaffNo": dstaffno,
+                "periodNo": periodno,
+                "attrib": "1000010000",
+            },
+        )
+
+    destination = "tview" if view_type == "card" else "view"
+    return RedirectResponse(
+        f"/yk55membhist_{destination}/{periodno}?updated=1",
+        status_code=303,
+    )
+
+
+@app.post("/yk55membhist_delete/{periodno}/{dstaffno}")
+async def yk55_district_officer_delete(
+    periodno: int,
+    dstaffno: int,
+    view_type: str = Form("card", alias="viewType"),
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(require_admin),
+):
+    if view_type not in {"card", "list"}:
+        raise HTTPException(status_code=400, detail="화면 형식이 올바르지 않습니다.")
+    async with db.begin():
+        record_result = await db.execute(
+            text(
+                "SELECT dstaffNo FROM yk_distStaff "
+                "WHERE dstaffNo = :dstaffNo AND periodNo = :periodNo "
+                "AND attrib = :attrib FOR UPDATE"
+            ),
+            {
+                "dstaffNo": dstaffno,
+                "periodNo": periodno,
+                "attrib": "1000010000",
+            },
+        )
+        if record_result.first() is None:
+            raise HTTPException(status_code=404, detail="삭제할 지구임원 등록을 찾을 수 없습니다.")
+
+        await db.execute(
+            text(
+                "UPDATE yk_distStaff SET attrib = :deletedAttrib, modDate = NOW() "
+                "WHERE dstaffNo = :dstaffNo AND periodNo = :periodNo AND attrib = :attrib"
+            ),
+            {
+                "deletedAttrib": "XXXUPXXXUP",
+                "dstaffNo": dstaffno,
+                "periodNo": periodno,
+                "attrib": "1000010000",
+            },
+        )
+
+    destination = "tview" if view_type == "card" else "view"
+    return RedirectResponse(
+        f"/yk55membhist_{destination}/{periodno}?deleted=1",
+        status_code=303,
+    )
+
 @app.get("/yk55mjfhist", response_class=HTMLResponse)
 async def yk55mjfhist(request: Request, user_no: int = Depends(get_current_user)):
     return templates.TemplateResponse("yk55/yk55_mjfhist.html",
