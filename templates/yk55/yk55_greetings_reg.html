@@ -24,7 +24,7 @@
                 <h1 class="h3 mb-4 text-gray-800">새문서 등록</h1>
                 <div class="d-flex justify-content-center" style="min-height: 100vh;">
                     <div class="col-md-9">
-                        <form method="POST" id="editor-form" action="/yk55greetinsert">
+                        <form method="POST" id="editor-form" action="/yk55greetinsert" enctype="multipart/form-data">
                             <table class="table table-bordered text-center">
                                 <thead>
                                 </thead>
@@ -42,6 +42,16 @@
                                 <tr>
                                     <td> 제목</td>
                                     <td><input class="form-control" id="dtitle" name="dtitle" type="text" required></td>
+                                </tr>
+                                <tr>
+                                    <td> 사진</td>
+                                    <td class="text-left">
+                                        <input class="form-control-file" id="docPhoto" name="docPhoto" type="file"
+                                               accept="image/png,image/jpeg,image/gif,image/webp" required>
+                                        <small class="form-text text-muted">작성자 회원사진과 별도로 문서에 표시할 사진을 업로드해 주세요.</small>
+                                        <img id="docPhotoPreview" alt="첨부 사진 미리보기"
+                                             style="display:none;max-width:200px;max-height:300px;margin-top:10px;">
+                                    </td>
                                 </tr>
                                 <tr>
                                     <td> 내용</td>
@@ -111,6 +121,17 @@
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script>
     const quill = new Quill('#editor-container', {theme: 'snow'});
+    document.getElementById('docPhoto').addEventListener('change', function () {
+        const preview = document.getElementById('docPhotoPreview');
+        const file = this.files[0];
+        if (!file) {
+            preview.removeAttribute('src');
+            preview.style.display = 'none';
+            return;
+        }
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = 'block';
+    });
     document.getElementById('editor-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         // Quill 내용 input에 넣기

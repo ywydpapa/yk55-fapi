@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.datastructures import UploadFile as StarletteUploadFile
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import bindparam, text
 import webhard
@@ -29,6 +30,14 @@ from event_import import (
     event_duplicate_key,
     parse_event_workbook,
     validate_event_rows,
+)
+from servhist_import import (
+    MAX_SERVHIST_IMPORT_ROWS,
+    SERVHIST_IMPORT_COLUMNS,
+    ServHistImportError,
+    parse_servhist_workbook,
+    servhist_duplicate_key,
+    validate_servhist_rows,
 )
 
 CABINET_ROLE_TITLES = {
@@ -848,6 +857,215 @@ async def district_event_import_confirm(
     return RedirectResponse(
         f"/dist_eventlist?imported={inserted}&skipped={skipped}", status_code=303
     )
+
+
+async def _servhist_import_period_exists(period_no: int, db: AsyncSession) -> bool:
+    result = await db.execute(
+        text(
+            "SELECT periodNo FROM yk_period "
+            "WHERE periodNo = :periodNo AND attrib = :attrib"
+        ),
+        {"periodNo": period_no, "attrib": "1000010000"},
+    )
+    return result.first() is not None
+
+
+async def _servhist_import_duplicate_keys(
+    period_no: int, db: AsyncSession
+) -> set[tuple]:
+    result = await db.execute(
+        text(
+            "SELECT periodNo, serveType, serveTitle, serveTimefrom, serveTimeto, "
+            "serveCost, serveContent FROM yk_serveHist "
+            "WHERE periodNo = :periodNo AND attrib = :attrib"
+        ),
+        {"periodNo": period_no, "attrib": "1000010000"},
+    )
+    return {
+        servhist_duplicate_key(dict(row))
+        for row in result.mappings().all()
+    }
+
+
+@app.get("/yk55servhist_import_template/{periodno}")
+async def servhist_import_template(
+    periodno: int,
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(get_current_user),
+):
+    if not await _servhist_import_period_exists(periodno, db):
+        raise HTTPException(status_code=404, detail="회기 정보를 찾을 수 없습니다.")
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "사업개요"
+    headers = [header for header, _ in SERVHIST_IMPORT_COLUMNS]
+    worksheet.append(headers)
+    worksheet.freeze_panes = "A2"
+    worksheet.auto_filter.ref = f"A1:F1"
+    for cell in worksheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="4E73DF")
+    for column, width in zip("ABCDEF", (44, 16, 16, 16, 18, 60)):
+        worksheet.column_dimensions[column].width = width
+
+    guide = workbook.create_sheet("안내")
+    guide.append(["항목", "작성 안내"])
+    guide_rows = [
+        ("봉사명", "필수. 최대 1,000자"),
+        ("봉사구분", "DISTM(지구행사), REGIM(지역행사), CLUBM(클럽행사). 비우면 DISTM"),
+        ("시작일 / 종료일", "선택. 엑셀 날짜 또는 YYYY-MM-DD 형식"),
+        ("봉사비용", "선택. 0 이상의 정수. 비우면 0원"),
+        ("봉사내용", "선택. 최대 2,000자"),
+        ("회기", f"현재 선택한 {periodno}대에 등록됩니다. 이 파일에 회기 열은 필요하지 않습니다."),
+        ("행 제한", f"한 번에 최대 {MAX_SERVHIST_IMPORT_ROWS}개 사업"),
+        ("중복 처리", "모든 항목이 기존 자료와 같은 행은 건너뜁니다."),
+    ]
+    for row in guide_rows:
+        guide.append(row)
+    guide.column_dimensions["A"].width = 22
+    guide.column_dimensions["B"].width = 86
+    guide.freeze_panes = "A2"
+
+    output = BytesIO()
+    workbook.save(output)
+    workbook.close()
+    return Response(
+        output.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="servhist_template.xlsx"'
+        },
+    )
+
+
+@app.post("/yk55servhist_import_preview/{periodno}", response_class=HTMLResponse)
+async def servhist_import_preview(
+    request: Request,
+    periodno: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(get_current_user),
+):
+    if not await _servhist_import_period_exists(periodno, db):
+        raise HTTPException(status_code=404, detail="회기 정보를 찾을 수 없습니다.")
+    if not file.filename or Path(file.filename).suffix.lower() != ".xlsx":
+        raise HTTPException(status_code=400, detail=".xlsx 파일만 업로드할 수 있습니다.")
+    contents = await file.read(5 * 1024 * 1024 + 1)
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="파일 크기는 5MB 이하여야 합니다.")
+
+    try:
+        source_rows = parse_servhist_workbook(contents)
+    except ServHistImportError as exc:
+        return templates.TemplateResponse(
+            "yk55/servhistimportpreview.html",
+            {
+                "request": request,
+                "session": dict(request.session),
+                "periodno": periodno,
+                "rows": [],
+                "rows_json": "[]",
+                "error_message": str(exc),
+                "can_confirm": False,
+            },
+            status_code=400,
+        )
+
+    rows = validate_servhist_rows(source_rows, periodno)
+    duplicate_keys = await _servhist_import_duplicate_keys(periodno, db)
+    seen = set(duplicate_keys)
+    for row in rows:
+        row["duplicate"] = False
+        if row["error"]:
+            continue
+        key = servhist_duplicate_key(row)
+        row["duplicate"] = key in seen
+        seen.add(key)
+
+    return templates.TemplateResponse(
+        "yk55/servhistimportpreview.html",
+        {
+            "request": request,
+            "session": dict(request.session),
+            "periodno": periodno,
+            "rows": rows,
+            "rows_json": json.dumps(rows, ensure_ascii=False),
+            "error_message": "",
+            "can_confirm": all(not row["error"] for row in rows),
+        },
+    )
+
+
+@app.post("/yk55servhist_import_confirm/{periodno}")
+async def servhist_import_confirm(
+    periodno: int,
+    rows_json: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    user_no: int = Depends(get_current_user),
+):
+    try:
+        submitted_rows = json.loads(rows_json)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=400, detail="미리보기 데이터가 올바르지 않습니다."
+        ) from exc
+    if (
+        not isinstance(submitted_rows, list)
+        or not 1 <= len(submitted_rows) <= MAX_SERVHIST_IMPORT_ROWS
+    ):
+        raise HTTPException(status_code=400, detail="등록할 사업 행 수가 올바르지 않습니다.")
+    if any(not isinstance(row, dict) for row in submitted_rows):
+        raise HTTPException(
+            status_code=400, detail="사업 미리보기 데이터 형식이 올바르지 않습니다."
+        )
+
+    inserted = 0
+    skipped = 0
+    async with db.begin():
+        if not await _servhist_import_period_exists(periodno, db):
+            raise HTTPException(status_code=404, detail="회기 정보를 찾을 수 없습니다.")
+        rows = validate_servhist_rows(submitted_rows, periodno)
+        if any(row["error"] for row in rows):
+            raise HTTPException(
+                status_code=400,
+                detail="사업 정보를 다시 확인한 후 가져오기를 진행해 주세요.",
+            )
+        duplicate_keys = await _servhist_import_duplicate_keys(periodno, db)
+        for row in rows:
+            key = servhist_duplicate_key(row)
+            if key in duplicate_keys:
+                skipped += 1
+                continue
+            await db.execute(
+                text(
+                    "INSERT INTO yk_serveHist "
+                    "(periodNo, serveType, serveTitle, serveContent, serveCost, "
+                    "serveTimefrom, serveTimeto, regDate, attrib) "
+                    "VALUES (:periodNo, :serveType, :serveTitle, :serveContent, "
+                    ":serveCost, :serveTimefrom, :serveTimeto, NOW(), :attrib)"
+                ),
+                {
+                    "periodNo": periodno,
+                    "serveType": row["serveType"],
+                    "serveTitle": row["serveTitle"],
+                    "serveContent": row["serveContent"],
+                    "serveCost": row["serveCost"],
+                    "serveTimefrom": row["serveTimefrom"],
+                    "serveTimeto": row["serveTimeto"],
+                    "attrib": "1000010000",
+                },
+            )
+            duplicate_keys.add(key)
+            inserted += 1
+    return RedirectResponse(
+        f"/yk55servhist_view/{periodno}?imported={inserted}&skipped={skipped}",
+        status_code=303,
+    )
+
 
 @app.post("/club_eventinsert/{clubno}")
 async def save_devent(request: Request,clubno:int, db: AsyncSession = Depends(get_db), user_no: int = Depends(get_current_user)):
@@ -1804,11 +2022,28 @@ async def updatedoc(request: Request, docno: int, db: AsyncSession = Depends(get
     docevent = form_data.get("docevent")
     dwriter1 = form_data.get("dwriter1")
     dwriter2 = form_data.get("dwriter2")
+    photo_file = form_data.get("docPhoto")
+    photo_contents = None
+    if photo_file is not None and not isinstance(photo_file, StarletteUploadFile):
+        raise HTTPException(status_code=400, detail="올바른 이미지 파일을 첨부해 주세요.")
+    if isinstance(photo_file, StarletteUploadFile) and photo_file.filename:
+        if not photo_file.content_type or not photo_file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="이미지 파일만 첨부할 수 있습니다.")
+        photo_contents = await safe_file_read(photo_file)
+        try:
+            with Image.open(BytesIO(photo_contents)) as image:
+                image.verify()
+        except (UnidentifiedImageError, OSError, Image.DecompressionBombError, SyntaxError) as exc:
+            raise HTTPException(status_code=400, detail="올바른 이미지 파일이 아닙니다.") from exc
+        photo_contents = await resize_image_if_needed(photo_contents, max_bytes=102400)
+
     query = text(
         f"update yk_doc set docTitle=:doctitle,docContents=:docconts,memberTitle=:dwriter1,memberName=:dwriter2, docType=:doctype,docEvent=:docevent, modDate=now() where docNo=:docno")
     await db.execute(query, {"docno": docno, "doctitle": doctitle, "docconts": docconts, "doctype": doctype,
                              "dwriter1": dwriter1, "dwriter2": dwriter2, "docevent": docevent})
     await db.commit()
+    if photo_contents is not None:
+        await save_docPhoto(photo_contents, docno)
     return RedirectResponse(f"/yk55greet", status_code=303)
 
 @app.api_route("/yk55greetinsert/", response_class=HTMLResponse, methods=["GET", "POST"])
@@ -1820,11 +2055,42 @@ async def insertdoc(request: Request, db: AsyncSession = Depends(get_db), user_n
     docevent = form_data.get("docevent")
     dwriter1 = form_data.get("dwriter1")
     dwriter2 = form_data.get("dwriter2")
+    photo_file = form_data.get("docPhoto")
+    if not isinstance(photo_file, StarletteUploadFile) or not photo_file.filename:
+        raise HTTPException(status_code=400, detail="문서에 표시할 사진을 첨부해 주세요.")
+    if not photo_file.content_type or not photo_file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="이미지 파일만 첨부할 수 있습니다.")
+
+    photo_contents = await safe_file_read(photo_file)
+    try:
+        image = Image.open(BytesIO(photo_contents))
+        image.verify()
+    except (UnidentifiedImageError, OSError) as exc:
+        raise HTTPException(status_code=400, detail="올바른 이미지 파일이 아닙니다.") from exc
+    photo_contents = await resize_image_if_needed(photo_contents, max_bytes=102400)
+
     query = text(
-        f"INSERT INTO yk_doc (docTitle, docContents, memberTitle, memberName, userNo, docType, docEvent) values (:doctitle,:docconts,:dwriter1,:dwriter2, :userno, :doctype, :docevent) ")
-    await db.execute(query, {"doctitle": doctitle, "docconts": docconts, "userno": request.session.get("user_No"),
-                             "doctype": doctype, "dwriter1": dwriter1, "dwriter2": dwriter2, "docevent": docevent})
-    await db.commit()
+        "INSERT INTO yk_doc "
+        "(docTitle, docContents, memberTitle, memberName, userNo, docType, docEvent) "
+        "VALUES (:doctitle, :docconts, :dwriter1, :dwriter2, :userno, :doctype, :docevent)"
+    )
+    async with db.begin():
+        result = await db.execute(
+            query,
+            {
+                "doctitle": doctitle,
+                "docconts": docconts,
+                "userno": request.session.get("user_No"),
+                "doctype": doctype,
+                "dwriter1": dwriter1,
+                "dwriter2": dwriter2,
+                "docevent": docevent,
+            },
+        )
+        docno = result.lastrowid
+        if not docno:
+            raise HTTPException(status_code=500, detail="문서 번호를 확인할 수 없습니다.")
+        await save_docPhoto(photo_contents, docno)
     return RedirectResponse(f"/yk55greet", status_code=303)
 
 @app.get("/yk55cabhist", response_class=HTMLResponse)

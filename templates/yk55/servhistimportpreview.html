@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    {% include '/common/commHeader.html' %}
+</head>
+<body id="page-top">
+<div id="wrapper">
+    {% include '/common/sidebar.html' %}
+    <div id="content-wrapper" class="d-flex flex-column">
+        <div id="content">
+            {% include '/common/topbar.html' %}
+            <div class="container-fluid">
+                <h1 class="h3 mb-3 text-gray-800">사업개요 엑셀 가져오기 미리보기</h1>
+                {% if error_message %}
+                <div class="alert alert-danger" role="alert">{{ error_message }}</div>
+                {% else %}
+                <div class="alert alert-info">
+                    제 {{ periodno }}기 자료 {{ rows|length }}개 행입니다. 완전히 같은 기존 자료와 파일 내 중복은 건너뜁니다.
+                    {% if not can_confirm %}오류가 있는 행을 수정한 뒤 파일을 다시 업로드해 주세요. 이번 미리보기는 등록할 수 없습니다.{% endif %}
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm">
+                        <thead>
+                        <tr>
+                            <th>엑셀 행</th>
+                            <th>봉사명</th>
+                            <th>구분</th>
+                            <th>시작일</th>
+                            <th>종료일</th>
+                            <th>비용</th>
+                            <th>내용</th>
+                            <th>상태</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for row in rows %}
+                        <tr class="{% if row.error %}table-danger{% elif row.duplicate %}table-warning{% else %}table-success{% endif %}">
+                            <td>{{ row.rowNumber }}</td>
+                            <td>{{ row.serveTitle }}</td>
+                            <td>{{ row.serveType }}</td>
+                            <td>{{ row.serveTimefrom or '-' }}</td>
+                            <td>{{ row.serveTimeto or '-' }}</td>
+                            <td class="text-right">{{ row.serveCost }}</td>
+                            <td>{{ row.serveContent or '-' }}</td>
+                            <td>
+                                {% if row.error %}오류: {{ row.error }}
+                                {% elif row.duplicate %}중복 — 건너뜀
+                                {% else %}등록 예정{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if can_confirm %}
+                <form method="post" action="/yk55servhist_import_confirm/{{ periodno }}">
+                    <input type="hidden" name="rows_json" value="{{ rows_json }}">
+                    <button class="btn btn-primary" type="submit">확인 후 등록</button>
+                </form>
+                {% endif %}
+                {% endif %}
+                <a class="btn btn-secondary mt-2" href="/yk55servhist_view/{{ periodno }}">사업개요 목록으로 돌아가기</a>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -40,6 +40,23 @@
                         </div>
                     </div>
                     <div class="card-body">
+                        {% if request.query_params.get('imported') is not none %}
+                        <div class="alert alert-success" role="status">
+                            사업개요 {{ request.query_params.get('imported') }}건을 등록하고,
+                            중복 {{ request.query_params.get('skipped', '0') }}건을 건너뛰었습니다.
+                        </div>
+                        {% endif %}
+                        <div class="card border-left-primary mb-3">
+                            <div class="card-body">
+                                <h6 class="font-weight-bold text-primary">엑셀 일괄 등록</h6>
+                                <p class="mb-2">엑셀 양식을 내려받아 작성한 후 미리보기와 검증을 거쳐 제 {{ period }}기 사업개요로 등록합니다. 한 번에 최대 500개까지 가능합니다.</p>
+                                <a class="btn btn-sm btn-outline-primary mb-2" href="/yk55servhist_import_template/{{ period }}">엑셀 양식 다운로드</a>
+                                <form method="post" action="/yk55servhist_import_preview/{{ period }}" enctype="multipart/form-data" class="form-inline">
+                                    <input type="file" name="file" accept=".xlsx" class="form-control mr-2 mb-2" required>
+                                    <button type="submit" class="btn btn-primary mb-2">파일 검증 및 미리보기</button>
+                                </form>
+                            </div>
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-bordered table-hover align-middle" id="dataTable" width="100%" cellspacing="0">
                                 <thead class="thead-light text-center">
