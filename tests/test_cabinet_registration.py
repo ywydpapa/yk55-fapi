@@ -154,6 +154,10 @@ class CabinetRegistrationTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIn(b'data-mode="edit"', body)
         self.assertIn(b'data-target="#cabinetMemberModal"', body)
+        self.assertLess(
+            body.index(b"/static/vendor/jquery/jquery.min.js"),
+            body.index(b"searchButton.addEventListener"),
+        )
 
     async def test_update_changes_existing_cabinet_member_and_role(self):
         db = FakeUpdateDB()
