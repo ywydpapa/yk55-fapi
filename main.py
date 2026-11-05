@@ -2174,16 +2174,14 @@ async def privacy(request: Request):
 # ---------------------------------------------------------
 @app.get("/api/member_photo/{memberno}/{periodno}")
 async def get_member_photo(memberno: int, periodno: int):
-    # 1. 현재 기수부터 1기까지 역순으로 사진이 있는지 확인
-    for p in range(periodno, 0, -1):
-        path = f"static/img/members/mphoto_{memberno}_h{p}.png"
-        if os.path.exists(path):
-            return FileResponse(path)
-    # 2. 기수별 사진이 아예 없으면 기본 사진(mphoto_{memberno}.png) 확인
+    versioned_path = f"static/img/members/mphoto_{memberno}_h{periodno}.png"
+    if os.path.exists(versioned_path):
+        return FileResponse(versioned_path)
+
     base_path = f"static/img/members/mphoto_{memberno}.png"
     if os.path.exists(base_path):
         return FileResponse(base_path)
-    # 3. 그것마저 없으면 디폴트 이미지 반환
+
     return FileResponse("static/img/defaultphoto.png")
 
 
