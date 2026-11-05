@@ -38,14 +38,24 @@
                         <style>
                             .member-card {
                                 width: 100%;
-                                max-width: 130px;
+                                max-width: 150px;
+                                border: 0;
+                                border-radius: 16px;
+                                overflow: hidden;
+                                background: linear-gradient(180deg, #fff 0%, #fbfcff 100%);
+                                box-shadow: 0 5px 16px rgba(32, 54, 86, .10) !important;
+                                transition: transform .18s ease, box-shadow .18s ease;
+                            }
+
+                            .member-card:hover {
+                                transform: translateY(-4px);
+                                box-shadow: 0 10px 24px rgba(32, 54, 86, .17) !important;
                             }
 
                             .member-photo-wrap {
                                 width: 100%;
-                                aspect-ratio: 3 / 4;
-                                background: #f1f3f5;
-                                border-bottom: 1px solid rgba(0, 0, 0, .08);
+                                aspect-ratio: 4 / 5;
+                                background: linear-gradient(135deg, #eef2f8, #f8f9fc);
                                 overflow: hidden;
                             }
 
@@ -54,6 +64,11 @@
                                 height: 100%;
                                 object-fit: cover;
                                 display: block;
+                                transition: transform .25s ease;
+                            }
+
+                            .member-card:hover .member-photo {
+                                transform: scale(1.035);
                             }
 
                             .cabinet-tier {
@@ -61,42 +76,66 @@
                                 flex-wrap: wrap;
                                 justify-content: center;
                                 align-items: stretch;
-                                gap: 8px;
+                                gap: 14px;
                             }
 
                             .cabinet-tier-primary {
-                                margin-top: 1rem;
+                                margin-top: 1.25rem;
                             }
 
                             .cabinet-tier-support {
-                                margin-top: 0.5rem;
+                                margin-top: 0.75rem;
                             }
 
                             .cabinet-card-slot {
-                                width: 130px;
+                                width: 150px;
                                 margin-bottom: 0.25rem;
                             }
 
                             .cabinet-card-rank {
-                                min-height: 2.5rem;
+                                min-height: 2rem;
                                 display: flex;
                                 align-items: center;
                                 justify-content: center;
-                                font-weight: bold;
-                                font-size: 0.85rem;
+                                margin-bottom: .55rem;
+                                padding: .3rem .6rem;
+                                border-radius: 999px;
+                                background: #eef4ff;
+                                color: #355b91;
+                                font-weight: 700;
+                                font-size: .78rem;
+                                line-height: 1.25;
+                            }
+
+                            .cabinet-card-name {
+                                color: #26364a;
+                                font-size: .98rem;
+                                line-height: 1.35;
+                            }
+
+                            .cabinet-card-club {
+                                margin-top: .2rem;
+                                color: #7a8798;
+                                font-size: .8rem;
+                            }
+
+                            .cabinet-card-edit {
+                                border-radius: 999px;
+                                padding: .2rem .75rem;
+                                font-size: .78rem;
                             }
                         </style>
 
                         {% macro cabinet_member_card(mem) %}
                         <div class="cabinet-card-slot">
-                            <div class="card h-100 shadow-sm member-card">
+                            <div class="card h-100 member-card">
                                 <div class="member-photo-wrap">
                                     <img src="/api/member_photo/{{ mem.memberNo }}/{{ periodno }}?v={{ range(1, 99999) | random }}"
                                          alt="{{ mem.memberName }} 사진" class="member-photo">
                                 </div>
                                 <div class="card-body p-2 text-center">
                                     <div class="cabinet-card-rank">{{ mem.rankTitle }}</div>
-                                    <div class="font-weight-bold" style="font-size: 0.95rem;">
+                                    <div class="font-weight-bold cabinet-card-name">
                                         {% if session.user_Role == 'ADMIN' %}
                                         <a href="#" class="text-primary photo-edit-btn"
                                            data-toggle="modal"
@@ -107,9 +146,9 @@
                                         {{ mem.memberName }}
                                         {% endif %}
                                     </div>
-                                    <div class="text-muted" style="font-size: 0.85rem;">({{ mem.clubName }})</div>
+                                    <div class="cabinet-card-club">({{ mem.clubName }})</div>
                                     {% if session.user_Role == 'ADMIN' %}
-                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2"
+                                    <button type="button" class="btn btn-sm btn-outline-primary mt-2 cabinet-card-edit"
                                             data-toggle="modal" data-target="#cabinetMemberModal"
                                             data-mode="edit" data-dstaffno="{{ mem.dstaffNo }}"
                                             data-memberno="{{ mem.memberNo }}" data-membername="{{ mem.memberName }}"
